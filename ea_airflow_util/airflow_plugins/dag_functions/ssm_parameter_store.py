@@ -19,7 +19,7 @@
 # SOFTWARE.
 # ==============================================================================
 
-# copied by RL on 3/1/2022 from this github gist: https://gist.github.com/nqbao/9a9c22298a76584249501b74410b8475
+# copied by Rob Little on 3/1/2022 from this github gist: https://gist.github.com/nqbao/9a9c22298a76584249501b74410b8475
 
 import boto3
 from botocore.exceptions import ClientError
