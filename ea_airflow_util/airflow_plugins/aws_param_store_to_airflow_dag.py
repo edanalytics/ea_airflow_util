@@ -17,7 +17,7 @@ class AWSParamStoreToAirflowDAG():
         self.dag = self.build_dag(**kwargs)
 
 
-    def build_dag(self, dag_id, default_args, catchup):
+    def build_dag(self, dag_id, default_args):
         """
 
         :param dag_id:
@@ -46,9 +46,9 @@ class AWSParamStoreToAirflowDAG():
         # This syntax ensures param_store stays hidden within the class.
         with DAG(
             dag_id=dag_id,
-            schedule_interval=None,
             default_args=default_args,
-            catchup=catchup,
+            schedule_interval=None,
+            catchup=False,
         ) as dag:
 
             for param_name in list_params():
