@@ -30,10 +30,6 @@ class AWSParamStoreToAirflowDAG():
         param_store = SSMParameterStore(prefix=self.ssm_prefix, region_name=s3_region)
 
         @task
-        def list_params():
-            return param_store.keys()
-
-        @task
         def insert_aws_param_to_airflow(param_name):
             """
 
@@ -51,7 +47,7 @@ class AWSParamStoreToAirflowDAG():
             catchup=False,
         ) as dag:
 
-            for param_name in list_params():
+            for param_name in param_store.keys():
                 insert_aws_param_to_airflow(param_name)
 
         return dag
