@@ -29,7 +29,7 @@ class AWSParamStoreToAirflowDAG():
         """
 
         @task
-        def insert_all_aws_params_to_airflow(self):
+        def insert_all_aws_params_to_airflow():
             """
             :return:
             """
