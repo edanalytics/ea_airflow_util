@@ -12,12 +12,13 @@ class AWSParamStoreToAirflowDAG():
     """
 
     """
-    def __init__(self, ssm_prefix, **kwargs):
+    def __init__(self, ssm_prefix, s3_region, **kwargs):
         self.ssm_prefix = ssm_prefix
+        self.s3_region = s3_region
         self.dag = self.build_dag(**kwargs)
 
 
-    def build_dag(self, dag_id, default_args, s3_region, **kwargs):
+    def build_dag(self, dag_id, default_args, **kwargs):
         """
 
         :param dag_id:
@@ -27,16 +28,16 @@ class AWSParamStoreToAirflowDAG():
         :return:
         """
 
-        param_store = SSMParameterStore(prefix=self.ssm_prefix, region_name=s3_region)
-
         @task
-        def insert_aws_param_to_airflow(param_name):
+        def insert_all_aws_params_to_airflow(self):
             """
+            :return:
+            """
+            param_store = SSMParameterStore(prefix=self.ssm_prefix, region_name=self.s3_region)
 
-            :param param_name:
-            """
-            this_secret = param_store[param_name]
-            self.create_conn(**this_secret)
+            for param_name in param_store.keys():
+                param_secret = param_store[param_name]
+                self.create_conn(**param_secret)
 
 
         # This syntax ensures param_store stays hidden within the class.
@@ -47,10 +48,13 @@ class AWSParamStoreToAirflowDAG():
             catchup=False,
         ) as dag:
 
-            for param_name in param_store.keys():
-                insert_aws_param_to_airflow(param_name)
+            insert_all_aws_params_to_airflow()
 
         return dag
+
+
+
+
 
 
     # stackoverflow link:
@@ -69,6 +73,7 @@ class AWSParamStoreToAirflowDAG():
         :param password:
         :param port:
         :param extra:
+        :return:
         """
         conn = Connection(
             conn_id=conn_id,
