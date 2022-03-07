@@ -17,7 +17,7 @@ class AWSParamStoreToAirflowDAG():
         self.dag = self.build_dag(**kwargs)
 
 
-    def build_dag(self, dag_id, default_args, **kwargs):
+    def build_dag(self, dag_id, default_args, s3_region, **kwargs):
         """
 
         :param dag_id:
@@ -27,7 +27,7 @@ class AWSParamStoreToAirflowDAG():
         :return:
         """
 
-        param_store = SSMParameterStore(prefix=self.ssm_prefix)
+        param_store = SSMParameterStore(prefix=self.ssm_prefix, region_name=s3_region)
 
         @task
         def list_params():
