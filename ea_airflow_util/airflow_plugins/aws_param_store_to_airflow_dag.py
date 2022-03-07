@@ -17,7 +17,7 @@ class AWSParamStoreToAirflowDAG():
         self.dag = self.build_dag(**kwargs)
 
 
-    def build_dag(self, dag_id, default_args):
+    def build_dag(self, dag_id, default_args, **kwargs):
         """
 
         :param dag_id:
