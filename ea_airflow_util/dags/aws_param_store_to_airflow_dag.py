@@ -5,7 +5,7 @@ from airflow import DAG
 from airflow.decorators import task
 from airflow.models import Connection
 
-from .dag_functions.ssm_parameter_store import SSMParameterStore
+from .dag_util.ssm_parameter_store import SSMParameterStore
 
 
 class AWSParamStoreToAirflowDAG():
