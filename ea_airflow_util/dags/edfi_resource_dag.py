@@ -1,12 +1,14 @@
 import os
+from typing import Optional
 
 from airflow import DAG
 from airflow.providers.snowflake.operators.snowflake import SnowflakeOperator
 
 from .dag_util.base_dag import BaseDAG
+from .dag_util.edfi_util import get_deletes_name
 from .dag_util.xcom_util import xcom_pull_template
-from edfi_api import EdFiToS3Operator, SnowflakeChangeVersionOperator
-from edfi_api import camel_to_snake, get_deletes_name
+from edfi_api import EdFiToS3Operator, SnowflakeChangeVersionOperator, SnowflakeDeleteOperator
+from edfi_api import camel_to_snake
 
 
 class EdfiResourceDAG(BaseDAG):
@@ -14,27 +16,26 @@ class EdfiResourceDAG(BaseDAG):
 
     """
     def __init__(self,
-        tenant_code,
-        api_year,
+        *,
+        tenant_code: str,
+        api_year   : int,
 
-        # How should these connection IDs be retrieved?
-        edfi_conn_id,
-        s3_conn_id,         # Project-level
-        snowflake_conn_id,  # Project-level
+        edfi_conn_id     : str,
+        s3_conn_id       : str,
+        snowflake_conn_id: str,
 
-        pool,
-        page_size,
-        tmp_dir,
+        pool     : str,
+        page_size: int,
+        tmp_dir  : str,
 
-        # How much of these are defined in the connections?
-        # (Save internal to the Snowflake connection object.)
-        snowflake_database,
-        snowflake_schema,
-        snowflake_stage,
-        change_version_table,
+        # How many of these are predefined in the connections?
+        snowflake_database  : str,
+        snowflake_schema    : str,
+        snowflake_stage     : str,
+        change_version_table: str,
 
         **kwargs
-    ):
+    ) -> None:
         self.tenant_code = tenant_code
         self.api_year    = api_year
 
@@ -54,7 +55,14 @@ class EdfiResourceDAG(BaseDAG):
         self.dag = self.initialize_dag(**kwargs)
 
 
-    def initialize_dag(self, dag_id, schedule_interval, default_args, catchup=False, **kwargs):
+    def initialize_dag(self,
+            dag_id: str,
+            schedule_interval: str,
+            default_args: dict,
+            catchup: bool = False,
+
+            **kwargs
+    ) -> DAG:
         """
 
         :param dag_id:
@@ -76,33 +84,41 @@ class EdfiResourceDAG(BaseDAG):
 
 
     def build_resource_branch(self,
-            resource,
-            namespace='ed-fi',
-            deletes=False,
-            table=None,
-    ):
+            resource : str,
+            namespace: str = 'ed-fi',
+            *,
+            deletes  : bool = False,
+            table    : Optional[str] = None,
+    ) -> None:
         """
+        Pulling an EdFi resource/descriptor requires knowing its camelCased name and namespace.
+        Deletes are optionally specified.
+        Specify `table` to overwrite the final Snowflake table location.
 
-        :param resource:
+        TODO:
+            - Add schoolYear query parameter to `query_params`, but only if these conditions apply:
+                * ODS configuration is multi-year (tenant-level condition)
+                * resource allows schoolYear filtering (resource-level condition) (and edfi-version condition?)
+                - Note: some resources allow you to filter on school year to emulate api-year.
+            - Skip S3-to-Snowflake if EdFi-to-S3 skipped (don't want to run if only delete ran)
+
+        :param resource :
         :param namespace:
-        :param deletes:
-        :param table: Overwrite the table to output the rows to (exception case for descriptors).
+        :param deletes  :
+        :param table    : Overwrite the table to output the rows to (exception case for descriptors).
         :return:
         """
+        # Snowflake tables and Airflow tasks use snake_cased resources for readability.
         snake_resource = camel_to_snake(resource)
 
         if deletes:
-            snake_resource = get_deletes_name(snake_resource)
+            snake_resource = get_deletes_name(snake_resource)  # Singular logic for defining 'deletes' labelling.
 
+        # Define all tasks here for easier editing later.
         get_change_version_id    =  "get_latest_change_version"
         edfi_to_s3_task_id       = f"pull_{snake_resource}"
         delete_snowflake_task_id = f"delete_existing_{snake_resource}"
         s3_to_snowflake_task_id  = f"copy_into_snowflake_{snake_resource}"
-
-        # todo: add schoolYear query parameter to query_params, only if these conditions apply:
-        # - ODS configuration is multi-year (tenant-level condition)
-        # - resource allows schoolYear filtering (resource-level condition) (and edfi-version condition?)
-        # (Some resources allow you to filter on school year to emulate api-year.)
 
 
         ### SNOWFLAKE CHANGE OPERATOR
@@ -153,28 +169,24 @@ class EdfiResourceDAG(BaseDAG):
 
 
         ### DELETE FROM SNOWFLAKE
-        snowflake_delete_from_template_table_path = 'snowflake_delete_from_template_table.sql'
-
-        delete_existing = SnowflakeOperator(
+        delete_existing = SnowflakeDeleteOperator(
             task_id= delete_snowflake_task_id,
 
-            snowflake_conn_id= self.snowflake_conn_id,
-            sql   = snowflake_delete_from_template_table_path,
-            params= {
-                'database'   : self.snowflake_database,
-                'schema'     : self.snowflake_schema,
-                'table'      : table or snake_resource,  # Use the provided table name, or default to resource.
-                'tenant_code': self.tenant_code,
-                'api_year'   : self.api_year,
-            },
+            edfi_conn_id= self.edfi_conn_id,
+            tenant_code = self.tenant_code,
+            api_year    = self.api_year,
 
-            trigger_rule='one_success',
+            snowflake_conn_id= self.snowflake_conn_id,
+            database= self.snowflake_database,
+            schema  = self.snowflake_schema,
+            table   = table or snake_resource,  # Use the provided table name, or default to resource.
+
+            trigger_rule='all_done',
             dag=self.dag
         )
 
 
         ### S3 TO SNOWFLAKE
-        # todo: skip if pull skipped -- don't want to run if only delete ran
         snowflake_copy_into_template_table_path = 'snowflake_copy_into_template_table.sql'
 
         copy_into_snowflake = SnowflakeOperator(
@@ -196,7 +208,4 @@ class EdfiResourceDAG(BaseDAG):
         )
 
 
-        if is_full_refresh():
-            get_change_version >> edfi_pull >> delete_existing >> copy_into_snowflake
-        else:
-            get_change_version >> edfi_pull >> copy_into_snowflake
+        get_change_version >> edfi_pull >> delete_existing >> copy_into_snowflake
