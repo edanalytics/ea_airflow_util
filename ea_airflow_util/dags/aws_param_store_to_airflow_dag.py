@@ -5,10 +5,11 @@ from airflow import DAG
 from airflow.decorators import task
 from airflow.models import Connection
 
+from .dag_util.base_dag import BaseDAG
 from .dag_util.ssm_parameter_store import SSMParameterStore
 
 
-class AWSParamStoreToAirflowDAG():
+class AWSParamStoreToAirflowDAG(BaseDAG):
     """
 
     """
@@ -106,7 +107,3 @@ class AWSParamStoreToAirflowDAG():
         )
 
         return conn
-
-
-    def globalize(self):
-        globals()[self.dag.dag_id] = self.dag

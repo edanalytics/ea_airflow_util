@@ -3,7 +3,7 @@ import os
 from airflow import DAG
 from airflow.providers.snowflake.operators.snowflake import SnowflakeOperator
 
-from .base_dag import BaseDAG
+from .dag_util.base_dag import BaseDAG
 from .dag_util.xcom_util import xcom_pull_template
 from edfi_api import EdFiToS3Operator, SnowflakeChangeVersionOperator
 from edfi_api import camel_to_snake, get_deletes_name
