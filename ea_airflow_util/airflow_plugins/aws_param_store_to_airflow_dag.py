@@ -37,6 +37,7 @@ class AWSParamStoreToAirflowDAG():
 
             for param_name in param_store.keys():
                 param_secret = param_store[param_name]
+                # TODO: Strip off ssm_prefix from ParamStore path.
                 self.create_conn(**param_secret)
 
 
@@ -51,10 +52,6 @@ class AWSParamStoreToAirflowDAG():
             insert_all_aws_params_to_airflow()
 
         return dag
-
-
-
-
 
 
     # stackoverflow link:
@@ -95,13 +92,18 @@ class AWSParamStoreToAirflowDAG():
         )
 
         if str(conn_name) == str(conn.conn_id):
-            logging.warning(f"Connection {conn.conn_id} already exists")
+            logging.warning(
+                f"Connection {conn.conn_id} already exists!"
+            )
             return None
 
         session.add(conn)
         session.commit()
+
         logging.info(Connection.log_info(conn))
-        logging.info(f'Connection {conn_id} is created')
+        logging.info(
+            f"Connection {conn_id} was added."
+        )
 
         return conn
 
