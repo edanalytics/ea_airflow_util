@@ -19,26 +19,33 @@
 # SOFTWARE.
 # ==============================================================================
 
-# copied by Rob Little on 3/1/2022 from this github gist: https://gist.github.com/nqbao/9a9c22298a76584249501b74410b8475
+# Copied by Rob Little on 3/1/2022 from this github gist: https://gist.github.com/nqbao/9a9c22298a76584249501b74410b8475
+# Additions and deviations made by Jay Kaiser.
 
 import boto3
-from botocore.exceptions import ClientError
 import datetime
+from typing import Optional
 
 
-class SSMParameterStore(object):
+class SSMParameterStore:
     """
     Provide a dictionary-like interface to access AWS SSM Parameter Store
     """
 
-    def __init__(self, prefix=None, ssm_client=None, region_name=None, ttl=None):
+    def __init__(self,
+            prefix     : Optional[str]  = None,
+            ssm_client : Optional[str]  = None,
+            region_name: Optional[str]  = None,
+            ttl        : Optional[bool] = None
+    ) -> None:
         self._prefix = (prefix or '').rstrip('/') + '/'
         self._client = ssm_client or boto3.client('ssm', region_name=region_name)
         self._keys = None
         self._substores = {}
         self._ttl = ttl
 
-    def get(self, name, **kwargs):
+
+    def get(self, name: str, **kwargs):
         assert name, 'Name can not be empty'
         if self._keys is None:
             self.refresh()
@@ -49,6 +56,7 @@ class SSMParameterStore(object):
                 return kwargs['default']
 
             raise KeyError(name)
+
         elif self._keys[name]['type'] == 'prefix':
             if abs_key not in self._substores:
                 store = self.__class__(prefix=abs_key, ssm_client=self._client, ttl=self._ttl)
@@ -56,8 +64,10 @@ class SSMParameterStore(object):
                 self._substores[abs_key] = store
 
             return self._substores[abs_key]
+
         else:
             return self._get_value(name, abs_key)
+
 
     def refresh(self):
         self._keys = {}
@@ -75,8 +85,9 @@ class SSMParameterStore(object):
                 paths = p['Name'][len(self._prefix):].split('/')
                 self._update_keys(self._keys, paths)
 
+
     @classmethod
-    def _update_keys(cls, keys, paths):
+    def _update_keys(cls, keys: dict, paths):
         name = paths[0]
 
         # this is a prefix
@@ -85,14 +96,17 @@ class SSMParameterStore(object):
                 keys[name] = {'type': 'prefix', 'children': {}}
 
             cls._update_keys(keys[name]['children'], paths[1:])
+
         else:
             keys[name] = {'type': 'parameter', 'expire': None}
+
 
     def keys(self):
         if self._keys is None:
             self.refresh()
 
         return self._keys.keys()
+
 
     def _get_value(self, name, abs_key):
         entry = self._keys[name]
@@ -103,6 +117,7 @@ class SSMParameterStore(object):
 
         if 'value' not in entry:
             parameter = self._client.get_parameter(Name=abs_key, WithDecryption=True)['Parameter']
+
             value = parameter['Value']
             if parameter['Type'] == 'StringList':
                 value = value.split(',')
@@ -116,12 +131,15 @@ class SSMParameterStore(object):
 
         return entry['value']
 
+
     def __contains__(self, name):
         try:
             self.get(name)
             return True
+
         except:
             return False
+
 
     def __getitem__(self, name):
         return self.get(name)

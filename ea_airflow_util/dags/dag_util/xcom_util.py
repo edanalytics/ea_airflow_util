@@ -1,6 +1,9 @@
 
 
-def xcom_pull_template(task_ids, key='return_value'):
+def xcom_pull_template(
+        task_ids: str,
+        key: str = 'return_value'
+) -> str:
     """
     Generate a Jinja template to pull a particular xcom key from a task_id
     :param task_ids: An upstream task to pull xcom from

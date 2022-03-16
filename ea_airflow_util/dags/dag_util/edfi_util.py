@@ -1,4 +1,4 @@
-def get_deletes_name(name):
+def get_deletes_name(name: str) -> str:
     """
     Single method for naming resource deletes name.
     :param name:
