@@ -5,26 +5,24 @@ from airflow import DAG
 from airflow.decorators import task
 from airflow.models import Connection
 
-from .dag_functions.ssm_parameter_store import SSMParameterStore
+from .dag_util.ssm_parameter_store import SSMParameterStore
 
 
-class AWSParamStoreToAirflowDAG():
+class AWSParamStoreToAirflowDAG:
     """
 
     """
-    def __init__(self, ssm_prefix, s3_region, **kwargs):
+    def __init__(self, ssm_prefix: str, s3_region: str, **kwargs):
         self.ssm_prefix = ssm_prefix
         self.s3_region = s3_region
         self.dag = self.build_dag(**kwargs)
 
 
-    def build_dag(self, dag_id, default_args, **kwargs):
+    def build_dag(self, dag_id: str, default_args: dict, **kwargs):
         """
 
         :param dag_id:
-        :param schedule_interval:
         :param default_args:
-        :param catchup:
         :return:
         """
 
@@ -57,7 +55,16 @@ class AWSParamStoreToAirflowDAG():
     # stackoverflow link:
     # https://stackoverflow.com/questions/51863881/is-there-a-way-to-create-modify-connections-through-airflow-api
     @staticmethod
-    def create_conn(conn_id, conn_type, host, schema, login, password, port, extra):
+    def create_conn(
+            conn_id  : str,
+            conn_type: str,
+            host     : str,
+            schema   : str,
+            login    : str,
+            password : str,
+            port     : str,
+            extra    : str
+    ) -> Connection:
         """
         Store a new connection in Airflow Meta DB
         TODO: Consider using **kwargs to make this more flexible, if possible.
@@ -108,5 +115,5 @@ class AWSParamStoreToAirflowDAG():
         return conn
 
 
-    def globalize(self):
+    def globalize(self) -> None:
         globals()[self.dag.dag_id] = self.dag
