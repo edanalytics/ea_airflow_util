@@ -11,8 +11,9 @@ class RunDbtDag():
     params: dbt_target_name 
     params: dbt_bin_path 
     params: full_refresh -- default to False
-    params: bluegreen_schema -- default to False 
-    params: do_bluegreen -- default to False 
+    params: full_refresh_schedule -- default to None
+    params: opt_dest_schema -- default to None
+    params: opt_swap -- default to False 
     
     """
     def __init__(self,
@@ -67,11 +68,24 @@ class RunDbtDag():
         )
 
 
-     # build function for tasks
+    # build function for tasks
     def build_dbt_run(self, on_success_callback=None, **kwargs):
         """
+        four tasks defined here: 
+
+        dbt seed: 
+        dbt run:
+        dbt test:
+        dbt swap: bluegreen step, not required
 
         """
+
+        # set a logic to force a full refresh 
+        day = datetime.today().weekday()
+        if self.full_refresh_schedule == day or "{{ dag_run.conf['full_refresh'] }}":
+           self.full_refresh = True
+
+        # open question: does full refresh seed necessarily need to be scheduled?    
         dbt_seed = DbtSeedOperator(
             task_id = f'dbt_seed_{self.environment}',
             dir     = self.dbt_repo_path,
@@ -81,10 +95,7 @@ class RunDbtDag():
             dag  =self.dag
         )
 
-        day = datetime.today().weekday()
-        if self.full_refresh_schedule == day or "{{ dag_run.conf['full_refresh'] }}":
-           self.full_refresh = True
-
+        # 
         dbt_run = DbtRunOperator(
             task_id=f'dbt_run_{self.environment}',
             dir     = self.dbt_repo_path,
@@ -103,7 +114,7 @@ class RunDbtDag():
             dag  = self.dag
         )
 
-        # bluegreen operator 
+        # bluegreen operator
         if self.opt_swap:
            dbt_swap = DbtRunOperationOperator(
                task_id=f'dbt_swap_{self.environment}',
@@ -118,9 +129,6 @@ class RunDbtDag():
 
         dbt_seed >> dbt_run >> dbt_test >> dbt_swap
 
-
-# to do: figure out schedule full refreshes, also figure out swap_schema 'alter schema' from marco, 
-# not sure how that would work with snowflake
 
     def globalize(self):
         globals()[self.dag.dag_id] = self.dag
