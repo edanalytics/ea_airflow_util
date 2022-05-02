@@ -1,9 +1,11 @@
-from datetime import datetime, timedelta
+from datetime import datetime
+from typing import Optional
 
 from airflow import DAG
 from airflow_dbt.operators.dbt_operator import DbtRunOperator, DbtTestOperator
 from .operators.dbt_operators import DbtSeedOperator, DbtRunOperationOperator
- 
+
+
 class RunDbtDag():
     """
     params: environment 
@@ -17,18 +19,18 @@ class RunDbtDag():
     
     """
     def __init__(self,
-        environment,
+        environment: str,
     
         # required dbt paths and target
-        dbt_repo_path,
-        dbt_target_name,
-        dbt_bin_path,
+        dbt_repo_path  : str,
+        dbt_target_name: str,
+        dbt_bin_path   : str,
 
         # default to optional
-        full_refresh=False,
-        full_refresh_schedule = None,
-        opt_dest_schema=None,
-        opt_swap=False,
+        full_refresh: bool = False,
+        full_refresh_schedule: Optional[str] = None,
+        opt_dest_schema: Optional[str] = None,
+        opt_swap: bool = False,
         
         **kwargs
     ):
@@ -47,11 +49,11 @@ class RunDbtDag():
         self.opt_dest_schema = opt_dest_schema
         self.opt_swap        = opt_swap
 
-
         self.dag = self.initialize_dag(**kwargs)
 
+
     # create DAG 
-    def initialize_dag(self, dag_id, schedule_interval, default_args, catchup=False, **kwargs):
+    def initialize_dag(self, dag_id, schedule_interval, default_args, **kwargs):
         """
         :param dag_id:
         :param schedule_interval:
@@ -63,8 +65,10 @@ class RunDbtDag():
             dag_id=dag_id,
             schedule_interval=schedule_interval,
             default_args=default_args,
-            catchup=catchup,
-            user_defined_macros= {'environment': self.environment}
+            catchup=False,
+            user_defined_macros= {
+                'environment': self.environment,
+            }
         )
 
 
@@ -87,47 +91,57 @@ class RunDbtDag():
 
         # open question: does full refresh seed necessarily need to be scheduled?    
         dbt_seed = DbtSeedOperator(
-            task_id = f'dbt_seed_{self.environment}',
-            dir     = self.dbt_repo_path,
-            target  = self.dbt_target_name,
-            dbt_bin = self.dbt_bin_path,
-            full_refresh= self.full_refresh,
-            dag  =self.dag
+            task_id= f'dbt_seed_{self.environment}',
+            dir    = self.dbt_repo_path,
+            target = self.dbt_target_name,
+            dbt_bin= self.dbt_bin_path,
+
+            full_refresh=self.full_refresh,
+            dag=self.dag
         )
 
         # 
         dbt_run = DbtRunOperator(
-            task_id=f'dbt_run_{self.environment}',
-            dir     = self.dbt_repo_path,
-            target  = self.dbt_target_name,
-            dbt_bin = self.dbt_bin_path,
-            full_refresh= self.full_refresh,
-            dag  =self.dag
+            task_id= f'dbt_run_{self.environment}',
+            dir    = self.dbt_repo_path,
+            target = self.dbt_target_name,
+            dbt_bin= self.dbt_bin_path,
+
+            full_refresh=self.full_refresh,
+            dag=self.dag
         )
 
         dbt_test = DbtTestOperator(
-            task_id=f'dbt_test_{self.environment}',
-            dir     = self.dbt_repo_path,
-            target  = self.dbt_target_name,
-            dbt_bin = self.dbt_bin_path,
-            full_refresh = self.full_refresh,
-            dag  = self.dag
+            task_id= f'dbt_test_{self.environment}',
+            dir    = self.dbt_repo_path,
+            target = self.dbt_target_name,
+            dbt_bin= self.dbt_bin_path,
+
+            full_refresh=self.full_refresh,
+            dag=self.dag
         )
+
+        dbt_seed >> dbt_run >> dbt_test
+
 
         # bluegreen operator
         if self.opt_swap:
-           dbt_swap = DbtRunOperationOperator(
-               task_id=f'dbt_swap_{self.environment}',
-               dir     = self.dbt_repo_path,
-               target  = self.dbt_target_name,
-               dbt_bin = self.dbt_bin_path,
-               op_name ='swap_schemas',
-               vars = "{dest_schema = self.opt_dest_schema}",
-               on_success_callback=on_success_callback,
-               dag=self.dag
-        )
+            dbt_swap = DbtRunOperationOperator(
+                task_id= f'dbt_swap_{self.environment}',
+                dir    = self.dbt_repo_path,
+                target = self.dbt_target_name,
+                dbt_bin= self.dbt_bin_path,
+                op_name= 'swap_schemas',
+                vars   = "{dest_schema = self.opt_dest_schema}",
 
-        dbt_seed >> dbt_run >> dbt_test >> dbt_swap
+                on_success_callback=on_success_callback,
+                dag=self.dag
+            )
+
+            dbt_seed >> dbt_run >> dbt_test >> dbt_swap
+
+        else:
+            dbt_seed >> dbt_run >> dbt_test
 
 
     def globalize(self):
