@@ -29,6 +29,7 @@ class RunDbtDag():
         # default to optional
         full_refresh: bool = False,
         full_refresh_schedule: Optional[str] = None,
+
         opt_dest_schema: Optional[str] = None,
         opt_swap: bool = False,
         
@@ -120,8 +121,6 @@ class RunDbtDag():
             full_refresh=self.full_refresh,
             dag=self.dag
         )
-
-        dbt_seed >> dbt_run >> dbt_test
 
 
         # bluegreen operator
