@@ -2,8 +2,8 @@ from datetime import datetime
 from typing import Optional
 
 from airflow import DAG
-from airflow_dbt.operators.dbt_operator import DbtRunOperator, DbtTestOperator
-from .operators.dbt_operators import DbtSeedOperator, DbtRunOperationOperator
+from airflow_dbt.operators.dbt_operator import DbtRunOperator, DbtSeedOperator, DbtTestOperator
+from .operators.dbt_operators import DbtRunOperationOperator
 
 
 class RunDbtDag():

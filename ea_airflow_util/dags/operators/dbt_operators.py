@@ -1,17 +1,5 @@
-from airflow_dbt.hooks.dbt_hook import DbtCliHook
-from airflow.models import BaseOperator
 from airflow.utils.decorators import apply_defaults
 from airflow_dbt.operators.dbt_operator import DbtBaseOperator
-
-
-class DbtSeedOperator(DbtBaseOperator):
-    # note: without forking the hook code, we don't currently have a way to pass the --select operation
-    @apply_defaults
-    def __init__(self, profiles_dir=None, target=None, *args, **kwargs):
-        super(DbtSeedOperator, self).__init__(profiles_dir=profiles_dir, target=target, *args, **kwargs)
-
-    def execute(self, context):
-        self.create_hook().run_cli('seed')
 
 
 class DbtRunOperationOperator(DbtBaseOperator):
