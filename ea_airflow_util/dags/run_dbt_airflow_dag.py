@@ -96,8 +96,7 @@ class RunDbtDag():
             dir    = self.dbt_repo_path,
             target = self.dbt_target_name,
             dbt_bin= self.dbt_bin_path,
-
-            full_refresh=self.full_refresh,
+            full_refresh=True,
             dag=self.dag
         )
 
@@ -107,7 +106,6 @@ class RunDbtDag():
             dir    = self.dbt_repo_path,
             target = self.dbt_target_name,
             dbt_bin= self.dbt_bin_path,
-
             full_refresh=self.full_refresh,
             dag=self.dag
         )
@@ -117,8 +115,6 @@ class RunDbtDag():
             dir    = self.dbt_repo_path,
             target = self.dbt_target_name,
             dbt_bin= self.dbt_bin_path,
-
-            full_refresh=self.full_refresh,
             dag=self.dag
         )
 
@@ -142,6 +138,3 @@ class RunDbtDag():
         else:
             dbt_seed >> dbt_run >> dbt_test
 
-
-    def globalize(self):
-        globals()[self.dag.dag_id] = self.dag
