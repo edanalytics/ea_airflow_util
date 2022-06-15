@@ -10,7 +10,9 @@ from airflow.providers.amazon.aws.hooks.s3 import S3Hook
 # the S3 Airflow connection.
 # (see https://stackoverflow.com/questions/72091014/how-do-i-specify-a-bucket-name-using-an-s3-connection-in-airflow)
 def upload_to_s3(conn_id: str, filename: str, key: str) -> None: # , bucket_name: str
-    hook = S3Hook(conn_id)
+    content_type = "application/json"
+    if ".html" in filename: content_type = "text/html"
+    hook = S3Hook(conn_id, extra_args={"ContentType":content_type})
     hook.load_file(filename=filename, key=key, replace=True) # , bucket_name=bucket_name)
 
 
