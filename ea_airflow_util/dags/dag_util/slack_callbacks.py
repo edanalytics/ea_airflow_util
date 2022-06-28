@@ -15,7 +15,7 @@ def _execute_slack_message(context: dict, http_conn_id: str, message: str, **kwa
         http_conn_id=http_conn_id,
         message=message,
         **kwargs
-    ).execute(context)
+    ).execute()
 
 
 def slack_alert_failure(context, http_conn_id, **kwargs):
