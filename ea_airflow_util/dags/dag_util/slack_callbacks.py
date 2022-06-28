@@ -29,10 +29,10 @@ def slack_alert_failure(context, http_conn_id, **kwargs):
     # """)
     message = textwrap.dedent(f"""
         :red_circle: Task Failed. 
-        *Task*: { context['ti']['task_id'] }
-        *Dag*: { context['ti']['dag_id'] }
-        *Execution Time*: { context['dag_run']['logical_date'] }
-        *Log Url*: { context['ti']['log_url'] }
+        *Task*: { context['ti'].task_id }
+        *Dag*: { context['ti'].dag_id }
+        *Execution Time*: { context['dag_run'].logical_date }
+        *Log Url*: { context['ti'].log_url }
     """)
     return _execute_slack_message(context, http_conn_id=http_conn_id, message=message, **kwargs)
 
@@ -47,8 +47,8 @@ def slack_alert_success(context, http_conn_id, **kwargs):
     # """)
     message = textwrap.dedent(f"""
         :heavy_check_mark: Task Succeeded. 
-        *Task*: { context['ti']['task_id'] }
-        *Dag*: { context['ti']['dag_id'] }
-        *Execution Time*: { context['dag_run']['logical_date'] }
+        *Task*: { context['ti'].task_id }
+        *Dag*: { context['ti'].dag_id }
+        *Execution Time*: { context['dag_run'].logical_date }
     """)
     return _execute_slack_message(context, http_conn_id=http_conn_id, message=message, **kwargs)
