@@ -4,7 +4,7 @@ import textwrap
 from airflow.providers.slack.hooks.slack_webhook import SlackWebhookHook
 
 
-def _execute_slack_message(context: dict, http_conn_id: str, message: str, **kwargs):
+def _execute_slack_message(http_conn_id: str, message: str, **kwargs):
     """
     This class runs the SlackWebhookOperator with prebuilt messages.
     https://airflow.apache.org/docs/apache-airflow-providers-slack/stable/_api/airflow/providers/slack/operators/slack_webhook/index.html
@@ -34,7 +34,7 @@ def slack_alert_failure(context, http_conn_id, **kwargs):
         *Execution Time*: { context['dag_run'].logical_date }
         *Log Url*: { context['ti'].log_url }
     """)
-    return _execute_slack_message(context, http_conn_id=http_conn_id, message=message, **kwargs)
+    return _execute_slack_message(http_conn_id=http_conn_id, message=message, **kwargs)
 
 
 def slack_alert_success(context, http_conn_id, **kwargs):
@@ -51,4 +51,4 @@ def slack_alert_success(context, http_conn_id, **kwargs):
         *Dag*: { context['ti'].dag_id }
         *Execution Time*: { context['dag_run'].logical_date }
     """)
-    return _execute_slack_message(context, http_conn_id=http_conn_id, message=message, **kwargs)
+    return _execute_slack_message(http_conn_id=http_conn_id, message=message, **kwargs)
