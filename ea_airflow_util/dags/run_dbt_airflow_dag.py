@@ -32,6 +32,8 @@ class RunDbtDag():
 
         opt_dest_schema: Optional[str] = None,
         opt_swap: bool = False,
+
+        upload_artifacts: bool = False,
         
         **kwargs
     ):
@@ -49,6 +51,9 @@ class RunDbtDag():
         # bluegreen 
         self.opt_dest_schema = opt_dest_schema
         self.opt_swap        = opt_swap
+
+        # DBT Artifacts
+        self.upload_artifacts = upload_artifacts
 
         self.dag = self.initialize_dag(**kwargs)
 
@@ -138,3 +143,18 @@ class RunDbtDag():
         else:
             dbt_seed >> dbt_run >> dbt_test
 
+
+        # Upload run artifacts to Snowflake
+        if self.upload_artifacts:
+            dbt_upload_artifacts = DbtRunOperationOperator(
+                task_id=f'dbt_upload_artifacts_{self.environment}',
+                dir=self.dbt_repo_path,
+                target=self.dbt_target_name,
+                dbt_bin=self.dbt_bin_path,
+                op_name='upload_dbt_artifacts_v2',
+
+                trigger_rule='all_done',
+                dag=self.dag
+            )
+
+            [dbt_seed, dbt_run, dbt_test] >> dbt_upload_artifacts
