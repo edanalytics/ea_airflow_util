@@ -123,6 +123,8 @@ class RunDbtDag():
             dag=self.dag
         )
 
+        dbt_seed >> dbt_run >> dbt_test
+
 
         # bluegreen operator
         if self.opt_swap:
@@ -138,10 +140,7 @@ class RunDbtDag():
                 dag=self.dag
             )
 
-            dbt_seed >> dbt_run >> dbt_test >> dbt_swap
-
-        else:
-            dbt_seed >> dbt_run >> dbt_test
+            dbt_test >> dbt_swap
 
 
         # Upload run artifacts to Snowflake
@@ -157,4 +156,4 @@ class RunDbtDag():
                 dag=self.dag
             )
 
-            [dbt_seed, dbt_run, dbt_test] >> dbt_upload_artifacts
+            dbt_test >> dbt_upload_artifacts
