@@ -2,11 +2,11 @@ from datetime import datetime
 from functools import partial
 from typing import Optional
 
+import ea_airflow_util.dags.dag_util.slack_callbacks as slack_callbacks
+
 from airflow import DAG
 from airflow_dbt.operators.dbt_operator import DbtRunOperator, DbtSeedOperator, DbtTestOperator
 from .operators.dbt_operators import DbtRunOperationOperator
-
-from ea_airflow_util import slack_callbacks
 
 
 class RunDbtDag():
