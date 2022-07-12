@@ -1,6 +1,5 @@
 import textwrap
 
-# from airflow.providers.slack.operators.slack_webhook import SlackWebhookOperator
 from airflow.providers.slack.hooks.slack_webhook import SlackWebhookHook
 
 
@@ -20,13 +19,6 @@ def _execute_slack_message(http_conn_id: str, message: str, **kwargs):
 
 def slack_alert_failure(context, http_conn_id, **kwargs):
     """  """
-    # message = textwrap.dedent("""
-    #     :red_circle: Task Failed.
-    #     *Task*: {{ ti.task_id }}
-    #     *Dag*: {{ ti.dag_id }}
-    #     *Execution Time*: {{ dag_run.logical_date }}
-    #     *Log Url*: {{ ti.log_url }}
-    # """)
     message = textwrap.dedent(f"""
         :red_circle: Task Failed. 
         *Task*: { context['ti'].task_id }
@@ -39,12 +31,6 @@ def slack_alert_failure(context, http_conn_id, **kwargs):
 
 def slack_alert_success(context, http_conn_id, **kwargs):
     """  """
-    # message = textwrap.dedent("""
-    #     :heavy_check_mark: Task Succeeded.
-    #     *Task*: {{ ti.task_id }}
-    #     *Dag*: {{ ti.dag_id }}
-    #     *Execution Time*: {{ dag_run.logical_date }}
-    # """)
     message = textwrap.dedent(f"""
         :heavy_check_mark: Task Succeeded. 
         *Task*: { context['ti'].task_id }
