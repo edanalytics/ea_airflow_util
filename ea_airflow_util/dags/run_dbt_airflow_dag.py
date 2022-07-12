@@ -1,5 +1,8 @@
 from datetime import datetime
+from functools import partial
 from typing import Optional
+
+import ea_airflow_util.dags.dag_util.slack_callbacks as slack_callbacks
 
 from airflow import DAG
 from airflow_dbt.operators.dbt_operator import DbtRunOperator, DbtSeedOperator, DbtTestOperator
@@ -34,7 +37,9 @@ class RunDbtDag():
         opt_swap: bool = False,
 
         upload_artifacts: bool = False,
-        
+
+        slack_conn_id: Optional[str] = None,
+
         **kwargs
     ):
         self.environment = environment
@@ -55,6 +60,9 @@ class RunDbtDag():
         # DBT Artifacts
         self.upload_artifacts = upload_artifacts
 
+        # Slack alerting
+        self.slack_conn_id = slack_conn_id
+
         self.dag = self.initialize_dag(**kwargs)
 
 
@@ -67,6 +75,11 @@ class RunDbtDag():
         :param catchup:
         :user_defined_macros:
         """
+        # If a Slack connection has been defined, add the failure callback to the default_args.
+        if self.slack_conn_id:
+            slack_failure_callback = partial(slack_callbacks.slack_alert_failure, http_conn_id=self.slack_conn_id)
+            default_args['on_failure_callback'] = slack_failure_callback
+
         return DAG(
             dag_id=dag_id,
             schedule_interval=schedule_interval,
