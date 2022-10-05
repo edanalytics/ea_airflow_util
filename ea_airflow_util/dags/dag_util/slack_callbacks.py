@@ -38,3 +38,26 @@ def slack_alert_success(context, http_conn_id, **kwargs):
         *Execution Time*: { context['dag_run'].logical_date }
     """)
     return _execute_slack_message(http_conn_id=http_conn_id, message=message, **kwargs)
+
+
+def slack_alert_sla_miss(
+    http_conn_id,
+    dag, task_list, blocking_task_list, slas, blocking_tis,
+    **kwargs
+):
+    """
+    Inspired by this StackOverflow: https://stackoverflow.com/questions/64040649
+    Note: SLA callbacks require 5 arguments be provided. We only use `slas` to build the message.
+
+    """
+    dag_id = slas[0].dag_id
+    task_id = slas[0].task_id
+    execution_date = slas[0].execution_date.isoformat()
+
+    message = textwrap.dedent(f"""
+        :sos: *SLA has been missed.*
+        *Task*: {task_id}
+        *Dag*: {dag_id}
+        *Execution Time*: {execution_date}
+    """)
+    return _execute_slack_message(http_conn_id=http_conn_id, message=message, **kwargs)
