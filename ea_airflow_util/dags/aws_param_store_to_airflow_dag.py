@@ -33,9 +33,7 @@ class AWSParamStoreToAirflowDAG:
             """
             param_store = SSMParameterStore(prefix=self.ssm_prefix, region_name=self.s3_region)
 
-            for param_name in param_store.keys():
-                param_secret = param_store[param_name]
-                # TODO: Strip off ssm_prefix from ParamStore path.
+            for param_secret in param_store.values():
                 self.create_conn(**param_secret)
 
 
@@ -46,7 +44,6 @@ class AWSParamStoreToAirflowDAG:
             schedule_interval=None,
             catchup=False,
         ) as dag:
-
             insert_all_aws_params_to_airflow()
 
         return dag
@@ -55,40 +52,24 @@ class AWSParamStoreToAirflowDAG:
     # stackoverflow link:
     # https://stackoverflow.com/questions/51863881/is-there-a-way-to-create-modify-connections-through-airflow-api
     @staticmethod
-    def create_conn(
-            conn_id  : str,
-            conn_type: str,
-            host     : str,
-            schema   : str,
-            login    : str,
-            password : str,
-            port     : str,
-            extra    : str
-    ) -> Connection:
+    def create_conn(**kwargs) -> Connection:
         """
         Store a new connection in Airflow Meta DB
-        TODO: Consider using **kwargs to make this more flexible, if possible.
 
-        :param conn_id:
-        :param conn_type:
-        :param host:
-        :param schema:
-        :param login:
-        :param password:
-        :param port:
-        :param extra:
+        :param kwargs:
         :return:
+
+        :Keyword Arguments:
+            * conn_id
+            * conn_type
+            * host
+            * schema
+            * login
+            * password
+            * port
+            * extra
         """
-        conn = Connection(
-            conn_id=conn_id,
-            conn_type=conn_type,
-            host=host,
-            schema=schema,
-            login=login,
-            password=password,
-            port=port,
-            extra=extra
-        )
+        conn = Connection(**kwargs)
 
         session = airflow.settings.Session()
         conn_name = (
@@ -113,7 +94,3 @@ class AWSParamStoreToAirflowDAG:
         )
 
         return conn
-
-
-    def globalize(self) -> None:
-        globals()[self.dag.dag_id] = self.dag
