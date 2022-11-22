@@ -1,3 +1,4 @@
+import json
 import logging
 
 import airflow
@@ -43,8 +44,7 @@ class AWSParamStoreToAirflowDAG:
 
             for param_name in param_store.keys():
                 conn_id = param_name.replace(self.ssm_prefix, "")
-                param_secret = param_store[param_name]
-                print(conn_id)
+                param_secret = json.loads(param_store[param_name])
                 self.create_conn(conn_id=conn_id, **param_secret)
 
 
