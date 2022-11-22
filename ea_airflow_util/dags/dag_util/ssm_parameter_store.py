@@ -38,6 +38,10 @@ class SSMParameterStore:
         region_name: Optional[str]  = None,
         ttl        : Optional[bool] = None
     ) -> None:
+        # Infer region from EC2 machine if none provided.
+        if region_name is None:
+            region_name = boto3.Session().region_name
+
         self._prefix = (prefix or '').rstrip('/') + '/'
         self._client = ssm_client or boto3.client('ssm', region_name=region_name)
         self._keys = None
