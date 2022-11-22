@@ -14,7 +14,7 @@ class AWSParamStoreToAirflowDAG:
     """
     def __init__(self,
         ssm_prefix: str,
-        region_name: str = None,
+        region_name: str,
         **kwargs
     ):
         self.ssm_prefix = ssm_prefix
