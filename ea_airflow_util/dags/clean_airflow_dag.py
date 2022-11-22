@@ -9,8 +9,8 @@ class CleanAirflowDAG:
 
     """
     def __init__(self,
-        tmp_dir: str = "/efs/tmp_storage",
-        rds_days_kept: int = 14,
+        tmp_dir: str,
+        rds_days_kept: int,
         **kwargs
     ):
         """
