@@ -33,10 +33,10 @@ class SSMParameterStore:
     """
 
     def __init__(self,
-            prefix     : Optional[str]  = None,
-            ssm_client : Optional[str]  = None,
-            region_name: Optional[str]  = None,
-            ttl        : Optional[bool] = None
+        prefix     : Optional[str]  = None,
+        ssm_client : Optional[str]  = None,
+        region_name: Optional[str]  = None,
+        ttl        : Optional[bool] = None
     ) -> None:
         self._prefix = (prefix or '').rstrip('/') + '/'
         self._client = ssm_client or boto3.client('ssm', region_name=region_name)

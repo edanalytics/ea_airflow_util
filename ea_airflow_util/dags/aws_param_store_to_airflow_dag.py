@@ -1,3 +1,4 @@
+import json
 import logging
 
 import airflow
@@ -12,13 +13,21 @@ class AWSParamStoreToAirflowDAG:
     """
 
     """
-    def __init__(self, ssm_prefix: str, s3_region: str, **kwargs):
+    def __init__(self,
+        ssm_prefix: str,
+        region_name: str,
+        **kwargs
+    ):
         self.ssm_prefix = ssm_prefix
-        self.s3_region = s3_region
+        self.region_name = region_name
         self.dag = self.build_dag(**kwargs)
 
 
-    def build_dag(self, dag_id: str, default_args: dict, **kwargs):
+    def build_dag(self,
+        dag_id: str,
+        default_args: dict,
+        **kwargs
+    ):
         """
 
         :param dag_id:
@@ -31,12 +40,12 @@ class AWSParamStoreToAirflowDAG:
             """
             :return:
             """
-            param_store = SSMParameterStore(prefix=self.ssm_prefix, region_name=self.s3_region)
+            param_store = SSMParameterStore(prefix=self.ssm_prefix, region_name=self.region_name)
 
             for param_name in param_store.keys():
-                param_secret = param_store[param_name]
-                # TODO: Strip off ssm_prefix from ParamStore path.
-                self.create_conn(**param_secret)
+                conn_id = param_name.replace(self.ssm_prefix, "")
+                param_secret = json.loads(param_store[param_name])
+                self.create_conn(conn_id=conn_id, **param_secret)
 
 
         # This syntax ensures param_store stays hidden within the class.
@@ -46,7 +55,6 @@ class AWSParamStoreToAirflowDAG:
             schedule_interval=None,
             catchup=False,
         ) as dag:
-
             insert_all_aws_params_to_airflow()
 
         return dag
@@ -55,65 +63,40 @@ class AWSParamStoreToAirflowDAG:
     # stackoverflow link:
     # https://stackoverflow.com/questions/51863881/is-there-a-way-to-create-modify-connections-through-airflow-api
     @staticmethod
-    def create_conn(
-            conn_id  : str,
-            conn_type: str,
-            host     : str,
-            schema   : str,
-            login    : str,
-            password : str,
-            port     : str,
-            extra    : str
-    ) -> Connection:
+    def create_conn(conn_id: str, **kwargs) -> Connection:
         """
         Store a new connection in Airflow Meta DB
-        TODO: Consider using **kwargs to make this more flexible, if possible.
 
         :param conn_id:
-        :param conn_type:
-        :param host:
-        :param schema:
-        :param login:
-        :param password:
-        :param port:
-        :param extra:
+        :param kwargs:
         :return:
+
+        :Keyword Arguments:
+            * conn_type
+            * host
+            * schema
+            * login
+            * password
+            * port
+            * extra
         """
-        conn = Connection(
-            conn_id=conn_id,
-            conn_type=conn_type,
-            host=host,
-            schema=schema,
-            login=login,
-            password=password,
-            port=port,
-            extra=extra
-        )
-
+        conn = Connection(conn_id=conn_id, **kwargs)
         session = airflow.settings.Session()
-        conn_name = (
-            session
-                .query(Connection)
-                .filter(Connection.conn_id == conn.conn_id)
-                .first()
-        )
 
-        if str(conn_name) == str(conn.conn_id):
+        # Verify whether the connection already exists in Airflow.
+        if session.query(Connection).filter(Connection.conn_id == conn.conn_id).first():
             logging.warning(
                 f"Connection {conn.conn_id} already exists!"
             )
             return None
 
-        session.add(conn)
-        session.commit()
+        else:
+            session.add(conn)
+            session.commit()
 
-        logging.info(Connection.log_info(conn))
-        logging.info(
-            f"Connection {conn_id} was added."
-        )
+            logging.info(Connection.log_info(conn))
+            logging.info(
+                f"Connection {conn_id} was added."
+            )
 
-        return conn
-
-
-    def globalize(self) -> None:
-        globals()[self.dag.dag_id] = self.dag
+            return conn
