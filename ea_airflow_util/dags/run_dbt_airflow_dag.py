@@ -158,15 +158,13 @@ class RunDbtDag():
 
         # Upload run artifacts to Snowflake
         if self.upload_artifacts:
-            dbt_upload_artifacts = DbtRunOperationOperator(
-                task_id=f'dbt_upload_artifacts_{self.environment}',
+            dbt_build_artifact_tables = DbtRunOperator(
+                task_id=f'dbt_build_artifact_tables_{self.environment}',
                 dir=self.dbt_repo_path,
                 target=self.dbt_target_name,
                 dbt_bin=self.dbt_bin_path,
-                op_name='upload_dbt_artifacts_v2',
-
-                trigger_rule='all_done',
+                select="package:dbt_artifacts",
                 dag=self.dag
             )
 
-            dbt_test >> dbt_upload_artifacts
+            dbt_build_artifact_tables >> dbt_seed
