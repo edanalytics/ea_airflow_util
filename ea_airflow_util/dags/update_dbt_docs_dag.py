@@ -13,6 +13,8 @@ from airflow.providers.amazon.aws.hooks.s3 import S3Hook
 def upload_to_s3(conn_id: str, filename: str, key: str) -> None: # , bucket_name: str
     content_type = "application/json"
     if ".html" in filename: content_type = "text/html"
+    if ".css" in filename: content_type = "text/css"
+    if ".svg" in filename: content_type = "image/svg+xml"
     hook = S3Hook(conn_id, extra_args={"ContentType":content_type})
     hook.load_file(filename=filename, key=key, replace=True) # , bucket_name=bucket_name)
 
@@ -35,7 +37,7 @@ class UpdateDbtDocsDag():
         dbt_docs_s3_conn_id : str,
         dbt_docs_custom_html: Optional[str] = None,
         dbt_docs_custom_css: Optional[str] = None,
-        dbt_docs_images: Optional[str] = None,
+        dbt_docs_images: Optional[list] = None,
 
         **kwargs
     ):
@@ -91,7 +93,8 @@ class UpdateDbtDocsDag():
         if self.dbt_docs_custom_css:
           docs_files.append(self.dbt_docs_custom_css)
         if self.dbt_docs_images:
-          docs_files.append(self.dbt_docs_images)
+            for img in self.dbt_docs_images:
+                docs_files.append(img)
             
         upload_tasks = []
         for docs_file in docs_files:
