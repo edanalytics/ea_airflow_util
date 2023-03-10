@@ -1,5 +1,6 @@
 import os
 from util import io_helpers
+from typing import Optional
 
 from airflow import DAG
 from airflow_dbt.operators.dbt_operator import DbtDocsGenerateOperator
@@ -12,6 +13,8 @@ from airflow.providers.amazon.aws.hooks.s3 import S3Hook
 def upload_to_s3(conn_id: str, filename: str, key: str) -> None: # , bucket_name: str
     content_type = "application/json"
     if ".html" in filename: content_type = "text/html"
+    if ".css" in filename: content_type = "text/css"
+    if ".svg" in filename: content_type = "image/svg+xml"
     hook = S3Hook(conn_id, extra_args={"ContentType":content_type})
     hook.load_file(filename=filename, key=key, replace=True) # , bucket_name=bucket_name)
 
@@ -32,6 +35,9 @@ class UpdateDbtDocsDag():
         dbt_target_name: str,
         dbt_bin_path   : str,
         dbt_docs_s3_conn_id : str,
+        dbt_docs_custom_html: Optional[str] = None,
+        dbt_docs_custom_css: Optional[str] = None,
+        dbt_docs_images: Optional[list] = None,
 
         **kwargs
     ):
@@ -42,6 +48,10 @@ class UpdateDbtDocsDag():
         self.dbt_repo_path = dbt_repo_path
         self.dbt_target_name = dbt_target_name
         self.dbt_bin_path = dbt_bin_path
+        self.dbt_docs_custom_html = dbt_docs_custom_html
+        self.dbt_docs_custom_css = dbt_docs_custom_css
+        self.dbt_docs_images = dbt_docs_images
+
 
         self.dag = self.initialize_dag(**kwargs)
 
@@ -75,18 +85,31 @@ class UpdateDbtDocsDag():
                 dag=self.dag
             )
         
-        docs_files = ["index.html", "catalog.json", "manifest.json"]
+        docs_files = ["target/index.html", "target/catalog.json", "target/manifest.json"]
+        # if a custom html file exists, replace the file path with configured path. do the same for css if exists
+        if self.dbt_docs_custom_html:
+          docs_files.remove("target/index.html")
+          docs_files.append(self.dbt_docs_custom_html)
+        if self.dbt_docs_custom_css:
+          docs_files.append(self.dbt_docs_custom_css)
+        if self.dbt_docs_images:
+            for img in self.dbt_docs_images:
+                docs_files.append(img)
+            
         upload_tasks = []
         for docs_file in docs_files:
-            id = docs_file.split(".")[0]
+            # e.g. docs_file = 'target/index.html" -> s3_key = "index.html" -> task_id = "index"
+            s3_key = docs_file.split("/")[-1]
+            task_id = s3_key.split(".")[0]
+
             upload_tasks.append(
                 PythonOperator(
-                    task_id='upload_to_s3_' + id,
+                    task_id='upload_to_s3_' + task_id,
                     python_callable=upload_to_s3,
                     op_kwargs={
                         'conn_id': self.dbt_docs_s3_conn_id,
-                        'filename': os.path.join(self.dbt_repo_path, "target", docs_file),
-                        'key': docs_file
+                        'filename': os.path.join(self.dbt_repo_path, docs_file),
+                        'key': s3_key
                     },
                     dag=self.dag
                 )
