@@ -1,6 +1,9 @@
 import json
 import logging
 
+from collections import defaultdict
+from typing import Optional
+
 import airflow
 from airflow import DAG
 from airflow.decorators import task
@@ -9,17 +12,66 @@ from airflow.models import Connection
 from .dag_util.ssm_parameter_store import SSMParameterStore
 
 
+class ConnectionKwargs:
+    """ Class for storing connection pieces from ParamStore """
+    def __init__(self):
+        self.__kwargs = {}  # Keep kwargs hidden from logging
+
+    def add_kwarg(self, key, value):
+        """
+        Add key to connection kwargs, translating as necessary.
+        """
+        if key == 'key':
+            self.__kwargs['login'] = value
+        elif key == 'secret':
+            self.__kwargs['password'] = value
+        elif key == 'url':
+            self.__kwargs['host'] = value
+        else:
+            self.__kwargs[key] = value
+
+    def to_conn(self, conn_id: str) -> dict:
+        """
+        Convert connection pieces into a JSON connection.
+        """
+        if self.__kwargs.keys() < {"host", "login", "password"}:
+            raise Exception(
+                f"Connection is missing one or more required fields."
+            )
+
+        return Connection(conn_id=conn_id, **self.__kwargs)
+
+
 class AWSParamStoreToAirflowDAG:
     """
+    Build Airflow connections based on key, secret, and url parameters in AWS SystemsManager ParameterStore.
+
+    The presumed structure of parameters are as follows:
+    {ssm_prefix}/{tenant_code}/key
+    {ssm_prefix}/{tenant_code}/secret
+    {ssm_prefix}/{tenant_code}/url
+
+    Argument `prefix_year_mapping` maps prefixes to API years of data.
+    Optional argument `tenant_mapping` provides tenant_code naming-fixes when they misalign in ParameterStore.
 
     """
     def __init__(self,
-        ssm_prefix: str,
         region_name: str,
+
+        *,
+        prefix_year_mapping: dict,
+        tenant_mapping: Optional[str] = None,
+
+        overwrite: bool = False,
+
         **kwargs
     ):
-        self.ssm_prefix = ssm_prefix
         self.region_name = region_name
+        self.prefix_year_mapping = prefix_year_mapping
+        self.tenant_mapping = tenant_mapping or {}
+        self.overwrite = overwrite
+
+        self.connection_kwargs = defaultdict(ConnectionKwargs)
         self.dag = self.build_dag(**kwargs)
 
 
@@ -36,67 +88,70 @@ class AWSParamStoreToAirflowDAG:
         """
 
         @task
-        def insert_all_aws_params_to_airflow():
+        def build_param_connections():
             """
-            :return:
+            Iterate parameter prefixes and build connection objects
             """
-            param_store = SSMParameterStore(prefix=self.ssm_prefix, region_name=self.region_name)
+            for ssm_prefix, api_year in self.prefix_year_mapping:
+                param_store = SSMParameterStore(prefix=ssm_prefix, region_name=self.region_name)
 
-            for param_name in param_store.keys():
-                conn_id = param_name.replace(self.ssm_prefix, "")
-                param_secret = json.loads(param_store[param_name])
-                self.create_conn(conn_id=conn_id, **param_secret)
+                for param_name in param_store.keys():
+                    # {ssm_prefix}/{tenant_code}/{param_type}
+                    tenant_code, param_type = param_name.replace(ssm_prefix, "").strip('/').split('/')
+
+                    # Translate the tenant-code if provided in the mapping.
+                    tenant_code = self.tenant_mapping.get(tenant_code, tenant_code)
+
+                    # Build the standardized connection ID, then add to the connection kwargs dictionary.
+                    conn_id = f"edfi_{tenant_code}_{api_year}"
+                    self.connection_kwargs[conn_id].add_kwarg(param_type, param_store[param_name])
+
+        @task
+        def upload_param_connections():
+            """
+            Attempt to upload connections to Airflow, warning if already present or incomplete.
+            https://stackoverflow.com/questions/51863881
+            """
+            session = airflow.settings.Session()
+
+            for conn_id, conn_kwargs in self.connection_kwargs.items():
+
+                # Verify whether the connection already exists in Airflow, and continue if not overwriting.
+                if session.query(Connection).filter(Connection.conn_id == conn_id).first():
+
+                    if not self.overwrite:
+                        logging.warning(
+                            f"Failed to import `{conn_id}`: Connection already exists!"
+                        )
+                        continue
+
+                # Try to convert the kwargs into a connection, erroring if missing a required field.
+                try:
+                    conn = conn_kwargs.to_conn(conn_id)
+                except Exception as err:
+                    logging.warning(
+                        f"Failed to import `{conn_id}`: {err}"
+                    )
+                    continue
+
+                # Add the connection
+                session.add(conn)
+                session.commit()
+
+                logging.info(Connection.log_info(conn))
+                logging.info(
+                    f"Connection {conn_id} was added."
+                )
 
 
         # This syntax ensures param_store stays hidden within the class.
+        # TODO: Is this still true?
         with DAG(
             dag_id=dag_id,
             default_args=default_args,
-            schedule_interval=None,
             catchup=False,
+            **kwargs
         ) as dag:
-            insert_all_aws_params_to_airflow()
+            build_param_connections() >> upload_param_connections()
 
         return dag
-
-
-    # stackoverflow link:
-    # https://stackoverflow.com/questions/51863881/is-there-a-way-to-create-modify-connections-through-airflow-api
-    @staticmethod
-    def create_conn(conn_id: str, **kwargs) -> Connection:
-        """
-        Store a new connection in Airflow Meta DB
-
-        :param conn_id:
-        :param kwargs:
-        :return:
-
-        :Keyword Arguments:
-            * conn_type
-            * host
-            * schema
-            * login
-            * password
-            * port
-            * extra
-        """
-        conn = Connection(conn_id=conn_id, **kwargs)
-        session = airflow.settings.Session()
-
-        # Verify whether the connection already exists in Airflow.
-        if session.query(Connection).filter(Connection.conn_id == conn.conn_id).first():
-            logging.warning(
-                f"Connection {conn.conn_id} already exists!"
-            )
-            return None
-
-        else:
-            session.add(conn)
-            session.commit()
-
-            logging.info(Connection.log_info(conn))
-            logging.info(
-                f"Connection {conn_id} was added."
-            )
-
-            return conn
