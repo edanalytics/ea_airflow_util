@@ -1,4 +1,5 @@
 import logging
+import re
 
 from collections import defaultdict
 from typing import Optional
@@ -64,11 +65,13 @@ class AWSParamStoreToAirflowDAG:
         tenant_mapping: Optional[str] = None,
 
         overwrite: bool = False,
+        join_numbers: bool = False,
 
         **kwargs
     ):
         self.region_name = region_name
         self.overwrite = overwrite
+        self.join_numbers = join_numbers
 
         self.connection_mapping  = connection_mapping or {}
         self.prefix_year_mapping = prefix_year_mapping or {}
@@ -156,7 +159,15 @@ class AWSParamStoreToAirflowDAG:
                 tenant_code, param_type = param_name.replace(ssm_prefix, "").strip('/').split('/')
 
                 # Translate the tenant-code if provided in the mapping.
-                tenant_code = self.tenant_mapping.get(tenant_code, tenant_code)
+                if tenant_code in self.tenant_mapping:
+                    tenant_code = self.tenant_mapping[tenant_code]
+                else:
+                    # Replace dashes and spaces with underscores.
+                    tenant_code = tenant_code.replace('-', '_').replace(' ', '_')
+
+                    # Remove underscores between district name and number, if specified.
+                    if self.join_numbers:
+                        tenant_code = re.sub(r"^(.*)_(\d+)$", r"\1\2", tenant_code)
 
                 # Standardize the connection ID.
                 conn_id = f"edfi_{tenant_code}_{api_year}"
