@@ -135,35 +135,33 @@ class AWSParamStoreToAirflowDAG:
     def build_kwargs_from_connection_mapping(self):
         """
         Populate the connection_kwargs via an explicit connection-mapping.
+        {ssm_prefix}/{param_type}
         """
         for ssm_prefix, conn_id in self.connection_mapping.items():
             param_store = SSMParameterStore(prefix=ssm_prefix, region_name=self.region_name)
 
-            for param_name in param_store.keys():
-                logging.info(param_name)
-                # {ssm_prefix}/{param_type}
-                param_type = param_name.replace(ssm_prefix, "").strip('/').split('/')[-1]
-
-                # Add to the connection kwargs dictionary.
-                self.connection_kwargs[conn_id].add_kwarg(param_type, param_store[param_name])
+            # Add each param to the connection kwargs dictionary.
+            for param_type in param_store.keys():
+                self.connection_kwargs[conn_id].add_kwarg(param_type, param_store[param_type])
 
 
     def build_kwargs_from_prefix_year_mapping(self):
         """
         Populate the connection_kwargs via prefix_year- and tenant-mappings.
+        # {ssm_prefix}/{tenant_code}/{param_type}
         """
         for ssm_prefix, api_year in self.prefix_year_mapping.items():
             param_store = SSMParameterStore(prefix=ssm_prefix, region_name=self.region_name)
 
+            # Add each param-combination to the connection kwargs dictionary.
             for param_name in param_store.keys():
                 logging.info(param_name)
-                # {ssm_prefix}/{tenant_code}/{param_type}
                 tenant_code, param_type = param_name.replace(ssm_prefix, "").strip('/').split('/')
 
                 # Translate the tenant-code if provided in the mapping.
                 tenant_code = self.tenant_mapping.get(tenant_code, tenant_code)
 
-                # Build the standardized connection ID, then add to the connection kwargs dictionary.
+                # Standardize the connection ID.
                 conn_id = f"edfi_{tenant_code}_{api_year}"
                 self.connection_kwargs[conn_id].add_kwarg(param_type, param_store[param_name])
 
