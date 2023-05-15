@@ -87,68 +87,68 @@ class AWSParamStoreToAirflowDAG:
         :param default_args:
         :return:
         """
+        @task
+        def build_param_connections():
+            """
+            Iterate parameter prefixes and build connection objects
+            """
+            for ssm_prefix, api_year in self.prefix_year_mapping.items():
+                param_store = SSMParameterStore(prefix=ssm_prefix, region_name=self.region_name)
+
+                for param_name in param_store.keys():
+                    # {ssm_prefix}/{tenant_code}/{param_type}
+                    tenant_code, param_type = param_name.replace(ssm_prefix, "").strip('/').split('/')
+
+                    # Translate the tenant-code if provided in the mapping.
+                    tenant_code = self.tenant_mapping.get(tenant_code, tenant_code)
+
+                    # Build the standardized connection ID, then add to the connection kwargs dictionary.
+                    conn_id = f"edfi_{tenant_code}_{api_year}"
+                    self.connection_kwargs[conn_id].add_kwarg(param_type, param_store[param_name])
+
+        @task
+        def upload_param_connections():
+            """
+            Attempt to upload connections to Airflow, warning if already present or incomplete.
+            https://stackoverflow.com/questions/51863881
+            """
+            session = airflow.settings.Session()
+
+            for conn_id, conn_kwargs in self.connection_kwargs.items():
+
+                # Verify whether the connection already exists in Airflow, and continue if not overwriting.
+                if session.query(Connection).filter(Connection.conn_id == conn_id).first():
+
+                    if not self.overwrite:
+                        logging.warning(
+                            f"Failed to import `{conn_id}`: Connection already exists!"
+                        )
+                        continue
+
+                # Try to convert the kwargs into a connection, erroring if missing a required field.
+                try:
+                    conn = conn_kwargs.to_conn(conn_id)
+                except Exception as err:
+                    logging.warning(
+                        f"Failed to import `{conn_id}`: {err}"
+                    )
+                    continue
+
+                # Add the connection
+                session.add(conn)
+                session.commit()
+
+                logging.info(Connection.log_info(conn))
+                logging.info(
+                    f"Connection {conn_id} was added."
+                )
+
         with DAG(
             dag_id=dag_id,
             default_args=default_args,
             catchup=False,
             **kwargs
         ) as dag:
-            self.build_param_connections() >> self.upload_param_connections()
+            build_param_connections() >> upload_param_connections()
 
         return dag
-
-    @task
-    def build_param_connections(self):
-        """
-        Iterate parameter prefixes and build connection objects
-        """
-        for ssm_prefix, api_year in self.prefix_year_mapping.items():
-            param_store = SSMParameterStore(prefix=ssm_prefix, region_name=self.region_name)
-
-            for param_name in param_store.keys():
-                # {ssm_prefix}/{tenant_code}/{param_type}
-                tenant_code, param_type = param_name.replace(ssm_prefix, "").strip('/').split('/')
-
-                # Translate the tenant-code if provided in the mapping.
-                tenant_code = self.tenant_mapping.get(tenant_code, tenant_code)
-
-                # Build the standardized connection ID, then add to the connection kwargs dictionary.
-                conn_id = f"edfi_{tenant_code}_{api_year}"
-                self.connection_kwargs[conn_id].add_kwarg(param_type, param_store[param_name])
-
-    @task
-    def upload_param_connections(self):
-        """
-        Attempt to upload connections to Airflow, warning if already present or incomplete.
-        https://stackoverflow.com/questions/51863881
-        """
-        session = airflow.settings.Session()
-
-        for conn_id, conn_kwargs in self.connection_kwargs.items():
-
-            # Verify whether the connection already exists in Airflow, and continue if not overwriting.
-            if session.query(Connection).filter(Connection.conn_id == conn_id).first():
-
-                if not self.overwrite:
-                    logging.warning(
-                        f"Failed to import `{conn_id}`: Connection already exists!"
-                    )
-                    continue
-
-            # Try to convert the kwargs into a connection, erroring if missing a required field.
-            try:
-                conn = conn_kwargs.to_conn(conn_id)
-            except Exception as err:
-                logging.warning(
-                    f"Failed to import `{conn_id}`: {err}"
-                )
-                continue
-
-            # Add the connection
-            session.add(conn)
-            session.commit()
-
-            logging.info(Connection.log_info(conn))
-            logging.info(
-                f"Connection {conn_id} was added."
-            )
