@@ -156,7 +156,13 @@ class AWSParamStoreToAirflowDAG:
             # Add each param-combination to the connection kwargs dictionary.
             for param_name in param_store.keys():
                 logging.info(param_name)
-                tenant_code, param_type = param_name.replace(ssm_prefix, "").strip('/').split('/')
+                try:
+                    tenant_code, param_type = param_name.replace(ssm_prefix, "").strip('/').split('/')
+                except:
+                    logging.warning(
+                        f"Parameter {param_name} does not match expected shape and will be skipped."
+                    )
+                    continue
 
                 # Translate the tenant-code if provided in the mapping.
                 if tenant_code in self.tenant_mapping:
