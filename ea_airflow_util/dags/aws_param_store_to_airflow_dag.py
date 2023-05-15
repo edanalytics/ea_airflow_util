@@ -142,6 +142,7 @@ class AWSParamStoreToAirflowDAG:
 
             # Add each param to the connection kwargs dictionary.
             for param_type in param_store.keys():
+                logging.info(param_type)
                 self.connection_kwargs[conn_id].add_kwarg(param_type, param_store[param_type])
 
 
