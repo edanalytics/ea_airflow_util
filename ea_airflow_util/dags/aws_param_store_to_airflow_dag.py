@@ -106,8 +106,6 @@ class AWSParamStoreToAirflowDAG:
             if self.prefix_year_mapping:
                 self.build_kwargs_from_prefix_year_mapping()
 
-            logging.info(self.connection_kwargs)
-
 
         @task
         def upload_param_connections():
@@ -168,6 +166,7 @@ class AWSParamStoreToAirflowDAG:
         """
         # Verify the connection-kwargs declaration succeeded.
         # Note: this must go within the helper, as Airflow uses the empty dict at parse-time.
+        logging.info(self.connection_kwargs)
         if not self.connection_kwargs:
             raise AirflowSkipException(
                 "No connections were found using specified arguments!"
