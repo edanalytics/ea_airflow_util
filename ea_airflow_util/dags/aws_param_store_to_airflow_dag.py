@@ -60,7 +60,6 @@ class AWSParamStoreToAirflowDAG:
 
         *,
         connection_mapping: Optional[dict] = None,
-
         prefix_year_mapping: Optional[dict] = None,
         tenant_mapping: Optional[str] = None,
 
@@ -91,7 +90,7 @@ class AWSParamStoreToAirflowDAG:
         :return:
         """
         @task
-        def build_param_connections() -> dict:
+        def build_param_connections():
             """
             Iterate parameter prefixes and build connection objects
             """
@@ -107,20 +106,19 @@ class AWSParamStoreToAirflowDAG:
                 self.build_kwargs_from_prefix_year_mapping()
 
             logging.info(self.connection_kwargs)
-            return self.connection_kwargs
 
 
         @task
-        def upload_param_connections(connection_kwargs: dict):
+        def upload_param_connections():
             """ Wrapper around helper class-method to upload connections """
-            # Verify the connection-kwargs declaration succeeded.
-            # Note: The kwargs must be passed as an argument, or Airflow will use the empty class attribute at init.
-            if not connection_kwargs:
+            logging.info(self.connection_kwargs)
+
+            if not self.connection_kwargs:
                 raise AirflowSkipException(
                     "No connections were found using specified arguments!"
                 )
 
-            self.upload_connection_kwargs_to_airflow(connection_kwargs)
+            self.upload_connection_kwargs_to_airflow()
 
 
         with DAG(
@@ -129,8 +127,7 @@ class AWSParamStoreToAirflowDAG:
             catchup=False,
             **kwargs
         ) as dag:
-
-            upload_param_connections(build_param_connections())
+            build_param_connections() >> upload_param_connections()
 
         return dag
 
@@ -170,18 +167,15 @@ class AWSParamStoreToAirflowDAG:
                 self.connection_kwargs[conn_id].add_kwarg(param_type, param_store[param_name])
 
 
-    def upload_connection_kwargs_to_airflow(self, connection_kwargs: dict):
+    def upload_connection_kwargs_to_airflow(self):
         """
         Attempt to upload connections to Airflow, warning if already present or incomplete.
         https://stackoverflow.com/questions/51863881
         """
-
-        logging.info(connection_kwargs)
-
         # Establish a connection and begin upload.
         session = airflow.settings.Session()
 
-        for conn_id, conn_kwargs in connection_kwargs.items():
+        for conn_id, conn_kwargs in self.connection_kwargs.items():
 
             # Verify whether the connection already exists in Airflow, and continue if not overwriting.
             if session.query(Connection).filter(Connection.conn_id == conn_id).first():
