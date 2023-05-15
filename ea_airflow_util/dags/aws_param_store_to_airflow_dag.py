@@ -111,15 +111,7 @@ class AWSParamStoreToAirflowDAG:
 
         @task
         def upload_param_connections():
-            """
-            Attempt to upload connections to Airflow, warning if already present or incomplete.
-            https://stackoverflow.com/questions/51863881
-            """
-            if not self.connection_kwargs:
-                raise AirflowSkipException(
-                    "No connections were found using specified arguments!"
-                )
-
+            """ Wrapper around helper class-method to upload connections """
             self.upload_connection_kwargs_to_airflow()
 
 
@@ -174,6 +166,14 @@ class AWSParamStoreToAirflowDAG:
         Attempt to upload connections to Airflow, warning if already present or incomplete.
         https://stackoverflow.com/questions/51863881
         """
+        # Verify the connection-kwargs declaration succeeded.
+        # Note: this must go within the helper, as Airflow uses the empty dict at parse-time.
+        if not self.connection_kwargs:
+            raise AirflowSkipException(
+                "No connections were found using specified arguments!"
+            )
+
+        # Establish a connection and begin upload.
         session = airflow.settings.Session()
 
         for conn_id, conn_kwargs in self.connection_kwargs.items():
