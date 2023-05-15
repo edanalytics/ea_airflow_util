@@ -90,10 +90,14 @@ class AWSParamStoreToAirflowDAG:
         :return:
         """
         @task
-        def build_param_connections():
+        def upload_connections_from_paramstore(**context):
             """
-            Iterate parameter prefixes and build connection objects
+            Iterate ParamStore across prefix-mappings and collect connection kwargs.
+            Iterate kwargs into connections and attempt import.
+
+            Note: This method mutates self.connection_kwargs. This object resets between tasks, so all logic is unified.
             """
+            ### Iterate ParamStore across prefix-mappings and collect connection kwargs.
             if not (self.connection_mapping or self.prefix_year_mapping):
                 raise AirflowFailException(
                     "Neither arguments `connection_mapping` nor `prefix_year_mapping` have been defined."
@@ -105,14 +109,7 @@ class AWSParamStoreToAirflowDAG:
             if self.prefix_year_mapping:
                 self.build_kwargs_from_prefix_year_mapping()
 
-            logging.info(self.connection_kwargs)
-
-
-        @task
-        def upload_param_connections():
-            """ Wrapper around helper class-method to upload connections """
-            logging.info(self.connection_kwargs)
-
+            ### Iterate kwargs into connections and attempt import.
             if not self.connection_kwargs:
                 raise AirflowSkipException(
                     "No connections were found using specified arguments!"
@@ -127,7 +124,7 @@ class AWSParamStoreToAirflowDAG:
             catchup=False,
             **kwargs
         ) as dag:
-            build_param_connections() >> upload_param_connections()
+            upload_connections_from_paramstore()
 
         return dag
 
@@ -142,7 +139,6 @@ class AWSParamStoreToAirflowDAG:
 
             # Add each param to the connection kwargs dictionary.
             for param_type in param_store.keys():
-                logging.info(param_type)
                 self.connection_kwargs[conn_id].add_kwarg(param_type, param_store[param_type])
 
 
