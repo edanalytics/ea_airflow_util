@@ -39,7 +39,7 @@ class ConnectionKwargs:
                 f"Connection is missing one or more required fields."
             )
 
-        return Connection(conn_id=conn_id, **self.__kwargs)
+        return Connection(conn_id=conn_id, conn_type='http', **self.__kwargs)
 
 
 class AWSParamStoreToAirflowDAG:
