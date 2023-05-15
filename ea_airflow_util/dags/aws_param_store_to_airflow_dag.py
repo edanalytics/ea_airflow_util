@@ -140,6 +140,7 @@ class AWSParamStoreToAirflowDAG:
             param_store = SSMParameterStore(prefix=ssm_prefix, region_name=self.region_name)
 
             for param_name in param_store.keys():
+                logging.info(param_name)
                 # {ssm_prefix}/{param_type}
                 param_type = param_name.replace(ssm_prefix, "").strip('/').split('/')[-1]
 
@@ -155,6 +156,7 @@ class AWSParamStoreToAirflowDAG:
             param_store = SSMParameterStore(prefix=ssm_prefix, region_name=self.region_name)
 
             for param_name in param_store.keys():
+                logging.info(param_name)
                 # {ssm_prefix}/{tenant_code}/{param_type}
                 tenant_code, param_type = param_name.replace(ssm_prefix, "").strip('/').split('/')
 
