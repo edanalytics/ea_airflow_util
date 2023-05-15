@@ -95,7 +95,7 @@ class AWSParamStoreToAirflowDAG:
             """
             Iterate parameter prefixes and build connection objects
             """
-            if not (self.connection_mapping and self.prefix_year_mapping):
+            if not (self.connection_mapping or self.prefix_year_mapping):
                 raise AirflowFailException(
                     "Neither arguments `connection_mapping` nor `prefix_year_mapping` have been defined."
                 )
