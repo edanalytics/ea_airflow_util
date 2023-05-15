@@ -195,7 +195,6 @@ class AWSParamStoreToAirflowDAG:
             session.add(conn)
             session.commit()
 
-            logging.info(Connection.log_info(conn))
             logging.info(
                 f"Connection {conn_id} was added."
             )
