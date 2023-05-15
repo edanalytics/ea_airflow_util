@@ -106,6 +106,8 @@ class AWSParamStoreToAirflowDAG:
             if self.prefix_year_mapping:
                 self.build_kwargs_from_prefix_year_mapping()
 
+            logging.info(self.connection_kwargs)
+
 
         @task
         def upload_param_connections():
