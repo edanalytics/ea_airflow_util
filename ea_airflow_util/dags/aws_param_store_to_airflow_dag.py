@@ -78,6 +78,7 @@ class AWSParamStoreToAirflowDAG:
         self.prefix_year_mapping = prefix_year_mapping or {}
         self.tenant_mapping      = tenant_mapping or {}
 
+        self.session = airflow.settings.Session()
         self.dag = self.build_dag(**kwargs)
 
 
@@ -194,25 +195,21 @@ class AWSParamStoreToAirflowDAG:
                 yield conn_id, conn_kwargs
 
 
-    @staticmethod
-    def upload_connection_kwargs_to_airflow(conn_id: str, conn_kwargs: ConnectionKwargs):
+    def upload_connection_kwargs_to_airflow(self, conn_id: str, conn_kwargs: ConnectionKwargs):
         """
         Attempt to upload connections to Airflow, warning if already present or incomplete.
         https://stackoverflow.com/questions/51863881
         """
-        # Establish a connection and begin upload.
-        session = airflow.settings.Session()
-
         # Verify whether the connection already exists in Airflow, and continue if not overwriting.
-        if session.query(Connection).filter(Connection.conn_id == conn_id).first():
+        if self.session.query(Connection).filter(Connection.conn_id == conn_id).first():
             raise NameError(
                 "Connection already exists!"
             )
 
         # Try to convert the kwargs into a connection, erroring if missing a required field.
         conn = conn_kwargs.to_conn(conn_id)
-        session.add(conn)
-        session.commit()
+        self.session.add(conn)
+        self.session.commit()
 
         logging.info(
             f"Successful import: Connection `{conn_id}` added to Airflow."
