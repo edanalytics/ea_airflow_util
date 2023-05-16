@@ -110,7 +110,12 @@ class AWSParamStoreToAirflowDAG:
                 self.build_kwargs_from_connection_mapping(),
                 self.build_kwargs_from_prefix_year_mapping()
             ):
-                self.upload_connection_kwargs_to_airflow(conn_id, conn_kwargs)
+                try:
+                    self.upload_connection_kwargs_to_airflow(conn_id, conn_kwargs)
+                except Exception as err:
+                    logging.warning(
+                        f"Failed to import `{conn_id}`: {err}"
+                    )
 
 
         with DAG(
@@ -189,7 +194,8 @@ class AWSParamStoreToAirflowDAG:
                 yield conn_id, conn_kwargs
 
 
-    def upload_connection_kwargs_to_airflow(self, conn_id: str, conn_kwargs: ConnectionKwargs):
+    @staticmethod
+    def upload_connection_kwargs_to_airflow(conn_id: str, conn_kwargs: ConnectionKwargs):
         """
         Attempt to upload connections to Airflow, warning if already present or incomplete.
         https://stackoverflow.com/questions/51863881
@@ -199,24 +205,14 @@ class AWSParamStoreToAirflowDAG:
 
         # Verify whether the connection already exists in Airflow, and continue if not overwriting.
         if session.query(Connection).filter(Connection.conn_id == conn_id).first():
-
-            if not self.overwrite:
-                logging.warning(
-                    f"Failed to import `{conn_id}`: Connection already exists!"
-                )
-                pass
+            raise NameError(
+                "Connection already exists!"
+            )
 
         # Try to convert the kwargs into a connection, erroring if missing a required field.
-        try:
-            conn = conn_kwargs.to_conn(conn_id)
-            session.add(conn)
-            session.commit()
-
-        except Exception as err:
-            logging.warning(
-                f"Failed to import `{conn_id}`: {err}"
-            )
-            pass
+        conn = conn_kwargs.to_conn(conn_id)
+        session.add(conn)
+        session.commit()
 
         logging.info(
             f"Successful import: Connection `{conn_id}` added to Airflow."
