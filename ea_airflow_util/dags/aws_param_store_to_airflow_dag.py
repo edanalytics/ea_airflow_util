@@ -1,8 +1,9 @@
+import itertools
 import logging
 import re
 
 from collections import defaultdict
-from typing import Optional
+from typing import Iterator, Optional
 
 import airflow
 from airflow import DAG
@@ -36,7 +37,7 @@ class ConnectionKwargs:
         Convert connection pieces into a JSON connection.
         """
         if self.__kwargs.keys() < {"host", "login", "password"}:
-            raise Exception(
+            raise ValueError(
                 f"Connection is missing one or more required fields."
             )
 
@@ -65,7 +66,7 @@ class AWSParamStoreToAirflowDAG:
         tenant_mapping: Optional[str] = None,
 
         overwrite: bool = False,
-        join_numbers: bool = False,
+        join_numbers: bool = True,
 
         **kwargs
     ):
@@ -77,7 +78,6 @@ class AWSParamStoreToAirflowDAG:
         self.prefix_year_mapping = prefix_year_mapping or {}
         self.tenant_mapping      = tenant_mapping or {}
 
-        self.connection_kwargs = defaultdict(ConnectionKwargs)
         self.dag = self.build_dag(**kwargs)
 
 
@@ -106,19 +106,11 @@ class AWSParamStoreToAirflowDAG:
                     "Neither arguments `connection_mapping` nor `prefix_year_mapping` have been defined."
                 )
 
-            if self.connection_mapping:
-                self.build_kwargs_from_connection_mapping()
-
-            if self.prefix_year_mapping:
+            for conn_id, conn_kwargs in itertools.chain(
+                self.build_kwargs_from_connection_mapping(),
                 self.build_kwargs_from_prefix_year_mapping()
-
-            ### Iterate kwargs into connections and attempt import.
-            if not self.connection_kwargs:
-                raise AirflowSkipException(
-                    "No connections were found using specified arguments!"
-                )
-
-            self.upload_connection_kwargs_to_airflow()
+            ):
+                self.upload_connection_kwargs_to_airflow(conn_id, conn_kwargs)
 
 
         with DAG(
@@ -137,15 +129,27 @@ class AWSParamStoreToAirflowDAG:
         Populate the connection_kwargs via an explicit connection-mapping.
         {ssm_prefix}/{param_type}
         """
+        ### Iterate prefixes and associated params to collect connection kwargs, then yield.
         for ssm_prefix, conn_id in self.connection_mapping.items():
             param_store = SSMParameterStore(prefix=ssm_prefix, region_name=self.region_name)
 
-            # Add each param to the connection kwargs dictionary.
-            for param_type in param_store.keys():
-                self.connection_kwargs[conn_id].add_kwarg(param_type, param_store[param_type])
+            try:
+                conn_kwargs = ConnectionKwargs()
+
+                for param_type in param_store.keys():
+                    param_value = param_store[param_type]
+                    conn_kwargs.add_kwarg(param_type, param_value)
+
+            except ValueError:
+                logging.warning(
+                    f"Parameters for prefix {ssm_prefix} do not match expected shape and will be skipped."
+                )
+                continue
+
+            yield conn_id, conn_kwargs
 
 
-    def build_kwargs_from_prefix_year_mapping(self):
+    def build_kwargs_from_prefix_year_mapping(self) -> Iterator[ConnectionKwargs]:
         """
         Populate the connection_kwargs via prefix_year- and tenant-mappings.
         # {ssm_prefix}/{tenant_code}/{param_type}
@@ -153,18 +157,24 @@ class AWSParamStoreToAirflowDAG:
         for ssm_prefix, api_year in self.prefix_year_mapping.items():
             param_store = SSMParameterStore(prefix=ssm_prefix, region_name=self.region_name)
 
-            # Add each param-combination to the connection kwargs dictionary.
-            for param_name in param_store.keys():
-                logging.info(param_name)
+            ### Iterate tenant codes and associated params to collect connection kwargs, then yield.
+            for tenant_code in param_store.keys():
                 try:
-                    tenant_code, param_type = param_name.replace(ssm_prefix, "").strip('/').split('/')
-                except:
+                    conn_kwargs = ConnectionKwargs()
+
+                    for param_type in param_store[tenant_code].keys():
+                        param_value = param_store[tenant_code][param_type]
+                        conn_kwargs.add_kwarg(param_type, param_value)
+
+                except ValueError:
                     logging.warning(
-                        f"Parameter {param_name} does not match expected shape and will be skipped."
+                        f"Parameters for prefix `{ssm_prefix}/{tenant_code}` do not match expected shape and will be skipped."
                     )
                     continue
 
+                ### Standardize the connection ID.
                 # Translate the tenant-code if provided in the mapping.
+                # Note: This mutates `tenant_code`, so it must be placed after the ParamStore collect.
                 if tenant_code in self.tenant_mapping:
                     tenant_code = self.tenant_mapping[tenant_code]
                 else:
@@ -175,12 +185,11 @@ class AWSParamStoreToAirflowDAG:
                     if self.join_numbers:
                         tenant_code = re.sub(r"^(.*)_(\d+)$", r"\1\2", tenant_code)
 
-                # Standardize the connection ID.
                 conn_id = f"edfi_{tenant_code}_{api_year}"
-                self.connection_kwargs[conn_id].add_kwarg(param_type, param_store[param_name])
+                yield conn_id, conn_kwargs
 
 
-    def upload_connection_kwargs_to_airflow(self):
+    def upload_connection_kwargs_to_airflow(self, conn_id: str, conn_kwargs: ConnectionKwargs):
         """
         Attempt to upload connections to Airflow, warning if already present or incomplete.
         https://stackoverflow.com/questions/51863881
@@ -188,30 +197,27 @@ class AWSParamStoreToAirflowDAG:
         # Establish a connection and begin upload.
         session = airflow.settings.Session()
 
-        for conn_id, conn_kwargs in self.connection_kwargs.items():
+        # Verify whether the connection already exists in Airflow, and continue if not overwriting.
+        if session.query(Connection).filter(Connection.conn_id == conn_id).first():
 
-            # Verify whether the connection already exists in Airflow, and continue if not overwriting.
-            if session.query(Connection).filter(Connection.conn_id == conn_id).first():
-
-                if not self.overwrite:
-                    logging.warning(
-                        f"Failed to import `{conn_id}`: Connection already exists!"
-                    )
-                    continue
-
-            # Try to convert the kwargs into a connection, erroring if missing a required field.
-            try:
-                conn = conn_kwargs.to_conn(conn_id)
-            except Exception as err:
+            if not self.overwrite:
                 logging.warning(
-                    f"Failed to import `{conn_id}`: {err}"
+                    f"Failed to import `{conn_id}`: Connection already exists!"
                 )
-                continue
+                pass
 
-            # Add the connection
+        # Try to convert the kwargs into a connection, erroring if missing a required field.
+        try:
+            conn = conn_kwargs.to_conn(conn_id)
             session.add(conn)
             session.commit()
 
-            logging.info(
-                f"Connection {conn_id} was added."
+        except Exception as err:
+            logging.warning(
+                f"Failed to import `{conn_id}`: {err}"
             )
+            pass
+
+        logging.info(
+            f"Successful import: Connection `{conn_id}` added to Airflow."
+        )
