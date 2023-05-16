@@ -65,13 +65,11 @@ class AWSParamStoreToAirflowDAG:
         prefix_year_mapping: Optional[dict] = None,
         tenant_mapping: Optional[str] = None,
 
-        overwrite: bool = False,
         join_numbers: bool = True,
 
         **kwargs
     ):
         self.region_name = region_name
-        self.overwrite = overwrite
         self.join_numbers = join_numbers
 
         self.connection_mapping  = connection_mapping or {}
