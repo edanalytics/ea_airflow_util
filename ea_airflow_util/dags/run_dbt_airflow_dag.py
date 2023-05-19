@@ -76,7 +76,7 @@ class RunDbtDag():
         # Build operators to check the value of the DBT var at the start and reset it at the end.
         if self.dbt_incrementer_var:
             self.dbt_var_check_operator = build_variable_check_operator(
-                self.dbt_incrementer_var, lambda x: x > 0,
+                self.dbt_incrementer_var, lambda x: int(x) > 0,
                 task_id='check_dbt_variable', dag=self.dag
             )
 
