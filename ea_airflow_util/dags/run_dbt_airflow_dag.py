@@ -82,7 +82,7 @@ class RunDbtDag():
 
             self.dbt_var_reset_operator = build_variable_update_operator(
                 self.dbt_incrementer_var, 0,
-                task_id='reset_dbt_variable', trigger_rule='all_done', dag=self.dag
+                task_id='reset_dbt_variable', trigger_rule='none_skipped', dag=self.dag
             )
 
         else:
