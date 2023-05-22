@@ -1,3 +1,9 @@
+# AirflowDBT uses Airflow 1.x syntax when defining Hooks and Operators.
+# These warnings clog up the scheduler and should be hidden until the package is updated.
+import warnings
+with warnings.catch_warnings():
+    warnings.filterwarnings("ignore", module="airflow_dbt", category=DeprecationWarning)
+
 from datetime import datetime
 from functools import partial
 from typing import Optional
