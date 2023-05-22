@@ -1,8 +1,7 @@
 # AirflowDBT uses Airflow 1.x syntax when defining Hooks and Operators.
 # These warnings clog up the scheduler and should be hidden until the package is updated.
 import warnings
-with warnings.catch_warnings():
-    warnings.filterwarnings("ignore", module="airflow_dbt", category=DeprecationWarning)
+warnings.filterwarnings("ignore", module="airflow_dbt", category=DeprecationWarning)
 
 from airflow.utils.decorators import apply_defaults
 from airflow_dbt.operators.dbt_operator import DbtBaseOperator
