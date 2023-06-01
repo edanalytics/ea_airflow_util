@@ -1,35 +1,17 @@
-from datetime import datetime
 import logging
 
 from airflow.contrib.operators.snowflake_operator import SnowflakeOperator
 from airflow.operators.python_operator import PythonOperator
 from airflow.utils.helpers import chain
-from airflow.decorators import dag, task
-from airflow.exceptions import AirflowSkipException
 from edu_edfi_airflow.dags.dag_util.airflow_util import xcom_pull_template
 from airflow.providers.amazon.aws.hooks.s3 import S3Hook
-from airflow.providers.amazon.aws.operators.s3 import S3ListOperator, S3FileTransformOperator
+from airflow.providers.amazon.aws.operators.s3 import S3ListOperator
 
 from operators.loop_s3_file_transform_operator import LoopS3FileTransformOperator
 
 from airflow import DAG
 
-from util import io_helpers
 import os
-
-logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
-
-# Load variables from Airflow config
-configs_dir = '/home/airflow/airflow/configs'
-airflow_configs_file = 'airflow_config.yml'
-airflow_configs = io_helpers.safe_load_yaml(configs_dir, airflow_configs_file)
-
-
-dag_params = airflow_configs.get('s3_to_snowflake_dags')
-if dag_params is None:
-    raise Exception(
-        "Necessary parameter `s3_to_snowflake_dags` is missing from the configs file!"
-    )
 
 class S3ToSnowflakeDag:
     """
@@ -229,23 +211,3 @@ class S3ToSnowflakeDag:
             )
 
             chain(*filter(None, task_order))  # Chain all defined operators into task-order.
-
-for tenant_code, data_sources in dag_params.items():
-    
-    for data_source, api_year_vars in data_sources.items():
-
-        for api_year, dag_vars in api_year_vars.items():
-
-            s3_to_snowflake_dag_id = f"s3_to_snowflake_{tenant_code}_{data_source}_{api_year}"
-
-            s3_to_snowflake_dag = S3ToSnowflakeDag(
-                    dag_id=s3_to_snowflake_dag_id,
-                    tenant_code=tenant_code,
-                    api_year=api_year,
-                    data_source=data_source,
-                    **dag_vars
-                )
-            
-            s3_to_snowflake_dag.build_s3_to_snowflake_dag()
-
-            globals()[s3_to_snowflake_dag.dag.dag_id] = s3_to_snowflake_dag.dag
