@@ -1,4 +1,5 @@
 import logging
+from functools import partial
 
 from airflow.contrib.operators.snowflake_operator import SnowflakeOperator
 from airflow.operators.python_operator import PythonOperator
@@ -7,13 +8,14 @@ from edu_edfi_airflow.dags.dag_util.airflow_util import xcom_pull_template
 from airflow.providers.amazon.aws.hooks.s3 import S3Hook
 from airflow.providers.amazon.aws.operators.s3 import S3ListOperator
 
+import ea_airflow_util.dags.dag_util.slack_callbacks as slack_callbacks
 from operators.loop_s3_file_transform_operator import LoopS3FileTransformOperator
 
 from airflow import DAG
 
 import os
 
-class S3ToSnowflakeDag:
+class S3ToSnowflakeDag():
     """
     This DAG transfers data from an S3 bucket location into the Snowflake raw data lake. It should be used when data sources
     are not available from an Ed-Fi ODS but need to be brought into the data warehouse.
