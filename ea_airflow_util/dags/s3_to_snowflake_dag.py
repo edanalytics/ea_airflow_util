@@ -43,8 +43,6 @@ class S3ToSnowflakeDag():
         self.tenant_code = tenant_code
         self.api_year = api_year
 
-        self.database = database
-        self.schema = schema
         self.data_source = data_source
         self.resource_names = resource_names
         
@@ -52,6 +50,8 @@ class S3ToSnowflakeDag():
         self.s3_dest_conn_id = s3_dest_conn_id
         self.transform_script = transform_script
         self.snowflake_conn_id = snowflake_conn_id
+        self.database = database
+        self.schema = schema
         self.slack_conn_id = slack_conn_id
         self.pool = pool
 
@@ -81,7 +81,6 @@ class S3ToSnowflakeDag():
         else:
             slack_sla_miss_callback = None
 
-        # If a Slack connection is defined, send a callback in the event of a DAG failure.
         return DAG(
             dag_id=dag_id,
             schedule_interval=schedule_interval,
@@ -101,7 +100,7 @@ class S3ToSnowflakeDag():
         # TODO: should we have FORCE=TRUE? this is useful if data have been deleted from raw & want to re-load
         # if so, add this line `on_error='continue', FORCE = TRUE`
         sql = f'''
-            copy into {self.database}.{self.schema}.{self.data_source}_{resource_name} (tenant_code, api_year, pull_date, pull_timestamp, file_row_number, filename, name, v)
+            copy into {self.database}.{self.schema}.{self.data_source}__{resource_name} (tenant_code, api_year, pull_date, pull_timestamp, file_row_number, filename, name, v)
             from (
                 select
                     split_part(metadata$filename, '/', 1) as tenant_code,
@@ -140,12 +139,13 @@ class S3ToSnowflakeDag():
         # datalake_prefix = os.path.join(self.tenant_code, 
         #                                str(self.api_year), 
         #                                '{{ ds_nodash }}',
-        #                                '{{ ts_nodash }}')
+        #                            ??  '{{ ts_nodash }}')  ??
  
         for resource_name in self.resource_names:
 
-            s3_source_prefix = os.path.join(self.data_source,
+            s3_source_prefix = os.path.join(self.tenant_code,
                                             str(self.api_year),
+                                            self.data_source,
                                             '{{ ds_nodash }}',
                                             resource_name)
             s3_source_hook = S3Hook(aws_conn_id=self.s3_source_conn_id)
@@ -173,7 +173,8 @@ class S3ToSnowflakeDag():
                     transform_script=self.transform_script,
                     source_aws_conn_id=self.s3_source_conn_id,
                     dest_aws_conn_id=self.s3_dest_conn_id,
-                    # TODO: should this always be true?
+                    # TODO: should this always be true? if false, and you are running an identically named file to a previous run (in same directory), the new file will be ignored
+                    # this most commonly impacts testing, will rarely occur in real time, unless you do mulitple dag runs per day?
                     replace=True,
                     dag=self.dag)
             else:
