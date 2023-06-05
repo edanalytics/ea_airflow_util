@@ -4,10 +4,10 @@ import logging
 from functools import partial
 
 from airflow import DAG
-from airflow.contrib.operators.snowflake_operator import SnowflakeOperator
 from airflow.operators.python_operator import PythonOperator
 from airflow.providers.amazon.aws.hooks.s3 import S3Hook
 from airflow.providers.amazon.aws.operators.s3 import S3ListOperator
+from airflow.providers.snowflake.hooks.snowflake import SnowflakeHook
 from airflow.utils.helpers import chain
 
 import ea_airflow_util.dags.dag_util.slack_callbacks as slack_callbacks
@@ -159,8 +159,6 @@ class S3ToSnowflakeDag():
                     task_id=f'delete_from_source_{resource_name}',
                     python_callable=self.delete_from_source,
                     op_kwargs={
-                        's3_source_hook'  : s3_source_hook,
-                        's3_source_bucket': s3_source_bucket,
                         's3_source_keys'  : xcom_pull_template(list_s3_objects.task_id)
                     },
                     dag=self.dag
@@ -204,21 +202,20 @@ class S3ToSnowflakeDag():
             )
         '''
 
-        copy_to_snowflake_raw = SnowflakeOperator(
-            task_id=f'copy_to_snowflake_raw',
-            snowflake_conn_id=self.snowflake_conn_id,
-            sql=sql
-        )
-        # todo ask jay if this operator within operator makes sense?
-        #   TODO: @Robbie it does not.
+        # Commit the copy query to Snowflake
+        snowflake_hook = SnowflakeHook(snowflake_conn_id=self.snowflake_conn_id)
+        cursor_log = snowflake_hook.run(sql=sql)
+
         # todo how to get log to show actual rows copied? right now it says "1 row affected" no matter what
-        copy_to_snowflake_raw.execute(dict())
+        logging.info(cursor_log)
 
 
-    @staticmethod
-    def delete_from_source(s3_source_hook, s3_source_bucket, s3_source_keys):
+    def delete_from_source(self, s3_source_keys):
         """
         Delete the object from the source bucket.
+        @Robbie: I think this will work, but we need to test it.
         """
+        s3_source_hook = S3Hook(aws_conn_id=self.s3_source_conn_id)
+
         logging.info('Deleting file from source s3')
-        s3_source_hook.delete_objects(bucket=s3_source_bucket, keys=s3_source_keys)
+        s3_source_hook.delete_objects(bucket=s3_source_hook.schema, keys=s3_source_keys)
