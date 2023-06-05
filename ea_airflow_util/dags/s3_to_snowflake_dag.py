@@ -137,17 +137,11 @@ class S3ToSnowflakeDag():
     def build_s3_to_snowflake_dag(self,
                                   **kwargs):
 
-        # todo: figure out what will happen if we run this dag twice in one day. will it break depending on the drop/replace logic?
-        # datalake_prefix = os.path.join(self.tenant_code, 
-        #                                str(self.api_year), 
-        #                                '{{ ds_nodash }}',
-        #                            ??  '{{ ts_nodash }}')  ??
- 
         for resource_name in self.resource_names:
 
             s3_source_prefix = os.path.join(self.tenant_code,
-                                            str(self.api_year),
                                             self.data_source,
+                                            str(self.api_year),
                                             '{{ ds_nodash }}',
                                             resource_name)
             s3_source_hook = S3Hook(aws_conn_id=self.s3_source_conn_id)
@@ -156,13 +150,14 @@ class S3ToSnowflakeDag():
             datalake_prefix = os.path.join(self.tenant_code, 
                                         str(self.api_year), 
                                         '{{ ds_nodash }}',
+                                        '{{ ts_nodash }}',
                                         resource_name)
             
             list_s3_objects = S3ListOperator(
                 task_id=f'list_s3_objects_{resource_name}',
                 bucket=s3_source_bucket,
                 prefix=s3_source_prefix,
-                delimiter='',
+                delimiter='/',
                 aws_conn_id=self.s3_source_conn_id,
                 dag=self.dag
             )
