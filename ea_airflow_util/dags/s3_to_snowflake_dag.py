@@ -33,6 +33,7 @@ class S3ToSnowflakeDag():
 
         s3_source_conn_id : str,
         s3_dest_conn_id : str,
+        dest_s3_file_extension: str,
         transform_script: str,
         slack_conn_id : str,
         snowflake_conn_id : str,
@@ -48,6 +49,7 @@ class S3ToSnowflakeDag():
         
         self.s3_source_conn_id = s3_source_conn_id
         self.s3_dest_conn_id = s3_dest_conn_id
+        self.dest_s3_file_extension = dest_s3_file_extension
         self.transform_script = transform_script
         self.snowflake_conn_id = snowflake_conn_id
         self.database = database
@@ -173,6 +175,8 @@ class S3ToSnowflakeDag():
                     transform_script=self.transform_script,
                     source_aws_conn_id=self.s3_source_conn_id,
                     dest_aws_conn_id=self.s3_dest_conn_id,
+                    # TODO: should this be configurable by resource? currently it's not
+                    dest_s3_file_extension=self.dest_s3_file_extension,
                     # TODO: should this always be true? if false, and you are running an identically named file to a previous run (in same directory), the new file will be ignored
                     # this most commonly impacts testing, will rarely occur in real time, unless you do mulitple dag runs per day?
                     replace=True,
