@@ -110,8 +110,6 @@ class S3ToSnowflakeDag():
                 self.tenant_code, str(self.api_year),
                 self.data_source, '{{ ds_nodash }}', resource_name
             )
-            s3_source_hook = S3Hook(aws_conn_id=self.s3_source_conn_id)
-            s3_source_bucket = s3_source_hook.get_connection(self.s3_source_conn_id).schema   
 
             datalake_prefix = os.path.join(
                 self.tenant_code, str(self.api_year),
@@ -120,7 +118,7 @@ class S3ToSnowflakeDag():
             
             list_s3_objects = S3ListOperator(
                 task_id=f'list_s3_objects_{resource_name}',
-                bucket=s3_source_bucket,
+                bucket='{{ conn.%s.schema }}' % self.s3_source_conn_id,  # Pass bucket as Jinja template to avoid Hook during DAG-init
                 prefix=s3_source_prefix,
                 delimiter='',
                 aws_conn_id=self.s3_source_conn_id,
