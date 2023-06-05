@@ -98,7 +98,7 @@ class S3ToSnowflakeDag():
         Copy raw data from data lake to data warehouse, including object metadata.
         """
         
-        logging.info(f"Copying from data lake to raw: {datalake_prefix}/{resource_name}")
+        logging.info(f"Copying from data lake to raw: {datalake_prefix}")
         # TODO: should we have FORCE=TRUE? this is useful if data have been deleted from raw & want to re-load
         # if so, add this line `on_error='continue', FORCE = TRUE`
         sql = f'''
@@ -113,7 +113,7 @@ class S3ToSnowflakeDag():
                     metadata$filename as filename,
                     '{resource_name}' as name,
                     t.$1 as v
-                from @{self.database}.util.airflow_stage/{datalake_prefix}/{resource_name}/
+                from @{self.database}.util.airflow_stage/{datalake_prefix}/
                 (file_format => 'json_default') t
             )
         '''
