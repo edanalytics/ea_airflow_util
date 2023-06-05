@@ -157,7 +157,7 @@ class S3ToSnowflakeDag():
                 task_id=f'list_s3_objects_{resource_name}',
                 bucket=s3_source_bucket,
                 prefix=s3_source_prefix,
-                delimiter='/',
+                delimiter='',
                 aws_conn_id=self.s3_source_conn_id,
                 dag=self.dag
             )
