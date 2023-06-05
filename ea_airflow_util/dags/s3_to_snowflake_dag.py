@@ -176,7 +176,7 @@ class S3ToSnowflakeDag():
                     source_aws_conn_id=self.s3_source_conn_id,
                     dest_aws_conn_id=self.s3_dest_conn_id,
                     # TODO: should this be configurable by resource? currently it's not
-                    s3_dest_file_extension=self.s3_dest_file_extension,
+                    dest_s3_file_extension=self.s3_dest_file_extension,
                     # TODO: should this always be true? if false, and you are running an identically named file to a previous run (in same directory), the new file will be ignored
                     # this most commonly impacts testing, will rarely occur in real time, unless you do mulitple dag runs per day?
                     replace=True,
