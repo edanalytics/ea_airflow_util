@@ -107,7 +107,7 @@ class LoopS3FileTransformOperator(BaseOperator):
                 #     "The source key {0} does not exist".format(source_s3_key))
                 self.log.info(f"{source_s3_key} does not exist")
                 continue
-            elif os.path.isdir(source_s3_key):
+            elif source_s3_key.endswith('/'):
                 self.log.info(f"{source_s3_key} is a directory, ignoring transfer")
                 continue
             source_s3_key_object = source_s3.get_key(source_s3_key)
