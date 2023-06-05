@@ -176,6 +176,7 @@ class S3ToSnowflakeDag():
 
             chain(*filter(None, task_order))  # Chain all defined operators into task-order.
 
+
     def copy_from_datalake_to_raw(self, resource_name, datalake_prefix):
         """
         Copy raw data from data lake to data warehouse, including object metadata.
@@ -189,8 +190,8 @@ class S3ToSnowflakeDag():
                 (tenant_code, api_year, pull_date, pull_timestamp, file_row_number, filename, name, v)
             from (
                 select
-                    split_part(metadata$filename, '/', 1) as tenant_code,
-                    split_part(metadata$filename, '/', 2) as api_year,
+                    '{self.tenant_code}' as tenant_code,
+                    '{self.api_year}' as api_year,
                     to_date(split_part(metadata$filename, '/', 3), 'YYYYMMDD') as pull_date,
                     to_timestamp(split_part(metadata$filename, '/', 4), 'YYYYMMDDTHH24MISS') as pull_timestamp,
                     metadata$file_row_number as file_row_number,
