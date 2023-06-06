@@ -132,6 +132,7 @@ class S3ToSnowflakeDag():
         Delete the object from the source bucket.
         """
         logging.info('Deleting file from source s3')
+        # TODO should we delete the full dated folder afterward? or leave it there as empty record that data were once there?
         s3_source_hook.delete_objects(bucket=s3_source_bucket, keys=s3_source_keys)
 
     def build_s3_to_snowflake_dag(self,
@@ -189,6 +190,7 @@ class S3ToSnowflakeDag():
                 dag=self.dag
             )
 
+            # TODO make optional
             # only delete from source if we transferred data to a different bucket
             if self.s3_dest_conn_id:
                 delete_from_source = PythonOperator(
