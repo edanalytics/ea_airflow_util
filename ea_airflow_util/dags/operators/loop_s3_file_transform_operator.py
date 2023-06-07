@@ -1,16 +1,19 @@
-from tempfile import NamedTemporaryFile
-import subprocess
-import sys
+import logging
 import os
 import pathlib
+import subprocess
+import sys
+
+from tempfile import NamedTemporaryFile
+from typing import List, Optional, Union
 
 from airflow.exceptions import AirflowException, AirflowSkipException
 from airflow.hooks.S3_hook import S3Hook
 from airflow.models import BaseOperator
 from airflow.utils.decorators import apply_defaults
 
+
 class LoopS3FileTransformOperator(BaseOperator):
-    template_fields = ('source_s3_keys', 'dest_s3_prefix', 'transform_script')
     """
     Copies data from a source S3 location to a temporary location on the
     local filesystem. Runs a transformation on this file as specified by
@@ -18,7 +21,7 @@ class LoopS3FileTransformOperator(BaseOperator):
     location.
 
     The locations of the source and the destination files in the local
-    filesystem is provided as an first and second arguments to the
+    filesystem is provided as first and second arguments to the
     transformation script. The transformation script is expected to read the
     data from source, transform it and write the output to the local
     destination file. The operator then takes over control and uploads the
@@ -53,72 +56,91 @@ class LoopS3FileTransformOperator(BaseOperator):
     :param select_expression: S3 Select expression
     :type select_expression: str
     """
-
+    template_fields = ('source_s3_keys', 'dest_s3_prefix', 'transform_script')
 
     @apply_defaults
-    def __init__(
-            self,
-            source_s3_keys = [],
-            dest_s3_prefix = '',
-            dest_s3_file_extension=None,
-            transform_script=None,
-            select_expression=None,
-            source_aws_conn_id='aws_default',
-            source_verify=None,
-            dest_aws_conn_id='aws_default',
-            dest_verify=None,
-            replace=False,
-            *args, **kwargs):
-        super(LoopS3FileTransformOperator, self).__init__(*args, **kwargs)
-        self.source_s3_keys = source_s3_keys
-        self.dest_s3_prefix = dest_s3_prefix
-        self.dest_s3_file_extension = dest_s3_file_extension
+    def __init__(self,
+        source_s3_keys: Optional[List[str]] = None,
+        dest_s3_prefix: Optional[str] = None,
+        dest_s3_file_extension: Optional[str] = None,
+
+        *,
+        transform_script: Optional[str] = None,
+        select_expression: Optional[str] = None,
+
+        source_aws_conn_id: str = 'aws_default',
+        source_verify: Optional[Union[bool, str]] = None,
+
+        dest_aws_conn_id: str = 'aws_default',
+        dest_verify: Optional[Union[bool, str]] = None,
+
+        replace: bool = False,
+
+        **kwargs
+    ):
+        super(LoopS3FileTransformOperator, self).__init__(**kwargs)
+
         self.source_aws_conn_id = source_aws_conn_id
+        self.source_s3_keys = source_s3_keys
         self.source_verify = source_verify
+
         self.dest_aws_conn_id = dest_aws_conn_id
+        self.dest_s3_prefix = dest_s3_prefix or ''
+        self.dest_s3_file_extension = dest_s3_file_extension
         self.dest_verify = dest_verify
-        self.replace = replace
+
         self.transform_script = transform_script
         self.select_expression = select_expression
+
+        self.replace = replace
         self.output_encoding = sys.getdefaultencoding()
 
+
     def execute(self, context):
-        if self.transform_script is None and self.select_expression is None:
+
+        ###
+        if not self.transform_script and not self.select_expression:
             raise AirflowException(
-                "Either transform_script or select_expression must be specified")
+                "Either `transform_script` or `select_expression` must be specified"
+            )
 
         if not self.source_s3_keys:
             raise AirflowSkipException(
                 "No files found in source S3 bucket to transfer"
             )
 
-        source_s3 = S3Hook(aws_conn_id=self.source_aws_conn_id,
-                           verify=self.source_verify)
-        dest_s3 = S3Hook(aws_conn_id=self.dest_aws_conn_id,
-                         verify=self.dest_verify)
+        ###
+        source_s3 = S3Hook(
+            aws_conn_id=self.source_aws_conn_id,
+            verify=self.source_verify
+        )
+        dest_s3 = S3Hook(
+            aws_conn_id=self.dest_aws_conn_id,
+            verify=self.dest_verify
+        )
 
+        ###
         transferred_keys = []
 
         for source_s3_key in self.source_s3_keys:
+            logging.info(f"Downloading source S3 file: {source_s3_key}")
 
-            self.log.info("Downloading source S3 file %s", source_s3_key)
+            #
             if not source_s3.check_for_key(source_s3_key):
-                # raise AirflowException(
-                #     "The source key {0} does not exist".format(source_s3_key))
-                self.log.info(f"{source_s3_key} does not exist")
+                logging.warning(f"{source_s3_key} does not exist")
                 continue
             elif source_s3_key.endswith('/'):
                 self.log.info(f"{source_s3_key} is a directory, ignoring transfer")
                 continue
             source_s3_key_object = source_s3.get_key(source_s3_key)
 
+            #
             with NamedTemporaryFile("wb") as f_source, NamedTemporaryFile("wb") as f_dest:
-                self.log.info(
-                    "Dumping S3 file %s contents to local file %s",
-                    source_s3_key, f_source.name
+                logging.info(
+                    f"Dumping S3 file {source_s3_key} contents to local file {f_source.name}"
                 )
 
-                if self.select_expression is not None:
+                if self.select_expression:
                     content = source_s3.select_key(
                         key=source_s3_key,
                         expression=self.select_expression
@@ -126,9 +148,11 @@ class LoopS3FileTransformOperator(BaseOperator):
                     f_source.write(content.encode("utf-8"))
                 else:
                     source_s3_key_object.download_fileobj(Fileobj=f_source)
-                f_source.flush()
 
-                if self.transform_script is not None:
+                f_source.flush()  #
+
+                ###
+                if self.transform_script:
                     process = subprocess.Popen(
                         [self.transform_script, f_source.name, f_dest.name],
                         stdout=subprocess.PIPE,
@@ -136,39 +160,42 @@ class LoopS3FileTransformOperator(BaseOperator):
                         close_fds=True
                     )
 
-                    self.log.info("Output:")
+                    logging.info("Output:")
                     for line in iter(process.stdout.readline, b''):
-                        self.log.info(line.decode(self.output_encoding).rstrip())
+                        logging.info(line.decode(self.output_encoding).rstrip())
 
-                    process.wait()
+                    process.wait()  #
 
                     if process.returncode > 0:
                         raise AirflowException(
-                            "Transform script failed: {0}".format(process.returncode)
+                            f"Transform script failed: {process.returncode}"
                         )
                     else:
-                        self.log.info(
-                            "Transform script successful. Output temporarily located at %s",
-                            f_dest.name
+                        logging.info(
+                            f"Transform script successful. Output temporarily located at {f_dest.name}"
                         )
 
+                ###
+                logging.info("Uploading transformed file to S3")
 
                 source_file_extension = pathlib.Path(source_s3_key).suffix
+
                 if not self.dest_s3_file_extension:
                     self.dest_s3_file_extension = source_file_extension
-                dest_s3_key = os.path.join(self.dest_s3_prefix,
-                                           source_s3_key.replace(source_file_extension,self.dest_s3_file_extension).split('/')[-1]
-                                           )
 
-                self.log.info("Uploading transformed file to S3")
-                f_dest.flush()
+                dest_s3_key = os.path.join(
+                    self.dest_s3_prefix,
+                    source_s3_key.replace(source_file_extension, self.dest_s3_file_extension).split('/')[-1]
+                )
+                f_dest.flush()  #
+
                 dest_s3.load_file(
                     filename=f_dest.name,
                     key=dest_s3_key,
                     replace=self.replace
                 )
-                self.log.info("Upload successful")
 
+                logging.info("Upload successful")
                 transferred_keys.append(dest_s3_key)
         
         return transferred_keys
