@@ -30,6 +30,7 @@ class S3ToSnowflakeDag():
         schema: str,
         data_source: str,
         resource_names: str,
+        do_delete_from_source: bool = True,
 
         s3_source_conn_id : str,
         s3_dest_conn_id : str,
@@ -46,6 +47,7 @@ class S3ToSnowflakeDag():
 
         self.data_source = data_source
         self.resource_names = resource_names
+        self.do_delete_from_source = do_delete_from_source
         
         self.s3_source_conn_id = s3_source_conn_id
         self.s3_dest_conn_id = s3_dest_conn_id
@@ -192,7 +194,7 @@ class S3ToSnowflakeDag():
 
             # TODO make optional
             # only delete from source if we transferred data to a different bucket
-            if self.s3_dest_conn_id:
+            if self.s3_dest_conn_id and self.do_delete_from_source:
                 delete_from_source = PythonOperator(
                     task_id=f'delete_from_source_{resource_name}',
                     python_callable=self.delete_from_source,
