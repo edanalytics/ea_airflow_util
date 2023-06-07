@@ -30,6 +30,7 @@ class S3ToSnowflakeDag():
         schema: str,
         data_source: str,
         resource_names: str,
+        #QUESTION should we have this or always delete when there's a source->dest transfer?
         do_delete_from_source: bool = True,
 
         s3_source_conn_id : str,
