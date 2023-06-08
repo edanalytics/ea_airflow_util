@@ -97,8 +97,7 @@ class S3ToSnowflakeDag():
             catchup=False,
             render_template_as_native_obj=True,
             max_active_runs=1,
-            sla_miss_callback=slack_sla_miss_callback,
-            **kwargs
+            sla_miss_callback=slack_sla_miss_callback
         )
 
     def build_s3_to_snowflake_dag(self, **kwargs):
@@ -149,7 +148,8 @@ class S3ToSnowflakeDag():
                 python_callable=self.copy_from_datalake_to_raw,
                 op_kwargs={
                     'resource_name': resource_name,
-                    'datalake_prefix': datalake_prefix
+                    'datalake_prefix': datalake_prefix,
+                    'full_replace': True
                 },
                 dag=self.dag
             )
@@ -179,15 +179,21 @@ class S3ToSnowflakeDag():
             chain(*filter(None, task_order))  # Chain all defined operators into task-order.
 
 
-    def copy_from_datalake_to_raw(self, resource_name, datalake_prefix):
+    def copy_from_datalake_to_raw(self, resource_name, datalake_prefix, full_replace):
         """
         Copy raw data from data lake to data warehouse, including object metadata.
         """
 
+        delete_sql = f'''
+            delete from {self.database}.{self.schema}.{self.data_source}__{resource_name}
+            where tenant_code = '{self.tenant_code}'
+              and api_year = '{self.api_year}'
+        '''
+
         logging.info(f"Copying from data lake to raw: {datalake_prefix}")
         # TODO: should we have FORCE=TRUE? this is useful if data have been deleted from raw & want to re-load
         # if so, add this line `on_error='continue', FORCE = TRUE`
-        sql = f'''
+        copy_sql = f'''
             copy into {self.database}.{self.schema}.{self.data_source}__{resource_name}
                 (tenant_code, api_year, pull_date, pull_timestamp, file_row_number, filename, name, v)
             from (
@@ -207,10 +213,15 @@ class S3ToSnowflakeDag():
 
         # Commit the copy query to Snowflake
         snowflake_hook = SnowflakeHook(snowflake_conn_id=self.snowflake_conn_id)
-        cursor_log = snowflake_hook.run(sql=sql)
+
+        if full_replace:
+            cursor_log_delete = snowflake_hook.run(sql=delete_sql)
+            logging.info(cursor_log_delete)
+
+        cursor_log_copy = snowflake_hook.run(sql=copy_sql)
 
         # todo how to get log to show actual rows copied? right now it says "1 row affected" no matter what
-        logging.info(cursor_log)
+        logging.info(cursor_log_copy)
 
 
     def delete_from_source(self, s3_source_keys):
@@ -222,4 +233,4 @@ class S3ToSnowflakeDag():
 
         logging.info('Deleting file from source s3')
         # TODO should we delete the full dated folder afterward? or leave it there as empty record that data were once there?
-        s3_source_hook.delete_objects(bucket=s3_source_hook.schema, keys=s3_source_keys)
+        s3_source_hook.delete_objects(bucket=s3_source_hook.get_connection(self.s3_source_conn_id).schema, keys=s3_source_keys)
