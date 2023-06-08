@@ -33,12 +33,16 @@ class S3ToSnowflakeDag():
         data_source: str,
         resource_names: str,
         transform_script: str,
-        #QUESTION should we have this or always delete when there's a source->dest transfer?
+        #QUESTION should we have this parameter, or always delete when there's a source->dest transfer?
         do_delete_from_source: bool = True,                                
                  
         s3_source_conn_id: str,
         s3_dest_conn_id: str,
         s3_dest_file_extension: str,
+
+        #QUESTION should this have a default?
+        #QUESTION is this appropriate as a dag-level param? or should it be by resource? (which would be harder to config but more flexible)
+        full_replace: str,
 
         slack_conn_id: str,
         pool: str,
@@ -60,6 +64,8 @@ class S3ToSnowflakeDag():
         self.s3_source_conn_id = s3_source_conn_id
         self.s3_dest_conn_id = s3_dest_conn_id
         self.s3_dest_file_extension = s3_dest_file_extension
+
+        self.full_replace = full_replace
         
         self.slack_conn_id = slack_conn_id
         self.pool = pool
@@ -149,7 +155,7 @@ class S3ToSnowflakeDag():
                 op_kwargs={
                     'resource_name': resource_name,
                     'datalake_prefix': datalake_prefix,
-                    'full_replace': True
+                    'full_replace': self.full_replace
                 },
                 dag=self.dag
             )
