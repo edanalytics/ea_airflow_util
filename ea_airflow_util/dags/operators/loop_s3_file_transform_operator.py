@@ -4,6 +4,7 @@ import sys
 
 from typing import List, Optional, Sequence, Union
 
+from airflow.exceptions import AirflowSkipException
 from airflow.models import BaseOperator
 from airflow.providers.amazon.aws.operators.s3 import S3FileTransformOperator
 
@@ -63,6 +64,12 @@ class LoopS3FileTransformOperator(S3FileTransformOperator, BaseOperator):
         Technically, monkey-patching class attributes in execute is a coding faux pas, but it allows us to utilize
         S3FileTransformOperator's execute as is without rebuilding it here from scratch.
         """
+        # Skip prematurely if no work to be done.
+        if not self.source_s3_keys:
+            raise AirflowSkipException(
+                "No files found in source S3 bucket to transfer"
+            )
+
         transferred_keys = []
 
         for source_s3_key in self.source_s3_keys:
