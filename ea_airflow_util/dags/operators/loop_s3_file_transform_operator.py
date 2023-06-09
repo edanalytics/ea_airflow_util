@@ -89,4 +89,5 @@ class LoopS3FileTransformOperator(S3FileTransformOperator, BaseOperator):
             super(S3FileTransformOperator).execute(context)
             transferred_keys.append(self.dest_s3_key)
 
-        return transferred_keys
+        # Filter out directories that were included in the listing.
+        return list(filter(lambda key: not key.endswith('/'), transferred_keys))
