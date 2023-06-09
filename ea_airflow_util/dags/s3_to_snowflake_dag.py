@@ -121,6 +121,7 @@ class S3ToSnowflakeDag():
                 resource_name
             )
             
+            ## List the s3 files from the source bucket
             list_s3_objects = S3ListOperator(
                 task_id=f'list_s3_objects_{resource_name}',
                 bucket='{{ conn.%s.schema }}' % self.s3_source_conn_id,  # Pass bucket as Jinja template to avoid Hook during DAG-init
@@ -130,6 +131,7 @@ class S3ToSnowflakeDag():
                 dag=self.dag
             )
 
+            ## Transfer from source to dest bucket, and run transform script
             if self.s3_dest_conn_id:
                 transfer_s3_to_s3 = LoopS3FileTransformOperator(
                     task_id=f'transfer_s3_to_s3_{resource_name}',
@@ -145,6 +147,7 @@ class S3ToSnowflakeDag():
             else:
                 transfer_s3_to_s3 = None
 
+            ## Copy data from dest bucket (data lake stage) to snowflake raw table
             copy_to_raw = PythonOperator(
                 task_id=f'copy_to_raw_{resource_name}',
                 python_callable=self.copy_from_datalake_to_raw,
@@ -156,6 +159,7 @@ class S3ToSnowflakeDag():
                 dag=self.dag
             )
 
+            ## Delete data from source bucket
             if self.s3_dest_conn_id and self.do_delete_from_source:
                 delete_from_source = PythonOperator(
                     task_id=f'delete_from_source_{resource_name}',
