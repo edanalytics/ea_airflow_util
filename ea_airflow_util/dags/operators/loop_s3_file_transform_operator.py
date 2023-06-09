@@ -41,7 +41,7 @@ class LoopS3FileTransformOperator(S3FileTransformOperator, BaseOperator):
         BaseOperator.__init__(self, **kwargs)
 
         self.source_aws_conn_id = source_aws_conn_id
-        self.source_s3_keys = source_s3_keys
+        self.source_s3_keys = list(filter(lambda key: not key.endswith('/'), source_s3_keys))  # Remove directories
         self.source_verify = source_verify
 
         self.dest_aws_conn_id = dest_aws_conn_id
@@ -89,5 +89,4 @@ class LoopS3FileTransformOperator(S3FileTransformOperator, BaseOperator):
             super(S3FileTransformOperator).execute(context)
             transferred_keys.append(self.dest_s3_key)
 
-        # Filter out directories that were included in the listing.
-        return list(filter(lambda key: not key.endswith('/'), transferred_keys))
+        return transferred_keys
