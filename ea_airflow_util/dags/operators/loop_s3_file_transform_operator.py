@@ -86,7 +86,7 @@ class LoopS3FileTransformOperator(S3FileTransformOperator):
                 source_s3_key.replace(source_file_extension, self.dest_s3_file_extension).split('/')[-1]
             )
 
-            super(S3FileTransformOperator).execute(context)
+            super().execute(context)
             transferred_keys.append(self.dest_s3_key)
 
         return transferred_keys
