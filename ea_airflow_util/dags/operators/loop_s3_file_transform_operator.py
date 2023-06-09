@@ -9,7 +9,7 @@ from airflow.models import BaseOperator
 from airflow.providers.amazon.aws.operators.s3 import S3FileTransformOperator
 
 
-class LoopS3FileTransformOperator(S3FileTransformOperator, BaseOperator):
+class LoopS3FileTransformOperator(S3FileTransformOperator):
     """
     This operator extends Airflow's built-in S3FileTransformOperator to iterate over multiple files.
     In addition, the new `dest_s3_file_extension` argument provides greater transparency in output type.
