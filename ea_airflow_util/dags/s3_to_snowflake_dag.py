@@ -33,16 +33,14 @@ class S3ToSnowflakeDag():
         data_source: str,
         resource_names: str,
         transform_script: str,
-        #QUESTION should we have this parameter, or always delete when there's a source->dest transfer?
         do_delete_from_source: bool = True,                                
                  
         s3_source_conn_id: str,
         s3_dest_conn_id: str,
         s3_dest_file_extension: str,
 
-        #QUESTION should this have a default?
-        #QUESTION is this appropriate as a dag-level param? or should it be by resource? (which would be harder to config but more flexible)
-        full_replace: str,
+        #TODO once on latest version of airflow, use dagrun parameter to allow full_replace runs even if not set here at dag level
+        full_replace: bool,
 
         slack_conn_id: str,
         pool: str,
@@ -140,10 +138,7 @@ class S3ToSnowflakeDag():
                     transform_script=self.transform_script,
                     source_aws_conn_id=self.s3_source_conn_id,
                     dest_aws_conn_id=self.s3_dest_conn_id,
-                    # TODO: should this be configurable by resource? currently it's not
                     dest_s3_file_extension=self.s3_dest_file_extension,
-                    # TODO: should this always be true? if false, and you are running an identically named file to a previous run (in same directory), the new file will be ignored
-                    # this most commonly impacts testing, will rarely occur in real time, unless you do mulitple dag runs per day?
                     replace=True,
                     dag=self.dag
                 )
@@ -161,8 +156,6 @@ class S3ToSnowflakeDag():
                 dag=self.dag
             )
 
-            # TODO make optional
-            # only delete from source if we transferred data to a different bucket
             if self.s3_dest_conn_id and self.do_delete_from_source:
                 delete_from_source = PythonOperator(
                     task_id=f'delete_from_source_{resource_name}',
@@ -198,8 +191,6 @@ class S3ToSnowflakeDag():
         '''
 
         logging.info(f"Copying from data lake to raw: {datalake_prefix}")
-        # TODO: should we have FORCE=TRUE? this is useful if data have been deleted from raw & want to re-load
-        # if so, add this line `on_error='continue', FORCE = TRUE`
         copy_sql = f'''
             copy into {self.database}.{self.schema}.{self.data_source}__{resource_name}
                 (tenant_code, api_year, pull_date, pull_timestamp, file_row_number, filename, name, v)
@@ -227,17 +218,16 @@ class S3ToSnowflakeDag():
 
         cursor_log_copy = snowflake_hook.run(sql=copy_sql)
 
-        # todo how to get log to show actual rows copied? right now it says "1 row affected" no matter what
+        #TODO look into ways to return copy metadata (n rows copied, n failures, etc.) right now it just says "1 row affected"
         logging.info(cursor_log_copy)
 
 
     def delete_from_source(self, s3_source_keys):
         """
         Delete the object from the source bucket.
-        @Robbie: I think this will work, but we need to test it.
         """
         s3_source_hook = S3Hook(aws_conn_id=self.s3_source_conn_id)
 
         logging.info('Deleting file from source s3')
-        # TODO should we delete the full dated folder afterward? or leave it there as empty record that data were once there?
+
         s3_source_hook.delete_objects(bucket=s3_source_hook.get_connection(self.s3_source_conn_id).schema, keys=s3_source_keys)
