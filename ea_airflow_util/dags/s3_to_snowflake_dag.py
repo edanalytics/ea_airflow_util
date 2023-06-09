@@ -215,8 +215,7 @@ class S3ToSnowflakeDag():
                     t.$1 as v
                 from @{self.database}.util.airflow_stage/{datalake_prefix}/
                 (file_format => 'json_default') t
-                FORCE=TRUE
-            )
+            ) FORCE=TRUE
         '''
 
         # Commit the copy query to Snowflake
