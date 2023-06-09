@@ -41,7 +41,7 @@ class LoopS3FileTransformOperator(S3FileTransformOperator):
         BaseOperator.__init__(self, **kwargs)
 
         self.source_aws_conn_id = source_aws_conn_id
-        self.source_s3_keys = list(filter(lambda key: not key.endswith('/'), source_s3_keys))  # Remove directories
+        self.source_s3_keys = source_s3_keys
         self.source_verify = source_verify
 
         self.dest_aws_conn_id = dest_aws_conn_id
@@ -64,6 +64,9 @@ class LoopS3FileTransformOperator(S3FileTransformOperator):
         Technically, monkey-patching class attributes in execute is a coding faux pas, but it allows us to utilize
         S3FileTransformOperator's execute as is without rebuilding it here from scratch.
         """
+        # Remove directories from the listing (must be done here to give XComs time to parse.
+        self.source_s3_keys = list(filter(lambda key: not key.endswith('/'), self.source_s3_keys))  # Remove directories
+
         # Skip prematurely if no work to be done.
         if not self.source_s3_keys:
             raise AirflowSkipException(
