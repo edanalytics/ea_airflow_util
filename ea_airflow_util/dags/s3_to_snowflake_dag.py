@@ -103,7 +103,8 @@ class S3ToSnowflakeDag():
             catchup=False,
             render_template_as_native_obj=True,
             max_active_runs=1,
-            sla_miss_callback=slack_sla_miss_callback
+            sla_miss_callback=slack_sla_miss_callback,
+            **kwargs
         )
 
     def build_s3_to_snowflake_dag(self, **kwargs):
