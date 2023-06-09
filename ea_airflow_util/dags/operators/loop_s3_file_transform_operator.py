@@ -37,7 +37,7 @@ class LoopS3FileTransformOperator(S3FileTransformOperator, BaseOperator):
         **kwargs
     ):
         # We need S3FileTransformOperator's execute, but cannot use its init due to differing datatypes.
-        super(BaseOperator, self).__init__(**kwargs)
+        BaseOperator.__init__(**kwargs)
 
         self.source_aws_conn_id = source_aws_conn_id
         self.source_s3_keys = source_s3_keys
