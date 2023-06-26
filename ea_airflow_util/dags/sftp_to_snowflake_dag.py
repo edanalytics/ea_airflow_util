@@ -6,7 +6,7 @@ from typing import Callable, Optional
 
 from airflow import DAG
 from airflow.operators.python_operator import PythonOperator
-from ea_sftp_plugin.hooks.sftp_hook import SFTPHook
+from ea_airflow_util.hooks.sftp_hook import SFTPHook
 from airflow.providers.amazon.aws.hooks.s3 import S3Hook
 from airflow.providers.snowflake.hooks.snowflake import SnowflakeHook
 from airflow.utils.helpers import chain
@@ -29,17 +29,17 @@ class SFTPToSnowflakeDag():
         sftp_conn_id: str,
         sftp_filepath: str,
         local_path: str,
-        file_pattern: str = None,
+        file_patterns: str = None,
 
         snowflake_conn_id: str,
         database: str,
         schema: str,
 
         data_source: str,
-        resource_name: str,
+        resource_names: str,
         transform_script: str,
         do_delete_from_source: bool = True,                                
-                 
+                    
         s3_dest_conn_id: str,
         s3_dest_file_extension: str,
 
@@ -57,14 +57,14 @@ class SFTPToSnowflakeDag():
         self.sftp_conn_id: sftp_conn_id
         self.sftp_filepath: sftp_filepath
         self.local_path: local_path
-        self.file_pattern = file_pattern
+        self.file_patterns = file_patterns
 
         self.snowflake_conn_id = snowflake_conn_id
         self.database = database
         self.schema = schema
 
         self.data_source = data_source
-        self.resource_name = resource_name
+        self.resource_names = resource_names
         self.transform_script = transform_script      
         self.do_delete_from_source = do_delete_from_source
 
@@ -72,7 +72,7 @@ class SFTPToSnowflakeDag():
         self.s3_dest_file_extension = s3_dest_file_extension
 
         self.full_replace = full_replace
-        
+
         self.slack_conn_id = slack_conn_id
         self.pool = pool
 
@@ -112,7 +112,39 @@ class SFTPToSnowflakeDag():
             sla_miss_callback=slack_sla_miss_callback,
             **kwargs
         )
+
     
+    def sftp_to_local_filepath(self, sftp_conn_id, sftp_filepath, file_pattern):
+
+        sftp_hook = SFTPHook(sftp_conn_id)
+
+        # If a directory, retrieve all files 
+        # TO DO: allow for nested directories
+        if sftp_hook.isdir(sftp_filepath):
+
+            if file_pattern:
+                file_list = sftp_hook.get_files_by_pattern(sftp_filepath, file_pattern)
+            
+            else:
+                file_list = sftp_hook.list_directory(sftp_filepath)
+
+            for file in file_list:
+                full_path = os.path.join(sftp_filepath, file)
+                local_full_path = os.path.join(self.local_path, file)
+
+                sftp_hook.retrieve_file(
+                    remote_full_path=full_path,
+                    local_full_path=local_full_path
+                )
+
+        # Otherwise, retrieve the single file
+        else:
+            sftp_hook.retrieve_file(
+                remote_full_path=sftp_filepath,
+                local_full_path=self.local_path
+            )   
+    
+
     def build_python_preprocessing_operator(self,
         python_callable: Callable,
         **kwargs
@@ -135,118 +167,79 @@ class SFTPToSnowflakeDag():
             dag=self.dag
         )
 
+    
     def build_sftp_to_snowflake_dag(self, **kwargs):
 
-        ## Copy data from SFTP to disk
-        sftp_to_local = PythonOperator(
-            task_id=f'sftp_to_local_{self.resource_name}',
-            python_callable=sftp_to_local,
-            op_kwargs={
-                'sftp_conn_id': self.sftp_conn_id,
-                'sftp_filepath': self.sftp_filepath,
-                'local_path': self.local_path
-            },
-            provide_context=True,
-            pool=self.pool,
-            dag=self.dag
-        )
+        for resource_name, file_pattern in zip(self.resource_names, self.file_patterns):
 
-        # ## Optional Python preprocessing step
-        # if python_callable:
-        #     python_preprocess = PythonOperator(
-        #         task_id=f'preprocess_python_{resource_name}',
-        #         python_callable=python_callable,
-        #         op_kwargs=python_kwargs or {},
-        #         provide_context=True,
-        #         pool=self.pool,
-        #         dag=self.dag
-        #     )
-        # else:
-        #     python_preprocess = None
+            ## Copy data from SFTP to disk
+            sftp_to_local = PythonOperator(
+                task_id=f'sftp_to_local_{resource_name}',
+                python_callable=self.sftp_to_local_filepath,
+                op_kwargs={
+                    'sftp_conn_id': self.sftp_conn_id,
+                    'sftp_filepath': self.sftp_filepath,
+                    'file_pattern': file_pattern
+                },
+                pool=self.pool,
+                dag=self.dag
+            )
 
-        # ## Copy from disk to S3 data lake stage and optionally delete local data
-        # local_to_s3 = PythonOperator(
-        #     task_id=f'local_to_s3_{resource_name}',
-        #     python_callable=local_filepath_to_s3,
-        #     op_kwargs={
-        #         's3_conn_id': s3_conn_id,
-        #         's3_destination_key': s3_raw_filepath,
-        #         'local_filepath': airflow_util.xcom_pull_template(python_preprocess.task_id) if python_preprocess else raw_dir,
-        #         'remove_local_filepath': False,
-        #     },
-        #     provide_context=True,
-        #     pool=self.pool,
-        #     dag=self.dag
-        # )
+            # ## Optional Python preprocessing step
+            # if python_callable:
+            #     python_preprocess = PythonOperator(
+            #         task_id=f'preprocess_python_{resource_name}',
+            #         python_callable=python_callable,
+            #         op_kwargs=python_kwargs or {},
+            #         provide_context=True,
+            #         pool=self.pool,
+            #         dag=self.dag
+            #     )
+            # else:
+            #     python_preprocess = None
 
-        # ## Copy data from dest bucket (data lake stage) to snowflake raw table
-        # datalake_prefix = os.path.join(
-        #     self.tenant_code, str(self.api_year),
-        #     '{{ ds_nodash }}', '{{ ts_nodash }}',
-        #     resource_name
-        # )
+            # ## Copy from disk to S3 data lake stage and optionally delete local data
+            # local_to_s3 = PythonOperator(
+            #     task_id=f'local_to_s3_{resource_name}',
+            #     python_callable=local_filepath_to_s3,
+            #     op_kwargs={
+            #         's3_conn_id': s3_conn_id,
+            #         's3_destination_key': s3_raw_filepath,
+            #         'local_filepath': airflow_util.xcom_pull_template(python_preprocess.task_id) if python_preprocess else raw_dir,
+            #         'remove_local_filepath': False,
+            #     },
+            #     provide_context=True,
+            #     pool=self.pool,
+            #     dag=self.dag
+            # )
 
-        # copy_to_raw = PythonOperator(
-        #     task_id=f'copy_to_raw_{resource_name}',
-        #     python_callable=self.copy_from_datalake_to_raw,
-        #     op_kwargs={
-        #         'resource_name': resource_name,
-        #         'datalake_prefix': datalake_prefix,
-        #         'full_replace': self.full_replace
-        #     },
-        #     dag=self.dag
-        # )
+            # ## Copy data from dest bucket (data lake stage) to snowflake raw table
+            # datalake_prefix = os.path.join(
+            #     self.tenant_code, str(self.api_year),
+            #     '{{ ds_nodash }}', '{{ ts_nodash }}',
+            #     resource_name
+            # )
 
-        ### Default route: SFTP to local -> Transform -> Local to S3 -> Copy to raw -> Delete from source
-        task_order = (
-            sftp_to_local#,
-            # python_preprocess,
-            # local_to_s3,
-            # copy_to_raw
-        )
+            # copy_to_raw = PythonOperator(
+            #     task_id=f'copy_to_raw_{resource_name}',
+            #     python_callable=self.copy_from_datalake_to_raw,
+            #     op_kwargs={
+            #         'resource_name': resource_name,
+            #         'datalake_prefix': datalake_prefix,
+            #         'full_replace': self.full_replace
+            #     },
+            #     dag=self.dag
+            # )
 
-        chain(*filter(None, task_order))  # Chain all defined operators into task-order.
-    
-    def sftp_to_local(
-        sftp_conn_id: str,
-        sftp_filepath: str,
-        local_path: str,
-        file_pattern: Optional[str] = None
-    ):
-        """
-        :param sftp_conn_id:
-        :param sftp_filepath:
-        :param local_path:
-        :param file_pattern: If provided, files will be retrieved from the sftp_filepath based on the given fnmatch type pattern
-        :return:
-        """
-        sftp_hook = SFTPHook(sftp_conn_id)
+            ### Default route: SFTP to local -> Transform -> Local to S3 -> Copy to raw -> Delete from source
+            task_order = (
+                sftp_to_local#,
+                # python_preprocess,
+                # local_to_s3,
+                # copy_to_raw
+            )
 
-        # If a directory, retrieve all files 
-        # TO DO: allow for nested directories
-        if sftp_hook.isdir(sftp_filepath):
-
-            if file_pattern:
-                file_list = sftp_hook.get_files_by_pattern(sftp_filepath, file_pattern)
-            
-            else:
-                file_list = sftp_hook.list_directory(sftp_filepath)
-
-            for file in file_list:
-                full_path = os.path.join(sftp_filepath, file)
-                local_full_path = os.path.join(local_path, file)
-
-                sftp_hook.retrieve_file(
-                    remote_full_path=full_path,
-                    local_full_path=local_full_path
-                )
-
-        # Otherwise, retrieve the single file
-        else:
-            sftp_hook.retrieve_file(
-                remote_full_path=sftp_filepath,
-                local_full_path=local_path
-            )  
+            #chain(*filter(None, task_order))  # Chain all defined operators into task-order.
 
     
     def local_filepath_to_s3(
