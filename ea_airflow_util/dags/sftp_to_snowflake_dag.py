@@ -1,5 +1,6 @@
 import os
 import logging
+import shutil
 from functools import partial
 from typing import Optional
 
@@ -12,7 +13,7 @@ from airflow.providers.snowflake.hooks.snowflake import SnowflakeHook
 from airflow.exceptions import AirflowSkipException
 
 import ea_airflow_util.dags.dag_util.slack_callbacks as slack_callbacks
-from  .dags.dag_util.xcom_util import xcom_pull_template
+from .dag_util.xcom_util import xcom_pull_template
 
 
 class SFTPToSnowflakeDag():
@@ -32,7 +33,6 @@ class SFTPToSnowflakeDag():
         file_pattern: str,
 
         local_base_path: str,
-        do_delete_from_local: bool, 
 
         s3_conn_id: str,
         s3_dest_file_extension: str,  
@@ -46,7 +46,7 @@ class SFTPToSnowflakeDag():
         pool: str,
 
         transform_script: Optional[str] = None,
-        transform_script_args: Optional[str] = None, 
+        do_delete_from_local: Optional[bool] = False, #TODO not yet set up to delete everything from local path 
 
         **kwargs
     ) -> None:
@@ -60,7 +60,6 @@ class SFTPToSnowflakeDag():
         self.file_pattern = file_pattern
 
         self.local_base_path = local_base_path
-        self.do_delete_from_local = do_delete_from_local
 
         self.s3_conn_id = s3_conn_id
         self.s3_dest_file_extension = s3_dest_file_extension
@@ -74,7 +73,7 @@ class SFTPToSnowflakeDag():
         self.pool = pool
 
         self.transform_script = transform_script 
-        self.transform_script_args = transform_script_args
+        self.do_delete_from_local = do_delete_from_local
 
         self.dag = self.initialize_dag(**kwargs)
 
@@ -145,7 +144,7 @@ class SFTPToSnowflakeDag():
         )
 
         if self.transform_script:
-            transform_bash_command = f'python {self.transform_script} {raw_dir} {processed_dir}',
+            transform_bash_command = f'python {self.transform_script} {raw_dir} {processed_dir}'
             source_dir = processed_dir
         else:
             transform_bash_command = self.skip_transform_step
@@ -153,7 +152,7 @@ class SFTPToSnowflakeDag():
 
         ## Optional Python preprocessing step
         python_transformation = BashOperator(
-            task_id=f'preprocess_python_{self.resource_name}',
+            task_id=f'python_transformation_{self.resource_name}',
             bash_command=transform_bash_command,
             pool=self.pool,
             dag=self.dag
@@ -194,12 +193,10 @@ class SFTPToSnowflakeDag():
 
     def create_local_directories(self):
         local_path = os.path.join(self.local_base_path, self.tenant_code, self.resource_name)
+        subdirs = ['raw', 'processed']
 
-        local_raw_path = os.path.join(local_path, 'raw')
-        os.makedirs(os.path.dirname(local_raw_path), exist_ok=True)
-
-        local_processed_path = os.path.join(local_path, 'processed')
-        os.makedirs(os.path.dirname(local_processed_path), exist_ok=True)
+        for dir_name in subdirs:
+            os.makedirs(os.path.join(local_path, dir_name), exist_ok=True)
 
         return local_path
     
@@ -207,8 +204,7 @@ class SFTPToSnowflakeDag():
     def sftp_to_local_filepath(self, local_path):
         """
 
-        :param resource_name:
-        :param file_pattern:        
+        :param local_path:     
         :return:
         """        
         sftp_hook = SFTPHook(self.sftp_conn_id)
@@ -292,7 +288,7 @@ class SFTPToSnowflakeDag():
                 logging.info(f"Removing temporary files written to `{local_filepath}`")
                 try:
                     if os.path.isdir(local_filepath):
-                        os.rmdir(local_filepath)
+                        shutil.rmtree(local_filepath)
                     else:
                         os.remove(local_filepath)
                 except FileNotFoundError:
