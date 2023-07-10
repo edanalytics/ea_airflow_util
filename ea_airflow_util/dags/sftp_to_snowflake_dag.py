@@ -115,11 +115,6 @@ class SFTPToSnowflakeDag():
         
     
     def build_sftp_to_snowflake_dag(self):
-        """
-        
-
-        :return:
-        """
         
         ## Create local directories for raw and transformed data
         create_local_dir = PythonOperator(
@@ -143,6 +138,8 @@ class SFTPToSnowflakeDag():
             dag=self.dag
         )
 
+        ## If a transformation script was provided, define the bash command to call it with the source and destination directories as arguments
+        ## Otherwise, call a function to skip this task and use the raw directory as the source for the loading step
         if self.transform_script:
             transform_bash_command = f'python {self.transform_script} {raw_dir} {processed_dir}'
             source_dir = processed_dir
@@ -150,7 +147,6 @@ class SFTPToSnowflakeDag():
             transform_bash_command = self.skip_transform_step
             source_dir = raw_dir
 
-        ## Optional Python preprocessing step
         python_transformation = BashOperator(
             task_id=f'python_transformation_{self.resource_name}',
             bash_command=transform_bash_command,
@@ -192,6 +188,12 @@ class SFTPToSnowflakeDag():
 
 
     def create_local_directories(self):
+        """
+        Creates subdirectories for raw and processed data at a provided local path.
+
+        :param local_path:     
+        :return:
+        """        
         local_path = os.path.join(self.local_base_path, self.tenant_code, self.resource_name)
         subdirs = ['raw', 'processed']
 
@@ -203,14 +205,16 @@ class SFTPToSnowflakeDag():
 
     def sftp_to_local_filepath(self, local_path):
         """
+        Copies a file or directory from an SFTP to a local directory. If a file pattern has been 
+        copies only matching files. 
 
         :param local_path:     
         :return:
         """        
         sftp_hook = SFTPHook(self.sftp_conn_id)
 
-        # If a directory, retrieve all files 
-        # TO DO: allow for nested directories
+        # If a directory, retrieve all files or only those which match a provided file pattern
+        # TODO allow for nested directories
         if sftp_hook.isdir(self.sftp_filepath):
 
             if self.file_pattern:
@@ -243,11 +247,20 @@ class SFTPToSnowflakeDag():
 
 
     def skip_transform_step():
+        """
+        Used to bypass the optional Python transformation step with a SkipException.
+            
+        :return:
+        """ 
         raise AirflowSkipException
     
 
     def local_filepath_to_s3(self, local_filepath, s3_destination_key):
         """
+        Copies data from a file or directory to S3.
+        
+        TODO currently only deletes everything from the filepath provided (which makes sense)
+        but if this is a separate subfolder for processed data, raw data will remain in the parent folder.
 
         :param local_filepath:
         :param s3_destination_key:       
