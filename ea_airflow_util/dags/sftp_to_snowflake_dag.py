@@ -121,8 +121,8 @@ class SFTPToSnowflakeDag():
         )
 
         parent_dir = xcom_pull_template(create_local_dir.task_id)
-        raw_dir = os.path.join(xcom_pull_template(parent_dir), 'raw')
-        processed_dir = os.path.join(xcom_pull_template(parent_dir), 'processed')
+        raw_dir = os.path.join(parent_dir, 'raw')
+        processed_dir = os.path.join(parent_dir, 'processed')
 
         ## Copy data from SFTP to local raw directory
         sftp_to_local = PythonOperator(
