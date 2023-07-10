@@ -46,7 +46,7 @@ class SFTPToSnowflakeDag():
         pool: str,
 
         transform_script: Optional[str] = None,
-        do_delete_from_local: Optional[bool] = False, #TODO not yet set up to delete everything from local path 
+        do_delete_from_local: Optional[bool] = False,
 
         **kwargs
     ) -> None:
@@ -124,10 +124,11 @@ class SFTPToSnowflakeDag():
             dag=self.dag
         )
 
-        raw_dir = os.path.join(xcom_pull_template(create_local_dir.task_id), 'raw')
-        processed_dir = os.path.join(xcom_pull_template(create_local_dir.task_id), 'processed')
+        parent_dir = xcom_pull_template(create_local_dir.task_id)
+        raw_dir = os.path.join(xcom_pull_template(parent_dir), 'raw')
+        processed_dir = os.path.join(xcom_pull_template(parent_dir), 'processed')
 
-        ## Copy data from SFTP to disk
+        ## Copy data from SFTP to local raw directory
         sftp_to_local = PythonOperator(
             task_id=f'sftp_to_local_{self.resource_name}',
             python_callable=self.sftp_to_local_filepath,
@@ -166,7 +167,8 @@ class SFTPToSnowflakeDag():
             python_callable=self.local_filepath_to_s3,
             op_kwargs={
                 'local_filepath': source_dir,
-                's3_destination_key': datalake_prefix
+                's3_destination_key': datalake_prefix,
+                'parent_to_delete': parent_dir
             },
             provide_context=True,
             pool=self.pool,
@@ -255,12 +257,9 @@ class SFTPToSnowflakeDag():
         raise AirflowSkipException
     
 
-    def local_filepath_to_s3(self, local_filepath, s3_destination_key):
+    def local_filepath_to_s3(self, local_filepath, s3_destination_key, parent_to_delete):
         """
-        Copies data from a file or directory to S3.
-        
-        TODO currently only deletes everything from the filepath provided (which makes sense)
-        but if this is a separate subfolder for processed data, raw data will remain in the parent folder.
+        Copies data from a file or directory to S3 and deletes local files if specified.
 
         :param local_filepath:
         :param s3_destination_key:       
@@ -298,12 +297,9 @@ class SFTPToSnowflakeDag():
         # Regardless, delete the local files if specified.
         finally:
             if self.do_delete_from_local:
-                logging.info(f"Removing temporary files written to `{local_filepath}`")
+                logging.info(f"Removing temporary files written to `{parent_to_delete}`")
                 try:
-                    if os.path.isdir(local_filepath):
-                        shutil.rmtree(local_filepath)
-                    else:
-                        os.remove(local_filepath)
+                    shutil.rmtree(parent_to_delete)
                 except FileNotFoundError:
                     pass
 
