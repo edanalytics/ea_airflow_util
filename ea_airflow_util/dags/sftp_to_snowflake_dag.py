@@ -35,8 +35,6 @@ class SFTPToSnowflakeDag():
         local_base_path: str,
 
         s3_conn_id: str,
-        s3_dest_file_extension: str,  
-        
         snowflake_conn_id: str,
         database: str,
         schema: str,                   
@@ -62,8 +60,6 @@ class SFTPToSnowflakeDag():
         self.local_base_path = local_base_path
 
         self.s3_conn_id = s3_conn_id
-        self.s3_dest_file_extension = s3_dest_file_extension
-
         self.snowflake_conn_id = snowflake_conn_id
         self.database = database
         self.schema = schema
