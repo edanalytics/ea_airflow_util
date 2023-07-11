@@ -136,12 +136,12 @@ class SFTPToSnowflakeDag():
         )
 
         ## If a transformation script was provided, define the bash command to call it with the source and destination directories as arguments
-        ## Otherwise, call a function to skip this task and use the raw directory as the source for the loading step
+        ## Otherwise, use a bash exit code 99 to skip this task and use the raw directory as the source for the loading step
         if self.transform_script:
             transform_bash_command = f'python {self.transform_script} {raw_dir} {processed_dir}'
             source_dir = processed_dir
         else:
-            transform_bash_command = self.skip_transform_step
+            transform_bash_command = 'exit 99'
             source_dir = raw_dir
 
         python_transformation = BashOperator(
@@ -242,15 +242,6 @@ class SFTPToSnowflakeDag():
                 remote_full_path=self.sftp_filepath,
                 local_full_path=local_full_path
             )   
-
-
-    def skip_transform_step():
-        """
-        Used to bypass the optional Python transformation step with a SkipException.
-            
-        :return:
-        """ 
-        raise AirflowSkipException
     
 
     def local_filepath_to_s3(self, local_filepath, s3_destination_key, parent_to_delete):
