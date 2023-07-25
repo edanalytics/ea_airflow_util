@@ -7,7 +7,7 @@ from typing import Optional
 from airflow import DAG
 from airflow.operators.python_operator import PythonOperator
 from airflow.operators.bash_operator import BashOperator
-from ea_airflow_util.hooks.sftp_hook import SFTPHook
+from airflow.providers.sftp.hooks.sftp import SFTPHook
 from airflow.providers.amazon.aws.hooks.s3 import S3Hook
 from airflow.providers.snowflake.hooks.snowflake import SnowflakeHook
 from airflow.exceptions import AirflowSkipException
@@ -35,6 +35,13 @@ class SFTPToSnowflakeDag():
         pool: str,
 
         do_delete_from_local: Optional[bool] = False,
+
+        #These parameters can be passed on initialization or when calling the build_tenant_year_resource_taskgroup function, depending on where they are specified in the config
+        sftp_conn_id: Optional[str] = None,
+        sftp_filepath: Optional[str] = None,
+        file_pattern: Optional[str] = None,
+        local_base_path: Optional[str] = None,
+        transform_script: Optional[str] = None,
 
         **kwargs
     ) -> None:
@@ -89,7 +96,7 @@ class SFTPToSnowflakeDag():
         )
         
     
-    def build_sftp_to_snowflake_dag(self,
+    def build_tenant_year_resource_taskgroup(self,
         tenant_code: str,
         api_year: int,
         resource_name: str,
@@ -173,7 +180,6 @@ class SFTPToSnowflakeDag():
                     's3_destination_key': datalake_prefix,
                     'parent_to_delete': parent_dir
                 },
-                provide_context=True,
                 pool=self.pool,
                 dag=self.dag
             )
@@ -199,7 +205,6 @@ class SFTPToSnowflakeDag():
                 op_kwargs={
                     'parent_to_delete': parent_dir
                 },
-                provide_context=True,
                 pool=self.pool,
                 dag=self.dag
             )
@@ -216,7 +221,8 @@ class SFTPToSnowflakeDag():
         :param local_path:     
         :return:
         """        
-        local_path = os.path.join(local_base_path, tenant_code, api_year, resource_name)
+
+        local_path = os.path.join(local_base_path, tenant_code, str(api_year), resource_name)
         subdirs = ['raw', 'processed']
 
         for dir_name in subdirs:
