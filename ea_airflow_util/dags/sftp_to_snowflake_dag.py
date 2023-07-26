@@ -24,7 +24,7 @@ class SFTPToSnowflakeDag():
 
     """
     def __init__(self,
-        data_source: str,
+        domain: str,
         s3_conn_id: str,
         snowflake_conn_id: str,
         database: str,
@@ -45,7 +45,7 @@ class SFTPToSnowflakeDag():
 
         **kwargs
     ) -> None:
-        self.data_source = data_source
+        self.domain = domain
         self.s3_conn_id = s3_conn_id
         self.snowflake_conn_id = snowflake_conn_id
         self.database = database
@@ -321,14 +321,14 @@ class SFTPToSnowflakeDag():
         :return:
         """
         delete_sql = f'''
-            delete from {self.database}.{self.schema}.{self.data_source}__{resource_name}
+            delete from {self.database}.{self.schema}.{self.domain}__{resource_name}
             where tenant_code = '{tenant_code}'
               and api_year = '{api_year}'
         '''
 
         logging.info(f"Copying from data lake to raw: {datalake_prefix}")
         copy_sql = f'''
-            copy into {self.database}.{self.schema}.{self.data_source}__{resource_name}
+            copy into {self.database}.{self.schema}.{self.domain}__{resource_name}
                 (tenant_code, api_year, pull_date, pull_timestamp, file_row_number, filename, name, v)
             from (
                 select
