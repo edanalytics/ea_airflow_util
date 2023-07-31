@@ -10,12 +10,13 @@ from typing import Optional
 import ea_airflow_util.dags.dag_util.slack_callbacks as slack_callbacks
 
 from airflow import DAG
+from airflow.operators.python import PythonOperator
 from airflow.utils.task_group import TaskGroup
 
 from airflow_dbt.operators.dbt_operator import DbtRunOperator, DbtSeedOperator, DbtTestOperator
 
 from .operators.dbt_operators import DbtRunOperationOperator
-from .operators.variable import build_variable_check_operator, build_variable_update_operator
+from .callables.variable import check_variable, update_variable
 
 
 class RunDbtDag():
@@ -80,14 +81,25 @@ class RunDbtDag():
 
         # Build operators to check the value of the DBT var at the start and reset it at the end.
         if self.dbt_incrementer_var:
-            self.dbt_var_check_operator = build_variable_check_operator(
-                self.dbt_incrementer_var, lambda x: int(x) > 0,
-                task_id='check_dbt_variable', dag=self.dag
+            self.dbt_var_check_operator = PythonOperator(
+                task_id='check_dbt_variable',
+                python_callable=check_variable,
+                op_kwargs={
+                    'var': self.dbt_incrementer_var,
+                    'condition': lambda x: int(x) > 0,
+                },
+                dag=self.dag
             )
 
-            self.dbt_var_reset_operator = build_variable_update_operator(
-                self.dbt_incrementer_var, 0,
-                task_id='reset_dbt_variable', trigger_rule='none_skipped', dag=self.dag
+            self.dbt_var_reset_operator = PythonOperator(
+                task_id='reset_dbt_variable',
+                python_callable=update_variable,
+                op_kwargs={
+                    'var': self.dbt_incrementer_var,
+                    'value': 0,
+                },
+                trigger_rule='none_skipped',
+                dag=self.dag
             )
 
         else:
