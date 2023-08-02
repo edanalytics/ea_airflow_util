@@ -46,7 +46,7 @@ class SSMParameterStore:
         self._ttl = ttl
 
         default_config = Config(connect_timeout=5, read_timeout=60, retries={'max_attempts': 5})
-        self._client = ssm_client or boto3.client('ssm', default_config, region_name=region_name)
+        self._client = ssm_client or boto3.client('ssm', region_name=region_name, config=default_config)
 
     def get(self, name: str, **kwargs):
         assert name, 'Name can not be empty'
