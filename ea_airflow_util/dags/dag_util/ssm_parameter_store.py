@@ -26,6 +26,8 @@ import boto3
 import datetime
 from typing import Optional
 
+from botocore.config import Config
+
 
 class SSMParameterStore:
     """
@@ -39,11 +41,12 @@ class SSMParameterStore:
         ttl        : Optional[bool] = None
     ) -> None:
         self._prefix = (prefix or '').rstrip('/') + '/'
-        self._client = ssm_client or boto3.client('ssm', region_name=region_name)
         self._keys = None
         self._substores = {}
         self._ttl = ttl
 
+        default_config = Config(connect_timeout=5, read_timeout=60, retries={'max_attempts': 5})
+        self._client = ssm_client or boto3.client('ssm', default_config, region_name=region_name)
 
     def get(self, name: str, **kwargs):
         assert name, 'Name can not be empty'
