@@ -28,7 +28,6 @@ class SFTPToSnowflakeDag():
         snowflake_conn_id: str,
         database: str,
         schema: str,                   
-        full_replace: bool, #TODO once on latest version of airflow, use dagrun parameter to allow full_replace runs even if not set here at dag level
 
         slack_conn_id: str,
         pool: str,
@@ -42,6 +41,7 @@ class SFTPToSnowflakeDag():
         file_pattern: Optional[str] = None,
         local_base_path: Optional[str] = None,
         transform_script: Optional[str] = None,
+        full_replace: Optional[bool] = False,  #TODO once on latest version of airflow, use dagrun parameter to allow full_replace runs even if not set here at dag level
 
         **kwargs
     ) -> None:
@@ -49,7 +49,6 @@ class SFTPToSnowflakeDag():
         self.snowflake_conn_id = snowflake_conn_id
         self.database = database
         self.schema = schema
-        self.full_replace = full_replace
 
         self.slack_conn_id = slack_conn_id
         self.pool = pool
@@ -105,8 +104,9 @@ class SFTPToSnowflakeDag():
         sftp_filepath: str,
         file_pattern: str,
         local_base_path: str,
+        full_replace: bool,
         transform_script: Optional[str] = None,
-
+        
         **kwargs
     ):
 
@@ -118,22 +118,20 @@ class SFTPToSnowflakeDag():
         ) as tenant_year_task_group:
         
             ## Create local directories for raw and transformed data
+            local_date_path = os.path.join(local_base_path, tenant_code, str(api_year), '{{ ds_nodash }}', '{{ ts_nodash }}', resource_name)
+
             create_local_dir = PythonOperator(
                 task_id=f'{taskgroup_grain}_create_local_dir',
                 python_callable=self.create_local_directories,
                 op_kwargs={
-                    'local_base_path': local_base_path,
-                    'tenant_code': tenant_code,
-                    'api_year': api_year,
-                    'resource_name': resource_name
+                    'local_date_path': local_date_path
                 },
                 pool=self.pool,
                 dag=self.dag
             )
 
-            parent_dir = xcom_pull_template(create_local_dir.task_id)
-            raw_dir = os.path.join(parent_dir, 'raw')
-            processed_dir = os.path.join(parent_dir, 'processed')
+            raw_dir = os.path.join(local_date_path, 'raw')
+            processed_dir = os.path.join(local_date_path, 'processed')
 
             ## Copy data from SFTP to local raw directory
             sftp_to_local = PythonOperator(
@@ -151,6 +149,9 @@ class SFTPToSnowflakeDag():
 
             ## If a transformation script was provided, define the bash command to call it with the source and destination directories as arguments
             ## Otherwise, use a bash exit code 99 to skip this task and use the raw directory as the source for the loading step
+            ##
+            ## This step uses a BashOperator to allow for the transformation script to be customized and stored in a separate repo.
+            ## The PythonOperator requires the callable to be imported from a package/module
             if transform_script:
                 transform_bash_command = f'python {transform_script} {raw_dir} {processed_dir}'
                 source_dir = processed_dir
@@ -165,20 +166,16 @@ class SFTPToSnowflakeDag():
                 dag=self.dag
             )
 
-            ## Copy from disk to S3 data lake stage and optionally delete local data
-            datalake_prefix = os.path.join(
-                tenant_code, str(api_year),
-                '{{ ds_nodash }}', '{{ ts_nodash }}',
-                resource_name
-            )
+            ## Copy from disk to S3 data lake stage
+            datalake_prefix = os.path.join(tenant_code, str(api_year))
+            datalake_date_path = os.path.join(datalake_prefix, '{{ ds_nodash }}', '{{ ts_nodash }}', resource_name)
 
             local_to_s3 = PythonOperator(
                 task_id=f'{taskgroup_grain}_local_to_s3',
                 python_callable=self.local_filepath_to_s3,
                 op_kwargs={
                     'local_filepath': source_dir,
-                    's3_destination_key': datalake_prefix,
-                    'parent_to_delete': parent_dir
+                    's3_destination_key': datalake_date_path
                 },
                 pool=self.pool,
                 dag=self.dag
@@ -189,11 +186,12 @@ class SFTPToSnowflakeDag():
                 task_id=f'{taskgroup_grain}_copy_to_raw',
                 python_callable=self.copy_from_datalake_to_raw,
                 op_kwargs={
-                    'datalake_prefix': datalake_prefix,
+                    'datalake_date_path': datalake_date_path,
                     'domain': domain,
                     'tenant_code': tenant_code,
                     'api_year': api_year,
-                    'resource_name': resource_name
+                    'resource_name': resource_name,
+                    'full_replace': full_replace
                 },
                 pool=self.pool,
                 dag=self.dag
@@ -204,7 +202,7 @@ class SFTPToSnowflakeDag():
                 task_id=f'{taskgroup_grain}_delete_from_local',
                 python_callable=self.delete_from_local,
                 op_kwargs={
-                    'parent_to_delete': parent_dir
+                    'parent_to_delete': local_date_path
                 },
                 pool=self.pool,
                 dag=self.dag
@@ -215,21 +213,19 @@ class SFTPToSnowflakeDag():
         return tenant_year_task_group
 
 
-    def create_local_directories(self, local_base_path, tenant_code, api_year, resource_name):
+    def create_local_directories(self, local_date_path):
         """
         Creates subdirectories for raw and processed data at a provided local path.
 
         :param local_path:     
         :return:
         """        
-
-        local_path = os.path.join(local_base_path, tenant_code, str(api_year), resource_name)
         subdirs = ['raw', 'processed']
 
         for dir_name in subdirs:
-            os.makedirs(os.path.join(local_path, dir_name), exist_ok=True)
+            os.makedirs(os.path.join(local_date_path, dir_name), exist_ok=True)
 
-        return local_path
+        return local_date_path
     
 
     def sftp_to_local_filepath(self, local_path, sftp_conn_id, sftp_filepath, file_pattern):
@@ -237,7 +233,10 @@ class SFTPToSnowflakeDag():
         Copies a file or directory from an SFTP to a local directory. If a file pattern has been 
         copies only matching files. 
 
-        :param local_path:     
+        :param local_path:
+        :param sftp_conn_id
+        :param sftp_filepath
+        :param file_pattern
         :return:
         """        
         sftp_hook = SFTPHook(sftp_conn_id)
@@ -288,7 +287,7 @@ class SFTPToSnowflakeDag():
 
         # If a directory, upload all files to S3.
         if os.path.isdir(local_filepath):
-            for root, dirs, files in os.walk(local_filepath):
+            for root, files in os.walk(local_filepath):
                 for file in files:
                     full_path = os.path.join(root, file)
                     s3_full_path = os.path.join(s3_destination_key, file)
@@ -314,11 +313,16 @@ class SFTPToSnowflakeDag():
         return s3_destination_key
     
     
-    def copy_from_datalake_to_raw(self, datalake_prefix, domain, tenant_code, api_year, resource_name):
+    def copy_from_datalake_to_raw(self, datalake_date_path, domain, tenant_code, api_year, resource_name, full_replace):
         """
         Copy raw data from data lake to data warehouse, including object metadata.
         
-        :param datalake_prefix:    
+        :param datalake_date_path:  
+        :param domain
+        :param tenant_code
+        :param api_year
+        :param resource_name
+        :param full_replace
         :return:
         """
         delete_sql = f'''
@@ -327,7 +331,7 @@ class SFTPToSnowflakeDag():
               and api_year = '{api_year}'
         '''
 
-        logging.info(f"Copying from data lake to raw: {datalake_prefix}")
+        logging.info(f"Copying from data lake to raw: {datalake_date_path}")
         copy_sql = f'''
             copy into {self.database}.{self.schema}.{domain}__{resource_name}
                 (tenant_code, api_year, pull_date, pull_timestamp, file_row_number, filename, name, v)
@@ -341,7 +345,7 @@ class SFTPToSnowflakeDag():
                     metadata$filename as filename,
                     '{resource_name}' as name,
                     t.$1 as v
-                from @{self.database}.util.airflow_stage/{datalake_prefix}/
+                from @{self.database}.util.airflow_stage/{datalake_date_path}/
                 (file_format => 'json_default') t
             ) FORCE=TRUE
         '''
@@ -349,7 +353,7 @@ class SFTPToSnowflakeDag():
         # Commit the copy query to Snowflake
         snowflake_hook = SnowflakeHook(snowflake_conn_id=self.snowflake_conn_id)
 
-        if self.full_replace:
+        if full_replace:
             cursor_log_delete = snowflake_hook.run(sql=delete_sql)
             logging.info(cursor_log_delete)
 
@@ -363,7 +367,7 @@ class SFTPToSnowflakeDag():
         """
         Deletes local files 
         
-        :param datalake_prefix:    
+        :param parent_to_delete:    
         :return:
         """        
         if self.do_delete_from_local:
