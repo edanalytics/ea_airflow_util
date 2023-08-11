@@ -287,7 +287,7 @@ class SFTPToSnowflakeDag():
 
         # If a directory, upload all files to S3.
         if os.path.isdir(local_filepath):
-            for root, files in os.walk(local_filepath):
+            for root, dirs, files in os.walk(local_filepath):
                 for file in files:
                     full_path = os.path.join(root, file)
                     s3_full_path = os.path.join(s3_destination_key, file)
