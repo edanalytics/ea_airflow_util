@@ -64,6 +64,84 @@ Additional DAG arguments (e.g. `default_args`) can be passed as kwargs.
 
 
 
+## AWSParamStoreToAirflowDAG
+The Cloud Engineering and Integration team saves Ed-Fi ODS credentials as parameters in AWS Systems Manager Parameter Store.
+Each Stadium implementation has a shared SSM-prefix, which is further delineated by tenant-code and/or API year.
+There are three parameters associated with each ODS-connection:
+```text
+{SSM_PREFIX}/{TENANT_CODE}/key
+{SSM_PREFIX}/{TENANT_CODE}/secret
+{SSM_PREFIX}/{TENANT_CODE}/url
+```
+
+<details>
+<summary>Arguments:</summary>
+
+-----
+
+| Argument            | Description                                                                                                     |
+|---------------------|-----------------------------------------------------------------------------------------------------------------|
+| region_name         | AWS region where parameters are stored                                                                          |
+| connection_mapping  | Optional one-to-one mapping between Parameter Store prefixes and ODS credentials                                |
+| prefix_year_mapping | Optional mapping between a shared SSM-prefix and a given Ed-Fi year for dynamic connections                     |
+| tenant_mapping      | Optional mapping between tenant-code name in Parameter Store and its identity in Stadium in dynamic connections |
+| join_numbers        | Optional boolean flag to strip underscores between district and number in dynamic connections (default `True`)  |
+
+Additional DAG arguments (e.g. `default_args`) can be passed as kwargs.
+
+There are three types of mappings that can be defined in the Parameter Store DAG.
+Arguments `connection_mapping` and `prefix_year_mapping` are mutually-exclusive.
+Argument `tenant_mapping` is optional, and is only applied if `prefix_year_mapping` is defined.
+
+In Stadium implementations with fewer tenants, it is suggested to manually map the `{SSM_PREFIX}/{TENANT_CODE}` strings to their Ed-Fi connection name in Airflow using `connection_mapping`.
+For example:
+```python
+connection_mapping = {
+    '/startingblocks/api/2122/sc-state': 'edfi_scde_2022',
+    '/startingblocks/api/2223/sc-state': 'edfi_scde_2023',
+    '/startingblocks/api/sc/state-2324': 'edfi_scde_2024',
+}
+```
+
+In Stadium implementations with many tenants, an explicit one-to-one mapping between prefixes and connections may be untenable.
+In cases like these, the `prefix_year_mapping` argument maps shared SSM-prefixes to API years and dynamically builds Airflow credentials.
+For example:
+```python
+prefix_year_mapping = {
+    '/startingblocks/api/districts-2122': 2022,
+    '/startingblocks/api/sc/districts-2223': 2023,
+}
+```
+
+Connection pieces between the prefixes and `url`, `key`, and `secret` are assumed to be tenant-codes, and connections are built dynamically.
+Some standardization is always applied to inferred tenant-codes: spaces and dashes are converted to underscores.
+
+However, in the case that the dynamically-inferred tenant-code does not match its identity in Stadium, the `tenant_mapping` can be used to force a match.
+For example:
+```python
+tenant_mapping = {
+    'fortmill': 'fort_mill',
+    'york-4'  : 'fort_mill',
+}
+```
+
+Using the example `prefix_year_mapping` and `tenant_mapping` defined above on the following Parameter Store keys will create a single Airflow connection: `edfi_fort_mill_2023`.
+```text
+/startingblocks/api/sc/districts-2223/fortmill/url
+/startingblocks/api/sc/districts-2223/fortmill/key
+/startingblocks/api/sc/districts-2223/fortmill/secret
+```
+
+Finally, there is an optional boolean argument `join_numbers` that is turned on by default.
+When true, dynamically-inferred tenant-codes are standardized further to remove underscores between district name and code.
+For example, `york_1` becomes `york1`.
+
+-----
+
+</details>
+
+
+
 ## Slack Callbacks
 This package also contains several callback functions which can be used with Slack webhooks to alert at task failures or successes, or when SLAs are missed.
 Each function takes the Slack Airflow connection ID as their primary argument.
