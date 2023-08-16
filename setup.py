@@ -2,9 +2,9 @@ import setuptools
 
 setuptools.setup(
       name='ea_airflow_util',
-      version='0.1.1',
+      version='0.2.0',
       description='EA Airflow tools',
-      url='',
+      url='https://github.com/edanalytics/ea_airflow_util',
       author='Jay Kaiser',
       author_email='jkaiser@edanalytics.org',
       packages=setuptools.find_packages(),
