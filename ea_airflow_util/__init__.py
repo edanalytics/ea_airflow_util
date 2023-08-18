@@ -4,3 +4,4 @@ from ea_airflow_util.dags.update_dbt_docs_dag import UpdateDbtDocsDag
 from ea_airflow_util.dags.dbt_snapshot_dag import DbtSnapshotDag
 
 import ea_airflow_util.dags.dag_util.slack_callbacks as slack_callbacks
+from ea_airflow_util.dags.callables.variable import check_variable, update_variable
