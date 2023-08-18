@@ -10,6 +10,7 @@ from typing import Optional
 import ea_airflow_util.dags.dag_util.slack_callbacks as slack_callbacks
 
 from airflow import DAG
+from airflow.models.param import Param
 from airflow.operators.python import PythonOperator
 from airflow.utils.task_group import TaskGroup
 
@@ -31,6 +32,14 @@ class RunDbtDag():
     params: opt_swap -- default to False 
     
     """
+    params_dict = {
+        "force": Param(
+            default=False,
+            type="boolean",
+            description="If true, run DBT regardless of the state of the DBT incrementer variable"
+        ),
+    }
+
     def __init__(self,
         environment: str,
     
@@ -87,6 +96,7 @@ class RunDbtDag():
                 op_kwargs={
                     'var': self.dbt_incrementer_var,
                     'condition': lambda x: int(x) > 0,
+                    'force': "{{ params.force }}"
                 },
                 dag=self.dag
             )
@@ -126,6 +136,7 @@ class RunDbtDag():
             schedule_interval=schedule_interval,
             default_args=default_args,
             catchup=False,
+            params=self.params_dict,
             user_defined_macros= {
                 'environment': self.environment,
             }

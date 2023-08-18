@@ -22,13 +22,13 @@ def update_variable(var: str, value: Union[Callable, int, str], **kwargs):
         Variable.update(var, value)
 
 
-def check_variable(var: str, condition: Callable, **kwargs):
+def check_variable(var: str, condition: Callable, force: bool = False, **kwargs):
     """
     Return a Python operator that skips if the retrieved variable does not meet the provided condition.
     """
     current_val = Variable.get(var)
 
-    if condition(current_val):
+    if force or condition(current_val):
         logging.info(
             f"Variable `{var}` meets provided condition. Marking task as successful."
         )
