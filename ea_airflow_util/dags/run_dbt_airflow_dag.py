@@ -137,6 +137,7 @@ class RunDbtDag():
             default_args=default_args,
             catchup=False,
             params=self.params_dict,
+            render_template_as_native_obj=True,
             user_defined_macros= {
                 'environment': self.environment,
             }
