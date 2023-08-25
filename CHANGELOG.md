@@ -1,7 +1,7 @@
 # ea_airflow_util v0.2.1
 ## New features
+- Add `LoopS3FileTransformOperator` and `S3ToSnowflakeDag` for copying files from S3 to Snowflake
 - Add `SFTPToSnowflakeDag` for copying files from SFTP to Snowflake
-
 
 # ea_airflow_util v0.2.0
 ## New features
