@@ -1,3 +1,8 @@
+# ea_airflow_util v0.2.1
+## New features
+- Add `SFTPToSnowflakeDag` for copying files from SFTP to Snowflake
+
+
 # ea_airflow_util v0.2.0
 ## New features
 - Refactor `AWSParamStoreToAirflowDAG` to use (key, secret, url) standard for saving Airflow credentials
