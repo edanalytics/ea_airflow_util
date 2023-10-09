@@ -1,3 +1,7 @@
+# ea_airflow_util v0.2.2
+## New features
+- Add `snowflake_to_disk` utility function
+
 # ea_airflow_util v0.2.1
 ## New features
 - Add `LoopS3FileTransformOperator` and `S3ToSnowflakeDag` for copying files from S3 to Snowflake
