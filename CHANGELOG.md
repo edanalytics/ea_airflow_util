@@ -1,4 +1,8 @@
 # ea_airflow_util v0.2.3
+## Fixes
+- Fix `s3_dir_to_postgres` utility function
+
+# ea_airflow_util v0.2.3
 ## New features
 - Add `s3_dir_to_postgres` utility function
 

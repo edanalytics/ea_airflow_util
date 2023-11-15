@@ -104,7 +104,7 @@ def s3_dir_to_postgres(
     s3_hook = S3Hook(s3_conn_id)
     s3_creds = s3_hook.get_connection(s3_hook.aws_conn_id)
     s3_bucket = s3_creds.schema
-    s3_keys = _list_s3_keys(s3_conn_id, s3_bucket, s3_key)
+    s3_keys = _list_s3_keys(s3_hook, s3_bucket, s3_key)
 
     if truncate:
         hook = PostgresHook(pg_conn_id)
