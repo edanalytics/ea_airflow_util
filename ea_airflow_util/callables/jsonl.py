@@ -65,8 +65,10 @@ def translate_csv_file_to_jsonl(
 ):
     """
     Main for transforming CSV data to JSON lines (for consistency downstream).
+
     Records are collected from the CSV as a generator and written one-by-one to the output file.
     Optional **kwargs for `serialize_json_records_to_disk` can be specified.
+
     If `delete_csv is True`, delete the CSV source path.
     """
 
