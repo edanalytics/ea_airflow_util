@@ -1,13 +1,13 @@
-from airflow.providers.postgres.hooks.postgres import PostgresHook
 import logging
+
 from airflow.exceptions import AirflowSkipException, AirflowException
-from airflow.hooks.S3_hook import S3Hook
 from airflow.providers.amazon.aws.hooks.s3 import S3Hook
+from airflow.providers.postgres.hooks.postgres import PostgresHook
 
 def _list_s3_keys(
-        s3_hook: S3Hook,
-        s3_bucket: str,
-        s3_key: str,
+    s3_hook: S3Hook,
+    s3_bucket: str,
+    s3_key: str,
 ):
     """
     List the keys at a specified S3 location, then filter out directories.
@@ -22,17 +22,17 @@ def _list_s3_keys(
 
 
 def s3_to_postgres(
-        pg_conn_id,
-        s3_conn_id,
-        dest_table,
-        column_customization,
-        options,
-        s3_key,
-        s3_region,
-        truncate=False,
-        delete_qry=None,
-        metadata_qry=None,
-        **context
+    pg_conn_id,
+    s3_conn_id,
+    dest_table,
+    column_customization,
+    options,
+    s3_key,
+    s3_region,
+    truncate=False,
+    delete_qry=None,
+    metadata_qry=None,
+    **context
 ):
     if column_customization is None:
         column_customization = ''
@@ -67,13 +67,13 @@ def s3_to_postgres(
         raise ValueError('Only specify one of truncate, delete_qry')
 
     copy_qry = f"""
-    select aws_s3.table_import_from_s3(
-    '{dest_table}',
-    '{column_customization}',
-    '{options}',
-    aws_commons.create_s3_uri('{s3_bucket}', '{s3_key}', '{s3_region}'),
-    aws_commons.create_aws_credentials('{s3_creds.login}', '{s3_creds.password}', '')
-    );
+        select aws_s3.table_import_from_s3(
+        '{dest_table}',
+        '{column_customization}',
+        '{options}',
+        aws_commons.create_s3_uri('{s3_bucket}', '{s3_key}', '{s3_region}'),
+        aws_commons.create_aws_credentials('{s3_creds.login}', '{s3_creds.password}', '')
+        );
     """
 
     logging.info('Beginning insert')
@@ -89,17 +89,17 @@ def s3_to_postgres(
     logging.info(ret_value)
 
 def s3_dir_to_postgres(
-        pg_conn_id,
-        s3_conn_id,
-        dest_table,
-        column_customization,
-        options,
-        s3_key,
-        s3_region,
-        truncate=False,
-        delete_s3_dir=False,
-        metadata_qry=None,
-        **context
+    pg_conn_id,
+    s3_conn_id,
+    dest_table,
+    column_customization,
+    options,
+    s3_key,
+    s3_region,
+    truncate=False,
+    delete_s3_dir=False,
+    metadata_qry=None,
+    **context
 ):
     s3_hook = S3Hook(s3_conn_id)
     s3_creds = s3_hook.get_connection(s3_hook.aws_conn_id)
@@ -118,16 +118,18 @@ def s3_dir_to_postgres(
     for key in s3_keys:
         logging.info(f'Loading key: {key}')
         try:
-            s3_to_postgres(pg_conn_id=pg_conn_id,
-                           s3_conn_id=s3_conn_id,
-                           dest_table=dest_table,
-                           column_customization=column_customization,
-                           options=options,
-                           s3_key=key,
-                           s3_region=s3_region,
-                           truncate=False,
-                           delete_qry=None,
-                           metadata_qry=metadata_qry)
+            s3_to_postgres(
+                pg_conn_id=pg_conn_id,
+                s3_conn_id=s3_conn_id,
+                dest_table=dest_table,
+                column_customization=column_customization,
+                options=options,
+                s3_key=key,
+                s3_region=s3_region,
+                truncate=False,
+                delete_qry=None,
+                metadata_qry=metadata_qry
+            )
         except Exception as e:
             logging.error(e)
             failed_count += 1
