@@ -2,6 +2,8 @@ import csv
 import logging
 import pathlib
 
+from typing import Optional
+
 from airflow.models.connection import Connection
 from airflow.providers.amazon.aws.hooks.s3 import S3Hook
 from airflow.providers.snowflake.hooks.snowflake import SnowflakeHook
@@ -12,12 +14,12 @@ from ea_airflow_util.dags.dag_util import slack_callbacks
 
 
 def snowflake_to_disk(
-    snowflake_conn_id,
-    query,
-    local_path,
-    sep=',',
-    quote_char='"',
-    chunk_size=1000,
+    snowflake_conn_id: str,
+    query: str,
+    local_path: str,
+    sep: str = ',',
+    quote_char: str = '"',
+    chunk_size: int = 1000,
     **context
 ):
     hook = SnowflakeHook(snowflake_conn_id)
@@ -49,30 +51,30 @@ def _run_table_clear_query(
     snowflake_conn: Connection,
     dest_table: str,
     truncate: bool = False,
-    delete_source_orgs: set = None,
+    delete_source_orgs: Optional[set] = None,
 ):
     """
     Isolated logic for truncating or deleting from a table.
     """
-    if truncate and delete_source_orgs is None:
-        with snowflake_conn.cursor() as cur:
-            logging.info(f'Truncating table `{dest_table}`')
-            cur.execute(f'truncate {dest_table};')
+    if truncate and delete_source_orgs:
+        raise ValueError(f'!!! Only specify one of (truncate, delete) during Snowflake import to `{dest_table}`!')
 
-    elif delete_source_orgs is not None and not truncate:
+    if truncate and not delete_source_orgs:
+        logging.info(f'Truncating table `{dest_table}`')
+        with snowflake_conn.cursor() as cur:
+            cur.execute(f"truncate {dest_table};")
+
+    elif delete_source_orgs and not truncate:
         # create comma-seperated string of source org set
         delete_source_orgs = "('" + "','".join(delete_source_orgs) + "')"
+        logging.info(f'Deleting {delete_source_orgs} from `{dest_table}`')
 
         with snowflake_conn.cursor() as cur:
-            logging.info(f'Deleting {delete_source_orgs} from `{dest_table}`')
             delete_qry = f"""
                 delete from {dest_table} 
                 where source_org in {delete_source_orgs}
             """
             cur.execute(delete_qry)
-
-    elif truncate and delete_source_orgs is not None:
-        raise ValueError(f'!!! Only specify one of (truncate, delete) during Snowflake import to `{dest_table}`!')
 
 
 def _run_table_import_query(
@@ -107,25 +109,25 @@ def _run_table_import_query(
     # https://docs.snowflake.com/en/user-guide/data-load-considerations-load.html#options-for-selecting-staged-data-files
 
     # creating various column strings for the complicated merge
-    # todo: will this need to be split(", ") ((include a space?))
-    hashed_cols_str = ", ".join([
-        f"${num}::{column_customization_dtype}" for num, name in enumerate(column_customization.split(","), start=1)
-    ])
-
     if file_format == 'json_default':
         # TODO: is source org always the directory before the file itself
-        select_cols_str = ", ".join([
-            f"${num}::variant {name}" for num, name in enumerate(column_customization.split(","), start=1)
-        ]) + \
-                          f''', {metadata.replace('source_org', "split_part(metadata$filename, '/', -2) as source_org").replace('file_path', 'metadata$filename as file_path')}'''
+        select_cols_str = ", ".join(
+            f"${num}::variant {name}"
+            for num, name in enumerate(column_customization.split(","), start=1)
+        )
 
     else:
         # TODO: is source org always the directory before the file itself
-        select_cols_str = ", ".join([
-            f"${num}::{column_customization_dtype} {name}" for num, name in
-            enumerate(column_customization.split(","), start=1)
-        ]) + \
-                          f''', {metadata.replace('source_org', "split_part(metadata$filename, '/', -2) as source_org").replace('file_path', 'metadata$filename as file_path')}'''
+        select_cols_str = ", ".join(
+            f"${num}::{column_customization_dtype} {name}"
+            for num, name in enumerate(column_customization.split(","), start=1)
+        )
+
+    select_cols_str += ", " + (
+        metadata
+            .replace('source_org', "split_part(metadata$filename, '/', -2) as source_org")
+            .replace('file_path', 'metadata$filename as file_path')
+    )
 
     # add a forward slash to the end of the s3_key in order to properly find files
     if not s3_key.endswith(('csv', '.gz', 'jsonl')):
@@ -136,45 +138,48 @@ def _run_table_import_query(
 
     # Build a copy query SQL string (logic differs if row hashing is used).
     if row_hash:
+        # todo: will this need to be split(", ") ((include a space?))
+        hashed_cols_str = ", ".join(
+            f"${num}::{column_customization_dtype}"
+            for num, name in enumerate(column_customization.split(","), start=1)
+        )
 
         # more necessary column strings because nothing can be easy
         insert_cols_string = ", ".join([column_customization, metadata, 'row_md5_hash'])
 
-        values_cols_str = ", ".join([
-            f"source.{col}" for col in column_customization.split(",")
-        ]) + ', ' + ", ".join([
-            f"source.{col}" for col in metadata.split(",")
-        ]) + ', source.row_md5_hash'
+        values_cols_str = "{}, {}, source.row_md5_hash".format(
+            ", ".join(f"source.{col}" for col in column_customization.split(",")),
+            ", ".join(f"source.{col}" for col in metadata.split(","))
+        )
 
         # todo: change the external path?
         copy_query = f"""
             merge into {dest_table} raw
             using (
-                select {select_cols_str},
-                       md5(array_to_string(array_construct({hashed_cols_str}), ',')) as row_md5_hash
+                select
+                    {select_cols_str},
+                    md5(array_to_string(array_construct({hashed_cols_str}), ',')) as row_md5_hash
                 from @{raw_db}.public.{stage}/{s3_key} (file_format => {file_format})
             ) source
             on raw.row_md5_hash = source.row_md5_hash
             when not matched then
-            insert (
-                {insert_cols_string}
-            ) values (
-                {values_cols_str}
-            );
+                insert (
+                    {insert_cols_string}
+                ) values (
+                    {values_cols_str}
+                );
         """
 
     else:
-        # insert col string without row hash
-        insert_cols_string = ", ".join([column_customization, metadata])
-
         copy_query = f"""
-        copy into {dest_table} ({insert_cols_string})
-        from (
-            select {select_cols_str}
-            from @{raw_db}.public.{stage}/{s3_key} (file_format => {file_format}))
-            force = true
-            on_error = skip_file;
-    """
+            copy into {dest_table} ({column_customization}, {metadata})
+            from (
+                select {select_cols_str}
+                from @{raw_db}.public.{stage}/{s3_key} (file_format => {file_format})
+            )
+                force = true
+                on_error = skip_file;
+        """
 
     # Perform the actual execution of the copy query.
     logging.info(f'Beginning insert to `{dest_table}`')
