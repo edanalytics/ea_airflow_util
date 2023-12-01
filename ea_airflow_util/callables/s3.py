@@ -129,7 +129,7 @@ def disk_to_s3(
 
 
 ### S3-to-Postgres
-def _list_s3_keys(
+def list_s3_keys(
     s3_hook: S3Hook,
     s3_bucket: str,
     s3_key: str,
@@ -144,6 +144,15 @@ def _list_s3_keys(
 
     # Remove directories and return.
     return [subkey for subkey in subkeys if not subkey.endswith("/")]
+
+def _list_s3_keys(*args, **kwargs):
+    import warnings
+    warnings.warn(
+        "s3 callable '_list_s3_keys' has been deprecated and will be removed in a future update."
+        "Please use 'list_s3_keys' instead.",
+        DeprecationWarning
+    )
+    return list_s3_keys(*args, **kwargs)
 
 def s3_to_postgres(
         pg_conn_id,
@@ -229,7 +238,7 @@ def s3_dir_to_postgres(
     s3_hook = S3Hook(s3_conn_id)
     s3_creds = s3_hook.get_connection(s3_hook.aws_conn_id)
     s3_bucket = s3_creds.schema
-    s3_keys = _list_s3_keys(s3_hook, s3_bucket, s3_key)
+    s3_keys = list_s3_keys(s3_hook, s3_bucket, s3_key)
 
     if truncate:
         hook = PostgresHook(pg_conn_id)
