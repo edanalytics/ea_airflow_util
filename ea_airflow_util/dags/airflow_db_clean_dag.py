@@ -92,5 +92,4 @@ class AirflowDBCleanDAG:
             "--yes",
         ]
 
-        result = subprocess.run(" ".join(cli_command_args), check=True, capture_output=True, shell=True)
-        return result.stdout
+        subprocess.run(" ".join(cli_command_args), check=True, capture_output=True, shell=True)
