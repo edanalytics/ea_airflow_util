@@ -77,7 +77,7 @@ class AirflowDBCleanDAG:
         if retention_days < 30:
             raise Exception("The specified number of days to retain is less than one month!")
 
-        max_date = datetime.datetime.now() - datetime.timedelta(retention_days)
+        max_date = (datetime.datetime.now() - datetime.timedelta(retention_days)).date()
         logging.info(f"Checking Airflow database for data older than {max_date} ({retention_days} days ago)")
 
         if dry_run:
