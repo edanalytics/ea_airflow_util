@@ -16,72 +16,63 @@ class AirflowDBCleanDAG:
     """
     Delete data older than a specified retention period from all relevant Airflow backend tables.
     """
-
-    params_dict = {
-        "retention_days": Param(
-            default=0,
-            type="integer",
-            description="How many days of data should be retained? (i.e., current-date - N days)"
-        ),
-        "dry_run": Param(
-            default=False,
-            type="boolean",
-            description="If true, perform a dry-run without deleting any records."
-        ),
-        "verbose": Param(
-            default=False,
-            type="boolean",
-            description="If true, verbose log what is being deleted."
-        ),
-    }
-
     def __init__(self,
         retention_days: int = 30,
         dry_run: bool = False,
         verbose: bool = False,
         slack_conn_id: Optional[str] = None,
-        *args, **kwargs
+
+        # Generic DAG arguments
+        *args, default_args: dict = {}, **kwargs
     ):
-        self.retention_days: int = retention_days
-        self.dry_run: bool = dry_run
-        self.verbose: bool = verbose
-        self.slack_conn_id: Optional[str] = slack_conn_id
+        params_dict = {
+            "retention_days": Param(
+                default=retention_days,
+                type="integer",
+                description="How many days of data should be retained? (i.e., current-date - N days)"
+            ),
+            "dry_run": Param(
+                default=dry_run,
+                type="boolean",
+                description="If true, perform a dry-run without deleting any records."
+            ),
+            "verbose": Param(
+                default=verbose,
+                type="boolean",
+                description="If true, verbose log what is being deleted."
+            ),
+        }
 
-        self.dag = self.initialize_dag(*args, **kwargs)
-
-    def initialize_dag(self, default_args, *args, **kwargs):
-        """
-
-        """
         # If a Slack connection has been defined, add the failure callback to the default_args.
-        if self.slack_conn_id:
-            slack_failure_callback = partial(slack_callbacks.slack_alert_failure, http_conn_id=self.slack_conn_id)
+        if slack_conn_id:
+            slack_failure_callback = partial(slack_callbacks.slack_alert_failure, http_conn_id=slack_conn_id)
             default_args['on_failure_callback'] = slack_failure_callback
 
-        dag = DAG(
+        self.dag = DAG(
             *args,
+            params=params_dict,
+            default_args=default_args,
             catchup=False,
-            params=self.params_dict,
             render_template_as_native_obj=True,
             **kwargs
         )
 
+        # TODO: One operation per table, or one operation overall?
         PythonOperator(
             task_id="airflow_db_clean",
             python_callable=self.cli_airflow_db_clean,
-            dag=dag
+            dag=self.dag
         )
 
-        return dag
-
-    def cli_airflow_db_clean(self, **context):
+    @staticmethod
+    def cli_airflow_db_clean(**context):
         """
 
         """
-        # Override DAG arguments with params if specified.
-        retention_days = context['params']['retention_days'] or self.retention_days
-        dry_run = context['params']['dry_run'] or self.dry_run
-        verbose = context['params']['verbose'] or self.verbose
+        # Gather param values from context (allows cleaner overrides via "Run DAG w/ config").
+        retention_days = context['params']['retention_days']
+        dry_run = context['params']['dry_run']
+        verbose = context['params']['verbose']
 
         if retention_days < 30:
             raise Exception("The specified number of days to retain is less than one month!")
