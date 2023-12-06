@@ -89,6 +89,7 @@ class AirflowDBCleanDAG:
             f"--clean-before-timestamp '{max_date}'",
             "--dry-run" if dry_run else "",
             "--verbose" if verbose else "",
+            "--skip-archive",
             "--yes",
         ]
 
