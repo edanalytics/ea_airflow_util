@@ -92,6 +92,6 @@ class AirflowDBCleanDAG:
             "--yes",
         ]
 
-        result = subprocess.run(cli_command_args)
+        result = subprocess.run(" ".join(cli_command_args))
         result.check_returncode()
         return result.returncode
