@@ -15,6 +15,9 @@ import ea_airflow_util.dags.dag_util.slack_callbacks as slack_callbacks
 class AirflowDBCleanDAG:
     """
     Delete data older than a specified retention period from all relevant Airflow backend tables.
+
+    See official documentation:
+        https://airflow.apache.org/docs/apache-airflow/stable/cli-and-env-variables-ref.html#clean
     """
     MIN_RETENTION_DAYS: int = 30
 
@@ -68,7 +71,7 @@ class AirflowDBCleanDAG:
 
     def cli_airflow_db_clean(self, **context):
         """
-
+        Use a wrapper Python method instead of BashOperator for additional logging and easier command construction.
         """
         # Gather param values from context (allows cleaner overrides via "Run DAG w/ config").
         retention_days = context['params']['retention_days']
@@ -84,7 +87,7 @@ class AirflowDBCleanDAG:
         if dry_run:
             logging.info("This is a dry-run! Set `dry_run=False` in DAG arguments or params to complete the deletion.")
 
-        # Use `subprocess` instead of BashOperator because it's easier to override DAG-args with params.
+        # Run the command against the Airflow CLI and output to logs.
         cli_command_args = [
             "airflow", "db", "clean",
             f"--clean-before-timestamp '{max_date}'",
