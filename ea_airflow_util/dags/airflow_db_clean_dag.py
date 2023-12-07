@@ -16,8 +16,10 @@ class AirflowDBCleanDAG:
     """
     Delete data older than a specified retention period from all relevant Airflow backend tables.
     """
+    MIN_RETENTION_DAYS: int = 30
+
     def __init__(self,
-        retention_days: int = 30,
+        retention_days: int = MIN_RETENTION_DAYS,
         dry_run: bool = False,
         verbose: bool = False,
         slack_conn_id: Optional[str] = None,
@@ -64,8 +66,7 @@ class AirflowDBCleanDAG:
             dag=self.dag
         )
 
-    @staticmethod
-    def cli_airflow_db_clean(**context):
+    def cli_airflow_db_clean(self, **context):
         """
 
         """
@@ -74,7 +75,7 @@ class AirflowDBCleanDAG:
         dry_run = context['params']['dry_run']
         verbose = context['params']['verbose']
 
-        if retention_days < 30:
+        if retention_days < self.MIN_RETENTION_DAYS:
             raise Exception("The specified number of days to retain is less than one month!")
 
         max_date = (datetime.datetime.now() - datetime.timedelta(retention_days)).date()
