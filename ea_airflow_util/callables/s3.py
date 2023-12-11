@@ -155,17 +155,17 @@ def _list_s3_keys(*args, **kwargs):
     return list_s3_keys(*args, **kwargs)
 
 def s3_to_postgres(
-        pg_conn_id,
-        s3_conn_id,
-        dest_table,
-        column_customization,
-        options,
-        s3_key,
-        s3_region,
-        truncate=False,
-        delete_qry=None,
-        metadata_qry=None,
-        **context
+    pg_conn_id: str,
+    s3_conn_id: str,
+    dest_table: str,
+    column_customization: Optional[str],
+    options: str,
+    s3_key: str,
+    s3_region: str,
+    truncate: bool = False,
+    delete_qry: Optional[str] = None,
+    metadata_qry: Optional[str] = None,
+    **context
 ):
     if column_customization is None:
         column_customization = ''
@@ -223,16 +223,16 @@ def s3_to_postgres(
 
 
 def s3_dir_to_postgres(
-    pg_conn_id,
-    s3_conn_id,
-    dest_table,
-    column_customization,
-    options,
-    s3_key,
-    s3_region,
-    truncate=False,
-    delete_s3_dir=False,
-    metadata_qry=None,
+    pg_conn_id: str,
+    s3_conn_id: str,
+    dest_table: str,
+    column_customization: Optional[str],
+    options: str,
+    s3_key: str,
+    s3_region: str,
+    truncate: bool = False,
+    delete_s3_dir: bool = False,
+    metadata_qry: Optional[str] = None,
     **context
 ):
     s3_hook = S3Hook(s3_conn_id)
@@ -241,8 +241,7 @@ def s3_dir_to_postgres(
     s3_keys = list_s3_keys(s3_hook, s3_bucket, s3_key)
 
     if truncate:
-        hook = PostgresHook(pg_conn_id)
-        conn = hook.get_conn()
+        conn = PostgresHook(pg_conn_id).get_conn()
         with conn.cursor() as cur:
             logging.info('Truncating table')
             cur.execute(f'truncate table {dest_table};')
@@ -264,15 +263,15 @@ def s3_dir_to_postgres(
                 delete_qry=None,
                 metadata_qry=metadata_qry
             )
-        except Exception as e:
-            logging.error(e)
+        except Exception as err:
+            logging.error(err)
             failed_count += 1
             continue
 
     if failed_count == len(s3_keys):
         raise AirflowException('All inserts failed')
-    else:
-        logging.info(f'Loaded {len(s3_keys) - failed_count} of {len(s3_keys)} keys.')
+
+    logging.info(f'Loaded {len(s3_keys) - failed_count} of {len(s3_keys)} keys.')
 
     if delete_s3_dir:
         s3_hook.delete_objects(s3_bucket, s3_keys)
