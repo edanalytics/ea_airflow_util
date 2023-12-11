@@ -10,7 +10,7 @@ from airflow.providers.snowflake.hooks.snowflake import SnowflakeHook
 from snowflake.connector import DictCursor
 
 from ea_airflow_util.callables import s3
-from ea_airflow_util.dags.dag_util import slack_callbacks
+from ea_airflow_util.callables import slack
 
 
 def snowflake_to_disk(
@@ -201,7 +201,7 @@ def _run_table_import_query(
             logging.error(e)
 
             if slack_on_failure:
-                slack_callbacks.slack_alert_insert_failure(file_key=s3_key, dest_table=dest_table, error=str(e).splitlines()[0])
+                slack.slack_alert_insert_failure(file_key=s3_key, dest_table=dest_table, error=str(e).splitlines()[0])
 
     snowflake_conn.commit()
 

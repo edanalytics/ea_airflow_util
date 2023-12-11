@@ -13,8 +13,7 @@ from airflow.providers.snowflake.hooks.snowflake import SnowflakeHook
 from airflow.exceptions import AirflowSkipException
 from airflow.utils.task_group import TaskGroup
 
-import ea_airflow_util.dags.dag_util.slack_callbacks as slack_callbacks
-from .dag_util.xcom_util import xcom_pull_template
+from ea_airflow_util.callables import slack
 
 
 class SFTPToSnowflakeDag():
@@ -74,11 +73,11 @@ class SFTPToSnowflakeDag():
         """
         # If a Slack connection has been defined, add the failure callback to the default_args.
         if self.slack_conn_id:
-            slack_failure_callback = partial(slack_callbacks.slack_alert_failure, http_conn_id=self.slack_conn_id)
+            slack_failure_callback = partial(slack.slack_alert_failure, http_conn_id=self.slack_conn_id)
             default_args['on_failure_callback'] = slack_failure_callback
 
             # Define an SLA-miss callback as well.
-            slack_sla_miss_callback = partial(slack_callbacks.slack_alert_sla_miss, http_conn_id=self.slack_conn_id)
+            slack_sla_miss_callback = partial(slack.slack_alert_sla_miss, http_conn_id=self.slack_conn_id)
         else:
             slack_sla_miss_callback = None
 

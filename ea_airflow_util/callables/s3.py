@@ -10,7 +10,7 @@ from airflow.exceptions import AirflowException, AirflowSkipException
 from airflow.providers.amazon.aws.hooks.s3 import S3Hook
 from airflow.providers.postgres.hooks.postgres import PostgresHook
 
-from ea_airflow_util.dags.dag_util import slack_callbacks
+from ea_airflow_util.callables import slack
 
 
 ### Disk-to-S3
@@ -84,7 +84,7 @@ def disk_to_s3(
                 else:
                     logging.error(f'{full_local_path} has unexpected column configuration')
                     file_type = local_path.split('/')[-1]
-                    slack_callbacks.slack_alert_file_format_failure(file_type, full_local_path, expected_col_names, header)
+                    slack.slack_alert_file_format_failure(file_type, full_local_path, expected_col_names, header)
                     # update s3 key
                     ds_nodash = context.get('templates_dict').get('ds_nodash')
                     key = os.path.join('failed_files', ds_nodash, file_type, file)
@@ -101,7 +101,7 @@ def disk_to_s3(
                     )
                 except Exception as error:
                     logging.error(error)
-                    slack_callbacks.slack_alert_s3_upload_failure(full_local_path, key, error)
+                    slack.slack_alert_s3_upload_failure(full_local_path, key, error)
                     # if we've already counted this task as 'failing' bc of incorrect format, don't count again
                     if not key.startswith('failed_files'):
                         failed_count += 1
@@ -110,7 +110,7 @@ def disk_to_s3(
                     s3_hook.load_file(full_local_path, key, bucket, replace=True, encrypt=True)
                 except Exception as error:
                     logging.error(error)
-                    slack_callbacks.slack_alert_s3_upload_failure(full_local_path, key, error)
+                    slack.slack_alert_s3_upload_failure(full_local_path, key, error)
                     # if we've already counted this task as 'failing' bc of incorrect format, don't count again
                     if not key.startswith('failed_files'):
                         failed_count += 1

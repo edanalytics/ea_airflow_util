@@ -5,7 +5,7 @@ from airflow.utils.decorators import apply_defaults
 from airflow.exceptions import AirflowSkipException
 from airflow.exceptions import AirflowException
 
-from ea_airflow_util.dags.dag_util import slack_callbacks
+from ea_airflow_util.callables import slack
 from ea_airflow_util.providers.sharefile.hooks.sharefile import SharefileHook
 
 
@@ -118,7 +118,7 @@ class SharefileToDiskOperator(BaseOperator):
 
             except Exception as err:
                 self.log.error(f'Failed to get file with message: {err}')
-                slack_callbacks.slack_alert_download_failure(remote_file, full_local_path, err)
+                slack.slack_alert_download_failure(remote_file, full_local_path, err)
                 continue
 
         if num_successes == 0:
