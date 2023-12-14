@@ -19,10 +19,10 @@ class AirflowDBCleanDAG:
     See official documentation:
         https://airflow.apache.org/docs/apache-airflow/stable/cli-and-env-variables-ref.html#clean
     """
-    MIN_RETENTION_DAYS: int = 30
+    MIN_RETENTION_DAYS: int = 30  # Raise an error if fewer than 30 days are specified by the user.
 
     def __init__(self,
-        retention_days: int = MIN_RETENTION_DAYS,
+        retention_days: int = 90,
         dry_run: bool = False,
         verbose: bool = False,
         slack_conn_id: Optional[str] = None,
