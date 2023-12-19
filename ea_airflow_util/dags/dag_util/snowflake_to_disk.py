@@ -1,4 +1,4 @@
-from airflow.contrib.hooks.snowflake_hook import SnowflakeHook
+from airflow.providers.snowflake.hooks.snowflake import SnowflakeHook
 import csv
 
 def snowflake_to_disk(
@@ -7,6 +7,7 @@ def snowflake_to_disk(
         local_path,
         sep=',',
         quote_char='"',
+        lower_header=True,
         chunk_size=1000,
         **context
         ):
@@ -18,7 +19,9 @@ def snowflake_to_disk(
                                 quotechar=quote_char, quoting=csv.QUOTE_MINIMAL)
         # fetch and write header
         meta = conn.cursor().describe(query)
-        header = [x[0].lower() for x in meta]
+        header = [x[0] for x in meta]
+        if lower_header:
+            header = [x.lower() for x in header]
         csv_writer.writerow(header)
 
         # run query, chunked
