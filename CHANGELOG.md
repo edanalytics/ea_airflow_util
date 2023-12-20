@@ -1,4 +1,9 @@
-# ea_airflow_util v0.2.3
+# ea_airflow_util v0.2.5
+## New features
+- Add a dag generator for cleaning up the Airflow database
+- Make header case handling optional in `snowflake_to_disk`
+
+# ea_airflow_util v0.2.4
 ## Fixes
 - Fix `s3_dir_to_postgres` utility function
 
