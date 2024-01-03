@@ -1,5 +1,7 @@
 import textwrap
 
+from typing import Union
+
 from airflow.providers.slack.hooks.slack_webhook import SlackWebhookHook
 
 
@@ -59,7 +61,7 @@ def slack_alert_sla_miss(
     """)
     return _execute_slack_message(http_conn_id=http_conn_id, message=message, **kwargs)
 
-def slack_alert_download_failure(context, http_conn_id, remote_path: str, local_path: str, error: str, **kwargs):
+def slack_alert_download_failure(context, http_conn_id, remote_path: str, local_path: str, error: Union[str, Exception], **kwargs):
     """  """
     message = textwrap.dedent(f"""
         :red_circle: File did not download
@@ -86,7 +88,7 @@ def slack_alert_s3_upload_failure(context, http_conn_id: str, local_path: str, f
     """)
     return _execute_slack_message(http_conn_id=http_conn_id, message=message, **kwargs)
 
-def slack_alert_insert_failure(context, http_conn_id, file_key: str, table: str, error: str, **kwargs):
+def slack_alert_insert_failure(context, http_conn_id, file_key: str, table: str, error: Union[str, Exception], **kwargs):
     """  """
     message = textwrap.dedent(f"""
         :red_circle: File did not insert to database
@@ -123,7 +125,7 @@ def slack_alert_file_format_failure(
     """)
     return _execute_slack_message(http_conn_id=http_conn_id, message=message, **kwargs)
 
-def slack_alert_match_spec_failure(context, http_conn_id, local_path: str, error: str, **kwargs):
+def slack_alert_match_spec_failure(context, http_conn_id, local_path: str, error: Union[str, Exception], **kwargs):
     """  """
     message = textwrap.dedent(f"""
         :red_circle: File did not match file spec
