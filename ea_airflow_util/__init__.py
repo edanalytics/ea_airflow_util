@@ -12,6 +12,9 @@ from ea_airflow_util.callables.variable import check_variable, update_variable
 
 # Reroute deprecated module pathing.
 # Using this SO as inspiration: https://stackoverflow.com/a/72244240
+from ea_airflow_util.providers.dbt.operators import dbt as dbt_operators
+sys.modules['ea_airflow_util.dags.operators.dbt_operators'] = dbt_operators
+
 from ea_airflow_util.callables import airflow as airflow_callables
 sys.modules['ea_airflow_util.dags.callables.xcom_util'] = airflow_callables
 
