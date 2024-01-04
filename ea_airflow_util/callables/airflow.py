@@ -17,7 +17,7 @@ def xcom_pull_template(
     :return: A formatted Jinja string for the xcom pull
     """
     # If an Airflow operator is provided, automatically infer its task_id.
-    if isinstance(task_ids, BaseOperator):
+    if issubclass(type(task_ids), BaseOperator):
         task_ids = task_ids.task_id
 
     xcom_string = f"ti.xcom_pull(task_ids='{task_ids}', key='{key}')"
