@@ -1,22 +1,23 @@
 import os
 import logging
 import shutil
+
 from functools import partial
 from typing import Optional
 
 from airflow import DAG
+from airflow.exceptions import AirflowSkipException
 from airflow.operators.python import PythonOperator
 from airflow.operators.bash import BashOperator
 from airflow.providers.sftp.hooks.sftp import SFTPHook
 from airflow.providers.amazon.aws.hooks.s3 import S3Hook
 from airflow.providers.snowflake.hooks.snowflake import SnowflakeHook
-from airflow.exceptions import AirflowSkipException
 from airflow.utils.task_group import TaskGroup
 
 from ea_airflow_util.callables import slack
 
 
-class SFTPToSnowflakeDag():
+class SFTPToSnowflakeDag:
     """
     This DAG transfers data from an SFTP source into the Snowflake raw data lake. It should be used when data sources
     are not available from an Ed-Fi ODS but need to be brought into the data warehouse.

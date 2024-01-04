@@ -41,7 +41,6 @@ class DbtSnapshotDag():
         :param dag_id:
         :param schedule_interval:
         :param default_args:
-        :param catchup:
         :user_defined_macros:
         """
         # If a Slack connection has been defined, add the failure callback to the default_args.
@@ -54,8 +53,7 @@ class DbtSnapshotDag():
             schedule_interval=schedule_interval,
             default_args=default_args,
             catchup=False,
-            user_defined_macros= {
-            }
+            **kwargs
         )
 
     def dbt_snapshot_run(self, on_success_callback=None, **kwargs):
@@ -67,5 +65,3 @@ class DbtSnapshotDag():
             dbt_bin= self.dbt_bin_path,
             dag=self.dag
         )
-
-        dbt_snapshot_task

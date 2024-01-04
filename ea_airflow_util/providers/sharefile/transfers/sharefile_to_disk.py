@@ -1,7 +1,6 @@
 import os
 
 from airflow.models import BaseOperator
-from airflow.utils.decorators import apply_defaults
 from airflow.exceptions import AirflowSkipException
 from airflow.exceptions import AirflowException
 
@@ -29,7 +28,6 @@ class SharefileToDiskOperator(BaseOperator):
 
     template_fields = ('local_path',)
 
-    @apply_defaults
     def __init__(self,
         sharefile_conn_id,
         sharefile_path,

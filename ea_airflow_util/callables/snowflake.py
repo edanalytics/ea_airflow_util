@@ -36,9 +36,9 @@ def snowflake_to_disk(
         # run query, chunked
         cur = conn.cursor().execute(query)
         while True:
-            res = cur.fetchmany(chunk_size)
-            if len(res) == 0:
+            if not (res := cur.fetchmany(chunk_size)):
                 break
+
             for row in res:
                 csv_writer.writerow(row)
 
@@ -234,7 +234,7 @@ def import_s3_to_snowflake(
     hook = SnowflakeHook(snowflake_conn_id)
     snowflake_conn = hook.get_conn()
 
-    s3_subkeys = s3.list_s3_keys(s3_hook, s3_bucket, s3_key)
+    s3_subkeys = s3._list_s3_keys(s3_hook, s3_bucket, s3_key)
 
     # output all the keys to be loaded
     # each on a newline

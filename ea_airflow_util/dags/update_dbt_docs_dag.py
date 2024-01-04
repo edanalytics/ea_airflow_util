@@ -1,5 +1,4 @@
 import os
-from util import io_helpers
 from typing import Optional
 
 from airflow import DAG
@@ -19,7 +18,7 @@ def upload_to_s3(conn_id: str, filename: str, key: str) -> None: # , bucket_name
     hook.load_file(filename=filename, key=key, replace=True) # , bucket_name=bucket_name)
 
 
-class UpdateDbtDocsDag():
+class UpdateDbtDocsDag:
     """
     params: environment 
     params: dbt_repo_path 
@@ -62,7 +61,6 @@ class UpdateDbtDocsDag():
         :param dag_id:
         :param schedule_interval:
         :param default_args:
-        :param catchup:
         :user_defined_macros:
         """
         return DAG(
@@ -70,9 +68,7 @@ class UpdateDbtDocsDag():
             schedule_interval=schedule_interval,
             default_args=default_args,
             catchup=False,
-            # user_defined_macros= {
-            #     'environment': self.environment,
-            # }
+            **kwargs
         )
 
     def update_dbt_docs(self, on_success_callback=None, **kwargs):

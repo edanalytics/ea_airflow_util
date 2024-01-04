@@ -40,6 +40,6 @@ def mssql_to_disk(conn_string: str, tables: Union[str, List[str]], local_path: s
                     writer.write(json.dumps(json_record, default=type_converter) + '\n')
                     num_rows += 1
 
-        logging.info(f'Pulled {num_rows} rows from {table} to disk: {local_path}')
+            logging.info(f'Pulled {num_rows} rows from {table} to disk: {local_path}')
 
     return local_path

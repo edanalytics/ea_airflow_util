@@ -15,7 +15,7 @@ from ea_airflow_util.callables.airflow import xcom_pull_template
 from .operators.loop_s3_file_transform_operator import LoopS3FileTransformOperator
 
 
-class S3ToSnowflakeDag():
+class S3ToSnowflakeDag:
     """
     This DAG transfers data from an S3 bucket location into the Snowflake raw data lake. It should be used when data sources
     are not available from an Ed-Fi ODS but need to be brought into the data warehouse.

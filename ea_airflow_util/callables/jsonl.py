@@ -43,7 +43,6 @@ def serialize_json_records_to_disk(
                 json_record = snake_case.record_to_snake_case(json_record)
 
             writer.write( json.dumps(json_record) + '\n' )
-
             total_records += 1
 
     if total_records == 0:

@@ -3,9 +3,8 @@ import os
 
 from typing import Optional, Tuple, Union
 
-from ea_airflow_util.providers.sftp.hooks.sftp import SFTPHook
-
 from ea_airflow_util.callables import slack
+from ea_airflow_util.providers.sftp.hooks.sftp import SFTPHook
 
 
 def download_all(
@@ -45,4 +44,3 @@ def download_all(
             logging.error(err)
             slack.slack_alert_download_failure(context, "TODO", remote_path, local_path, err)
             os.remove(local_path)  # this exception (when sftp connection closes) will create a ghost file
-
