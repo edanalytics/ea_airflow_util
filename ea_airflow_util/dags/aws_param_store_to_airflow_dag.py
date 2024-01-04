@@ -2,16 +2,15 @@ import itertools
 import logging
 import re
 
-from collections import defaultdict
 from typing import Iterator, Optional
 
 import airflow
 from airflow import DAG
 from airflow.decorators import task
-from airflow.exceptions import AirflowFailException, AirflowSkipException
+from airflow.exceptions import AirflowFailException
 from airflow.models import Connection
 
-from .dag_util.ssm_parameter_store import SSMParameterStore
+from ea_airflow_util.callables.ssm import SSMParameterStore
 
 
 class ConnectionKwargs:

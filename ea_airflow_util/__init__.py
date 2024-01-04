@@ -12,17 +12,8 @@ from ea_airflow_util.callables.variable import check_variable, update_variable
 
 # Reroute deprecated module pathing.
 # Using this SO as inspiration: https://stackoverflow.com/a/72244240
-from ea_airflow_util.providers.dbt.operators import dbt as dbt_operators
-sys.modules['ea_airflow_util.dags.operators.dbt_operators'] = dbt_operators
-
-from ea_airflow_util.providers.aws.operators import s3 as s3_operators
-sys.modules['ea_airflow_util.dags.operators.loop_s3_file_transform_operator'] = s3_operators
-
 from ea_airflow_util.callables import airflow as airflow_callables
 sys.modules['ea_airflow_util.dags.callables.xcom_util'] = airflow_callables
-
-from ea_airflow_util.callables import variable as variable_callables
-sys.modules['ea_airflow_util.dags.callables.variable'] = variable_callables
 
 from ea_airflow_util.callables import s3 as s3_callables
 sys.modules['ea_airflow_util.dags.callables.dag_util.s3_to_postgres'] = s3_callables
@@ -33,3 +24,14 @@ sys.modules['ea_airflow_util.dags.dag_util.slack_callbacks'] = slack_callbacks
 from ea_airflow_util.callables import snowflake as snowflake_callables
 sys.modules['ea_airflow_util.dags.dag_util.snowflake_to_disk'] = snowflake_callables
 
+from ea_airflow_util.callables import ssm as ssm_callables
+sys.modules['ea_airflow_util.dags.dag_util.ssm_parameter_store'] = ssm_callables
+
+from ea_airflow_util.callables import variable as variable_callables
+sys.modules['ea_airflow_util.dags.callables.variable'] = variable_callables
+
+from ea_airflow_util.providers.dbt.operators import dbt as dbt_operators
+sys.modules['ea_airflow_util.dags.operators.dbt_operators'] = dbt_operators
+
+from ea_airflow_util.providers.aws.operators import s3 as s3_operators
+sys.modules['ea_airflow_util.dags.operators.loop_s3_file_transform_operator'] = s3_operators
