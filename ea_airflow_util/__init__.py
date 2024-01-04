@@ -15,6 +15,9 @@ from ea_airflow_util.callables.variable import check_variable, update_variable
 from ea_airflow_util.providers.dbt.operators import dbt as dbt_operators
 sys.modules['ea_airflow_util.dags.operators.dbt_operators'] = dbt_operators
 
+from ea_airflow_util.providers.aws.operators import s3 as s3_operators
+sys.modules['ea_airflow_util.dags.operators.loop_s3_file_transform_operator'] = s3_operators
+
 from ea_airflow_util.callables import airflow as airflow_callables
 sys.modules['ea_airflow_util.dags.callables.xcom_util'] = airflow_callables
 
