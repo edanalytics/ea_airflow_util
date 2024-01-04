@@ -3,7 +3,7 @@ import os
 
 from typing import Optional, Tuple, Union
 
-from ea_sftp_plugin.hooks.sftp_hook import SFTPHook
+from ea_airflow_util.providers.sftp.hooks.sftp import SFTPHook
 
 from ea_airflow_util.callables import slack
 
