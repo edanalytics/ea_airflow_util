@@ -11,8 +11,8 @@ from airflow.providers.snowflake.hooks.snowflake import SnowflakeHook
 from airflow.utils.helpers import chain
 
 from ea_airflow_util.callables import slack
+from ea_airflow_util.callables.airflow import xcom_pull_template
 from .operators.loop_s3_file_transform_operator import LoopS3FileTransformOperator
-from .dag_util.xcom_util import xcom_pull_template
 
 
 class S3ToSnowflakeDag():
