@@ -67,7 +67,7 @@ def get_google_spreadsheet_by_url(
     google_cloud_client: gspread.Client,
     google_sheets_url  : str,
     maximum_backoff_sec: int = 600,
-)-> gspread.models.Spreadsheet:
+)-> gspread.Spreadsheet:
     """
     Call the Google Sheets API and retrieve a Spreadsheet based on a given URL.
     If API Rate Limit has been reached, use Truncated exponential backoff strategy to retry.
