@@ -12,7 +12,7 @@ from airflow.utils.helpers import chain
 
 from ea_airflow_util.callables import slack
 from ea_airflow_util.callables.airflow import xcom_pull_template
-from .operators.loop_s3_file_transform_operator import LoopS3FileTransformOperator
+from ea_airflow_util.providers.aws.operators.s3 import LoopS3FileTransformOperator
 
 
 class S3ToSnowflakeDag:

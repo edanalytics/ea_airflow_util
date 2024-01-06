@@ -20,7 +20,7 @@ from ea_airflow_util.providers.dbt.operators.dbt import DbtRunOperationOperator
 from ea_airflow_util.callables.variable import check_variable, update_variable
 
 
-class RunDbtDag():
+class RunDbtDag:
     """
     params: environment 
     params: dbt_repo_path 
