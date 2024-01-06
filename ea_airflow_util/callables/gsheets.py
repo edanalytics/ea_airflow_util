@@ -113,7 +113,7 @@ def get_google_spreadsheet_by_url(
 ########################################################
 
 def parse_google_worksheet(
-    worksheet   : gspread.models.Worksheet,
+    worksheet   : gspread.Worksheet,
     iter_records: bool,
 )-> dict:
     """
@@ -150,10 +150,10 @@ def parse_google_worksheet(
 
 
 def get_worksheet_from_google_spreadsheet(
-    spreadsheet: gspread.models.Spreadsheet,
+    spreadsheet: gspread.Spreadsheet,
     sheet_index: Optional[int] = None,
     sheet_name : Optional[str] = None,
-)-> gspread.models.Worksheet:
+)-> gspread.Worksheet:
     """
     Parse a Google spreadsheet and return a specific worksheet by index or name.
 
