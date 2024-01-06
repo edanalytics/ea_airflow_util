@@ -16,7 +16,7 @@ from airflow.utils.task_group import TaskGroup
 from airflow_dbt.operators.dbt_operator import DbtRunOperator, DbtSeedOperator, DbtTestOperator
 
 from ea_airflow_util.callables import slack
-from ea_airflow_util.dags.operators import DbtRunOperationOperator
+from ea_airflow_util.providers.dbt.operators.dbt import DbtRunOperationOperator
 from ea_airflow_util.callables.variable import check_variable, update_variable
 
 
