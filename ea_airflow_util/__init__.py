@@ -45,7 +45,7 @@ rename_mapping = {
     "ea_airflow_util.dags.callables": {
         "name": "ea_airflow_util.callables",
         "child_mapping": {
-            "variable", "variable"
+            "variable": "variable"
         }
     },
     "ea_airflow_util.dags.operators": {
