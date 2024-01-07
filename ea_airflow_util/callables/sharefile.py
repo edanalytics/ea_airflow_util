@@ -6,7 +6,7 @@ from airflow.exceptions import AirflowSkipException
 
 from ea_airflow_util.providers.sharefile.hooks.sharefile import SharefileHook
 
-def list_sharefile_objects(sharefile_conn_id: str, remote_dir: str) -> List[dict]:
+def list_sharefile_objects(sharefile_conn_id: str, remote_dir: str) -> List[str]:
     sharefile_hook = SharefileHook(sharefile_conn_id)
     sharefile_dir_id = sharefile_hook.get_path_id(remote_dir)
 
@@ -15,4 +15,4 @@ def list_sharefile_objects(sharefile_conn_id: str, remote_dir: str) -> List[dict
         logging.info(f"No files found in remote directory: `{remote_dir}`")
         raise AirflowSkipException
 
-    return sharefile_objects
+    return [object['ParentName'] for object in sharefile_objects]
