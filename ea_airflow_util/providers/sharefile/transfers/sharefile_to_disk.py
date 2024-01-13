@@ -29,10 +29,10 @@ class SharefileToDiskOperator(BaseOperator):
     template_fields = ('local_path',)
 
     def __init__(self,
-        sharefile_conn_id,
-        sharefile_path,
-        local_path,
-        delete_remote=False,
+        sharefile_conn_id: str,
+        sharefile_path: str,
+        local_path: str,
+        delete_remote: bool = False,
         *args, **kwargs
     ):
         super(SharefileToDiskOperator, self).__init__(*args, **kwargs)
@@ -41,7 +41,7 @@ class SharefileToDiskOperator(BaseOperator):
         self.local_path = local_path
         self.delete_remote = delete_remote
 
-    def execute(self, context):
+    def execute(self, **context):
         # use hook to make connection
         sf_hook = SharefileHook(sharefile_conn_id=self.sharefile_conn_id)
         sf_hook.get_conn()
@@ -116,7 +116,10 @@ class SharefileToDiskOperator(BaseOperator):
 
             except Exception as err:
                 self.log.error(f'Failed to get file with message: {err}')
-                slack.slack_alert_download_failure(remote_file, full_local_path, err)
+                slack.slack_alert_download_failure(
+                    context=context, http_conn_id="TODO",
+                    remote_path=remote_file, local_path=full_local_path, error=err
+                )
                 continue
 
         if num_successes == 0:

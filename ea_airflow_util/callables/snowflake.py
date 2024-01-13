@@ -94,6 +94,7 @@ def _run_table_import_query(
     # Meta-parameters
     slack_on_failure: bool,
     row_hash: bool,
+    **context
 ):
     """
     Isolated logic for completing an import of data from S3 to Postgres.
@@ -201,7 +202,10 @@ def _run_table_import_query(
             logging.error(e)
 
             if slack_on_failure:
-                slack.slack_alert_insert_failure(file_key=s3_key, dest_table=dest_table, error=str(e).splitlines()[0])
+                slack.slack_alert_insert_failure(
+                    context=context, http_conn_id="TODO",
+                    file_key=s3_key, dest_table=dest_table, error=str(e).splitlines()[0]
+                )
 
     snowflake_conn.commit()
 
@@ -280,4 +284,5 @@ def import_s3_to_snowflake(
 
         slack_on_failure=slack_on_failure,
         row_hash=row_hash,
+        **context
     )
