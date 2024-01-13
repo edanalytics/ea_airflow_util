@@ -5,7 +5,11 @@ from typing import Union
 from airflow.providers.slack.hooks.slack_webhook import SlackWebhookHook
 
 
-def _execute_slack_message(http_conn_id: str, message: str, **kwargs):
+def _execute_slack_message(
+    http_conn_id: str,
+    message: str,
+    **kwargs
+):
     """
     This class runs the SlackWebhookOperator with prebuilt messages.
     https://airflow.apache.org/docs/apache-airflow-providers-slack/stable/_api/airflow/providers/slack/operators/slack_webhook/index.html
@@ -18,7 +22,11 @@ def _execute_slack_message(http_conn_id: str, message: str, **kwargs):
         **kwargs
     ).execute()
 
-def slack_alert_failure(context, http_conn_id, **kwargs):
+def slack_alert_failure(
+    context: dict,
+    http_conn_id: str,
+    **kwargs
+):
     """  """
     message = textwrap.dedent(f"""
         :red_circle: Task Failed. 
@@ -29,7 +37,11 @@ def slack_alert_failure(context, http_conn_id, **kwargs):
     """)
     return _execute_slack_message(http_conn_id=http_conn_id, message=message, **kwargs)
 
-def slack_alert_success(context, http_conn_id, **kwargs):
+def slack_alert_success(
+    context: dict,
+    http_conn_id: str,
+    **kwargs
+):
     """  """
     message = textwrap.dedent(f"""
         :heavy_check_mark: Task Succeeded. 
@@ -40,8 +52,9 @@ def slack_alert_success(context, http_conn_id, **kwargs):
     return _execute_slack_message(http_conn_id=http_conn_id, message=message, **kwargs)
 
 def slack_alert_sla_miss(
-    http_conn_id,
-    dag, task_list, blocking_task_list, slas, blocking_tis,
+    http_conn_id: str,
+    *args,
+    slas: list,
     **kwargs
 ):
     """
@@ -61,7 +74,14 @@ def slack_alert_sla_miss(
     """)
     return _execute_slack_message(http_conn_id=http_conn_id, message=message, **kwargs)
 
-def slack_alert_download_failure(context, http_conn_id, remote_path: str, local_path: str, error: Union[str, Exception], **kwargs):
+def slack_alert_download_failure(
+    context: dict,
+    http_conn_id: str,
+    remote_path: str,
+    local_path: str,
+    error: Union[str, Exception],
+    **kwargs
+):
     """  """
     message = textwrap.dedent(f"""
         :red_circle: File did not download
@@ -75,7 +95,14 @@ def slack_alert_download_failure(context, http_conn_id, remote_path: str, local_
     """)
     return _execute_slack_message(http_conn_id=http_conn_id, message=message, **kwargs)
 
-def slack_alert_s3_upload_failure(context, http_conn_id: str, local_path: str, file_key: str, error: Union[str, Exception], **kwargs):
+def slack_alert_s3_upload_failure(
+    context: dict,
+    http_conn_id: str,
+    local_path: str,
+    file_key: str,
+    error: Union[str, Exception],
+    **kwargs
+):
     """  """
     message = textwrap.dedent(f"""
         :red_circle: File did not upload to S3
@@ -89,7 +116,14 @@ def slack_alert_s3_upload_failure(context, http_conn_id: str, local_path: str, f
     """)
     return _execute_slack_message(http_conn_id=http_conn_id, message=message, **kwargs)
 
-def slack_alert_insert_failure(context, http_conn_id, file_key: str, table: str, error: Union[str, Exception], **kwargs):
+def slack_alert_insert_failure(
+    context: dict,
+    http_conn_id: str,
+    file_key: str,
+    table: str,
+    error: Union[str, Exception],
+    **kwargs
+):
     """  """
     message = textwrap.dedent(f"""
         :red_circle: File did not insert to database
@@ -104,7 +138,7 @@ def slack_alert_insert_failure(context, http_conn_id, file_key: str, table: str,
     return _execute_slack_message(http_conn_id=http_conn_id, message=message, **kwargs)
 
 def slack_alert_file_format_failure(
-    context,
+    context: dict,
     http_conn_id: str,
     local_path: str,
     file_type: str,
@@ -126,7 +160,13 @@ def slack_alert_file_format_failure(
     """)
     return _execute_slack_message(http_conn_id=http_conn_id, message=message, **kwargs)
 
-def slack_alert_match_spec_failure(context, http_conn_id, local_path: str, error: Union[str, Exception], **kwargs):
+def slack_alert_match_spec_failure(
+    context: dict,
+    http_conn_id: str,
+    local_path: str,
+    error: Union[str, Exception],
+    **kwargs
+):
     """  """
     message = textwrap.dedent(f"""
         :red_circle: File did not match file spec
