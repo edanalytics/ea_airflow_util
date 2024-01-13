@@ -7,7 +7,7 @@ from airflow import DAG
 from airflow_dbt.operators.dbt_operator import DbtSnapshotOperator
 
 
-class DbtSnapshotDag():
+class DbtSnapshotDag:
     """
     params: dbt_repo_path 
     params: dbt_target_name 
@@ -41,7 +41,6 @@ class DbtSnapshotDag():
         :param dag_id:
         :param schedule_interval:
         :param default_args:
-        :user_defined_macros:
         """
         # If a Slack connection has been defined, add the failure callback to the default_args.
         if self.slack_conn_id:

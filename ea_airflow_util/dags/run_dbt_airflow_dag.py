@@ -123,8 +123,6 @@ class RunDbtDag:
         :param dag_id:
         :param schedule_interval:
         :param default_args:
-        :param catchup:
-        :user_defined_macros:
         """
         # If a Slack connection has been defined, add the failure callback to the default_args.
         if self.slack_conn_id:
@@ -140,7 +138,8 @@ class RunDbtDag:
             render_template_as_native_obj=True,
             user_defined_macros= {
                 'environment': self.environment,
-            }
+            },
+            **kwargs
         )
 
 

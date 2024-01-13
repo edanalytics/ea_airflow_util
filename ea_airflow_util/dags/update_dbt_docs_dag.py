@@ -61,7 +61,6 @@ class UpdateDbtDocsDag:
         :param dag_id:
         :param schedule_interval:
         :param default_args:
-        :user_defined_macros:
         """
         return DAG(
             dag_id=dag_id,
