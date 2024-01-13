@@ -3,15 +3,24 @@
 import warnings
 warnings.filterwarnings("ignore", module="airflow_dbt", category=DeprecationWarning)
 
+from typing import Optional
+
 from airflow_dbt.operators.dbt_operator import DbtBaseOperator
 
 
 class DbtRunOperationOperator(DbtBaseOperator):
-    # note: without forking the hook code, we don't currently have a way to pass the --args flag to run-operation
-    def __init__(self, op_name, profiles_dir=None, target=None, *args, **kwargs):
-        super(DbtRunOperationOperator, self).__init__(profiles_dir=profiles_dir, target=target, *args, **kwargs)
+    """
+    Without forking the hook code, we don't have a way to pass the --args flag to run-operation.
+    """
+    def __init__(self, op_name, arguments: Optional[str] = None, *args, **kwargs):
+        super(DbtRunOperationOperator, self).__init__(*args, **kwargs)
         self.op_name = op_name
+        self.arguments = arguments
 
-    def execute(self, context):
-        # note: again, by making our own package, we could pass the operation name in a better way
-        self.create_hook().run_cli('run-operation', self.op_name)
+    def execute(self, **context):
+        cmd_pieces = ['run-operation', self.op_name]
+
+        if self.arguments:
+            cmd_pieces.extend(f"--args '{self.arguments}'")
+
+        self.create_hook().run_cli(*cmd_pieces)
