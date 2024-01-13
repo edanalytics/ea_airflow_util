@@ -29,10 +29,9 @@ class SFTPToSnowflakeDag:
         database: str,
         schema: str,                   
 
-        slack_conn_id: str,
         pool: str,
-
         do_delete_from_local: Optional[bool] = False,
+        slack_conn_id: Optional[str] = None,
 
         #These parameters can be passed on initialization or when calling the build_tenant_year_resource_taskgroup function, depending on where they are specified in the config
         domain: Optional[str] = None,
@@ -69,7 +68,6 @@ class SFTPToSnowflakeDag:
         :param dag_id:
         :param schedule_interval:
         :param default_args:
-        :param kwargs:
         :return:
         """
         # If a Slack connection has been defined, add the failure callback to the default_args.
@@ -87,6 +85,9 @@ class SFTPToSnowflakeDag:
             schedule_interval=schedule_interval,
             default_args=default_args,
             catchup=False,
+            user_defined_macros={
+                'slack_conn_id': self.slack_conn_id,
+            },
             render_template_as_native_obj=True,
             max_active_runs=1,
             sla_miss_callback=slack_sla_miss_callback,

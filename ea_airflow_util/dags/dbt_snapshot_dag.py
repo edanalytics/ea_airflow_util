@@ -9,10 +9,10 @@ from airflow_dbt.operators.dbt_operator import DbtSnapshotOperator
 
 class DbtSnapshotDag:
     """
-    params: dbt_repo_path 
-    params: dbt_target_name 
-    params: dbt_bin_path 
-    
+    :param dbt_repo_path:
+    :param dbt_target_name:
+    :param dbt_bin_path:
+    :param slack_conn_id:
     """
     def __init__(self,
         # required dbt paths and target
@@ -29,9 +29,7 @@ class DbtSnapshotDag:
         self.dbt_target_name = dbt_target_name
         self.dbt_bin_path = dbt_bin_path
 
-        # Slack alerting
         self.slack_conn_id = slack_conn_id
-
         self.dag = self.initialize_dag(**kwargs)
 
 
@@ -52,6 +50,9 @@ class DbtSnapshotDag:
             schedule_interval=schedule_interval,
             default_args=default_args,
             catchup=False,
+            user_defined_macros={
+                'slack_conn_id': self.slack_conn_id,
+            },
             **kwargs
         )
 

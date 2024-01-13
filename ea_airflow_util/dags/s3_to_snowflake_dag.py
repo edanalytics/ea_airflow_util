@@ -2,6 +2,7 @@ import os
 import logging
 
 from functools import partial
+from typing import Optional
 
 from airflow import DAG
 from airflow.operators.python import PythonOperator
@@ -33,17 +34,16 @@ class S3ToSnowflakeDag:
         data_source: str,
         resource_names: str,
         transform_script: str,
-        do_delete_from_source: bool = True,                                
-                 
+
         s3_source_conn_id: str,
         s3_dest_conn_id: str,
         s3_dest_file_extension: str,
 
-        #TODO once on latest version of airflow, use dagrun parameter to allow full_replace runs even if not set here at dag level
-        full_replace: bool,
-
-        slack_conn_id: str,
         pool: str,
+        full_replace: bool = False,  #TODO once on latest version of airflow, use dagrun parameter to allow full_replace runs even if not set here at dag level
+
+        do_delete_from_source: bool = True,
+        slack_conn_id: Optional[str] = None,
 
         **kwargs
     ) -> None:
@@ -99,6 +99,9 @@ class S3ToSnowflakeDag:
             schedule_interval=schedule_interval,
             default_args=default_args,
             catchup=False,
+            user_defined_macros={
+                'slack_conn_id': self.slack_conn_id,
+            },
             render_template_as_native_obj=True,
             max_active_runs=1,
             sla_miss_callback=slack_sla_miss_callback,

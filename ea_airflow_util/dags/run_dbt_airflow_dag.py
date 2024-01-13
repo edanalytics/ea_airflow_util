@@ -138,6 +138,7 @@ class RunDbtDag:
             render_template_as_native_obj=True,
             user_defined_macros= {
                 'environment': self.environment,
+                'slack_conn_id': self.slack_conn_id,
             },
             **kwargs
         )
