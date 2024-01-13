@@ -67,15 +67,15 @@ def slack_alert_download_failure(context, http_conn_id, remote_path: str, local_
         :red_circle: File did not download
         *Remote Path*: {remote_path}
         *Local Path*: {local_path}
-        *Error*: {error}
         *Task*: {context['ti'].task_id}
         *Dag*: {context['ti'].dag_id}
         *Execution Time*: {context['dag_run'].logical_date}
         *Log Url*: {context['ti'].log_url}
+        *Error*: {error}
     """)
     return _execute_slack_message(http_conn_id=http_conn_id, message=message, **kwargs)
 
-def slack_alert_s3_upload_failure(context, http_conn_id: str, local_path: str, file_key: str, **kwargs):
+def slack_alert_s3_upload_failure(context, http_conn_id: str, local_path: str, file_key: str, error: Union[str, Exception], **kwargs):
     """  """
     message = textwrap.dedent(f"""
         :red_circle: File did not upload to S3
@@ -85,6 +85,7 @@ def slack_alert_s3_upload_failure(context, http_conn_id: str, local_path: str, f
         *Dag*: { context['ti'].dag_id }
         *Execution Time*: { context['dag_run'].logical_date }
         *Log Url*: { context['ti'].log_url }
+        *Error*: {error}
     """)
     return _execute_slack_message(http_conn_id=http_conn_id, message=message, **kwargs)
 
@@ -94,11 +95,11 @@ def slack_alert_insert_failure(context, http_conn_id, file_key: str, table: str,
         :red_circle: File did not insert to database
         *File Key*: {file_key}
         *Dest Table*: {table}
-        *Error*: {error}
         *Task*: {context['ti'].task_id}
         *Dag*: {context['ti'].dag_id}
         *Execution Time*: {context['dag_run'].logical_date}
         *Log Url*: {context['ti'].log_url}
+        *Error*: {error}
     """)
     return _execute_slack_message(http_conn_id=http_conn_id, message=message, **kwargs)
 
@@ -130,10 +131,10 @@ def slack_alert_match_spec_failure(context, http_conn_id, local_path: str, error
     message = textwrap.dedent(f"""
         :red_circle: File did not match file spec
         *File Path*: {local_path}
-        *Error*: {error}
         *Task*: {context['ti'].task_id}
         *Dag*: {context['ti'].dag_id}
         *Execution Time*: {context['dag_run'].logical_date}
         *Log Url*: {context['ti'].log_url}
+        *Error*: {error}
     """)
     return _execute_slack_message(http_conn_id=http_conn_id, message=message, **kwargs)
