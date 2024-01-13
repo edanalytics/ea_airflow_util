@@ -116,10 +116,13 @@ class SharefileToDiskOperator(BaseOperator):
 
             except Exception as err:
                 self.log.error(f'Failed to get file with message: {err}')
-                slack.slack_alert_download_failure(
-                    context=context, http_conn_id="TODO",
-                    remote_path=remote_file, local_path=full_local_path, error=err
-                )
+
+                if slack_conn_id := context["dag"].user_defined_macros.get("slack_conn_id"):
+                    slack.slack_alert_download_failure(
+                        context=context, http_conn_id=slack_conn_id,
+                        remote_path=remote_file, local_path=full_local_path, error=err
+                    )
+
                 continue
 
         if num_successes == 0:

@@ -84,11 +84,14 @@ def disk_to_s3(
                 else:
                     logging.error(f'{full_local_path} has unexpected column configuration')
                     file_type = local_path.split('/')[-1]
-                    slack.slack_alert_file_format_failure(
-                        context=context, http_conn_id="TODO",
-                        file_type=file_type, local_path=full_local_path,
-                        cols_expected=expected_col_names, cols_found=header
-                    )
+
+                    if slack_conn_id := context["dag"].user_defined_macros.get("slack_conn_id"):
+                        slack.slack_alert_file_format_failure(
+                            context=context, http_conn_id=slack_conn_id,
+                            file_type=file_type, local_path=full_local_path,
+                            cols_expected=expected_col_names, cols_found=header
+                        )
+
                     # update s3 key
                     ds_nodash = context.get('templates_dict').get('ds_nodash')
                     key = os.path.join('failed_files', ds_nodash, file_type, file)
@@ -105,10 +108,13 @@ def disk_to_s3(
                     )
                 except Exception as error:
                     logging.error(error)
-                    slack.slack_alert_s3_upload_failure(
-                        context=context, http_conn_id="TODO",
-                        local_path=full_local_path, file_key=key, error=error
-                    )
+
+                    if slack_conn_id := context["dag"].user_defined_macros.get("slack_conn_id"):
+                        slack.slack_alert_s3_upload_failure(
+                            context=context, http_conn_id=slack_conn_id,
+                            local_path=full_local_path, file_key=key, error=error
+                        )
+
                     # if we've already counted this task as 'failing' bc of incorrect format, don't count again
                     if not key.startswith('failed_files'):
                         failed_count += 1
@@ -117,10 +123,13 @@ def disk_to_s3(
                     s3_hook.load_file(full_local_path, key, bucket, replace=True, encrypt=True)
                 except Exception as error:
                     logging.error(error)
-                    slack.slack_alert_s3_upload_failure(
-                        context=context, http_conn_id="TODO",
-                        local_path=full_local_path, file_key=key, error=error
-                    )
+
+                    if slack_conn_id := context["dag"].user_defined_macros.get("slack_conn_id"):
+                        slack.slack_alert_s3_upload_failure(
+                            context=context, http_conn_id=slack_conn_id,
+                            local_path=full_local_path, file_key=key, error=error
+                        )
+
                     # if we've already counted this task as 'failing' bc of incorrect format, don't count again
                     if not key.startswith('failed_files'):
                         failed_count += 1

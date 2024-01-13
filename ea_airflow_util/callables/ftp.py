@@ -42,8 +42,11 @@ def download_all(
             hook.retrieve_large_file(remote_path, local_path)
         except Exception as err:
             logging.error(err)
-            slack.slack_alert_download_failure(
-                context=context, http_conn_id="TODO",
-                remote_path=remote_path, local_path=local_path, error=err
-            )
+
+            if slack_conn_id := context["dag"].user_defined_macros.get("slack_conn_id"):
+                slack.slack_alert_download_failure(
+                    context=context, http_conn_id=slack_conn_id,
+                    remote_path=remote_path, local_path=local_path, error=err
+                )
+
             os.remove(local_path)  # this exception (when sftp connection closes) will create a ghost file
