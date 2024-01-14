@@ -21,6 +21,6 @@ class DbtRunOperationOperator(DbtBaseOperator):
         cmd_pieces = ['run-operation', self.op_name]
 
         if self.arguments:
-            cmd_pieces.extend(f"--args '{self.arguments}'")
+            cmd_pieces.extend([f"--args '{self.arguments}'"])
 
         self.create_hook().run_cli(*cmd_pieces)
