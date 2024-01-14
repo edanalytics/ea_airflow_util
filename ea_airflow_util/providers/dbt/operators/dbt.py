@@ -18,9 +18,14 @@ class DbtRunOperationOperator(DbtBaseOperator):
         self.arguments = arguments
 
     def execute(self, **context):
-        cmd_pieces = ['run-operation', self.op_name]
+        """
+        dbt run-operation [OPTIONS] MACRO
+        """
+        cmd_pieces = ['run-operation']
 
         if self.arguments:
-            cmd_pieces.extend([f"--args '{self.arguments}'"])
+            cmd_pieces.append(f"--args '{self.arguments}'")
+
+        cmd_pieces.append(self.op_name)
 
         self.create_hook().run_cli(*cmd_pieces)
