@@ -5,6 +5,8 @@ warnings.filterwarnings("ignore", module="airflow_dbt", category=DeprecationWarn
 
 from typing import Optional
 
+from airflow.exceptions import AirflowException, AirflowFailException
+
 from airflow_dbt.operators.dbt_operator import DbtBaseOperator
 
 
@@ -21,11 +23,12 @@ class DbtRunOperationOperator(DbtBaseOperator):
         """
         dbt run-operation [OPTIONS] MACRO
         """
-        cmd_pieces = ['run-operation']
+        cmd_pieces = ['run-operation', self.op_name]
 
         if self.arguments:
             cmd_pieces.append(f"--args '{self.arguments}'")
 
-        cmd_pieces.append(self.op_name)
-
-        self.create_hook().run_cli(*cmd_pieces)
+        try:
+            self.create_hook().run_cli(*cmd_pieces)
+        except AirflowException as err:  # Workaround to force a failure to end the task.
+            raise AirflowFailException(err)
