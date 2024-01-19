@@ -170,7 +170,6 @@ class RunDbtDag:
             dag=self.dag
         ) as dbt_task_group:
 
-            # open question: does full refresh seed necessarily need to be scheduled?
             dbt_seed = DbtSeedOperator(
                 task_id= f'dbt_seed_{self.environment}',
                 dir    = self.dbt_repo_path,
@@ -181,7 +180,6 @@ class RunDbtDag:
                 dag=self.dag
             )
 
-            #
             dbt_run = DbtRunOperator(
                 task_id= f'dbt_run_{self.environment}',
                 dir    = self.dbt_repo_path,
@@ -217,7 +215,7 @@ class RunDbtDag:
 
                 # Schema swaps only apply to tables, not views.
                 dbt_rerun_views_swap = DbtRunOperator(
-                    task_id=f'dbt_run_{self.environment}',
+                    task_id=f'dbt_rerun_views_{self.environment}',
                     dir=self.dbt_repo_path,
                     target=self.opt_swap_target,
                     dbt_bin=self.dbt_bin_path,
@@ -228,7 +226,7 @@ class RunDbtDag:
 
                 # Rerun the original target also to allow comparison after swap.
                 dbt_rerun_views = DbtRunOperator(
-                    task_id=f'dbt_run_{self.environment}',
+                    task_id=f'dbt_rerun_views_{self.dbt_target_name}',
                     dir=self.dbt_repo_path,
                     target=self.dbt_target_name,
                     dbt_bin=self.dbt_bin_path,
