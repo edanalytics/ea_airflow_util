@@ -28,7 +28,4 @@ class DbtRunOperationOperator(DbtBaseOperator):
         if self.arguments:
             cmd_pieces.append(f"--args '{self.arguments}'")
 
-        try:
-            self.create_hook().run_cli(*cmd_pieces)
-        except AirflowException as err:  # Workaround to force a failure to end the task.
-            raise AirflowFailException(err)
+        self.create_hook().run_cli(*cmd_pieces)
