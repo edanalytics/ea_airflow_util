@@ -215,7 +215,7 @@ class RunDbtDag:
 
                 # Schema swaps only apply to tables, not views.
                 dbt_rerun_views_swap = DbtRunOperator(
-                    task_id=f'dbt_rerun_views_{self.environment}',
+                    task_id=f'dbt_rerun_views_{self.opt_swap_target}',
                     dir=self.dbt_repo_path,
                     target=self.opt_swap_target,
                     dbt_bin=self.dbt_bin_path,
@@ -226,7 +226,7 @@ class RunDbtDag:
 
                 # Rerun the original target also to allow comparison after swap.
                 dbt_rerun_views = DbtRunOperator(
-                    task_id=f'dbt_rerun_views_{self.dbt_target_name}',
+                    task_id=f'dbt_rerun_views_{self.environment}',
                     dir=self.dbt_repo_path,
                     target=self.dbt_target_name,
                     dbt_bin=self.dbt_bin_path,
