@@ -208,7 +208,9 @@ class RunDbtDag:
                     target = self.dbt_target_name,
                     dbt_bin= self.dbt_bin_path,
                     op_name= 'swap_schemas',
-                    arguments= "{" + f"dest_schema: {self.opt_dest_schema}" + "}",
+                    arguments={
+                        "dest_schema": self.opt_dest_schema,
+                    },
                     on_success_callback=on_success_callback,
                     dag=self.dag
                 )
