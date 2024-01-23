@@ -27,10 +27,6 @@ def disk_to_s3(
     # use hook to make connection to s3
     s3_hook = S3Hook(s3_conn_id)
 
-    # get local path from xcom
-    if local_path is None:
-        local_path = context.get('templates_dict', {}).get('local_path')
-
     # extra dir to local will be an additional path added on to local path
     if extra_dir_to_local is not None:
         local_path = os.path.join(local_path, extra_dir_to_local)
@@ -50,7 +46,7 @@ def disk_to_s3(
                 continue
 
             full_local_path = os.path.join(root, file)
-            key = full_local_path.replace(base_dir + '/', '')
+            key = full_local_path.replace(base_dir + '/', '')  # TODO: What is this?
 
             # file validation by checking headers
             if expected_col_names:

@@ -239,13 +239,7 @@ def import_s3_to_snowflake(
     snowflake_conn = hook.get_conn()
 
     s3_subkeys = s3._list_s3_keys(s3_hook, s3_bucket, s3_key)
-
-    # output all the keys to be loaded
-    # each on a newline
-    keys_output = '\n'.join([
-        f"{key}" for key in s3_subkeys
-    ])
-    logging.info(f'Attempting to load these files: {keys_output}')
+    logging.info(f"Attempting to load these files: {'\n'.join(s3_subkeys)}")
 
     # check what type of file (this will determine file format for snowflake loading)
     # TODO: should I check across all of the files? Not really necessary
@@ -255,12 +249,12 @@ def import_s3_to_snowflake(
     if s3_subkeys[0].endswith('.jsonl'):
         file_format = 'json_default'
 
-    delete_source_orgs = None
+    # Extract the source_org from the S3 folder structure, and apply to SQL queries if necessary.
     if delete:
-        # Extract the source_org from the S3 folder structure, and apply to SQL queries if necessary.
         delete_source_orgs = set([pathlib.PurePath(key).parent.name for key in s3_subkeys])
-
         logging.info(f'Deleting source_orgs = {delete_source_orgs}')
+    else:
+        delete_source_orgs = None  # TODO: Rename "source_org" to "tenant_code" across everything ever!
 
     # Apply table truncations or deletes if specified.
     _run_table_clear_query(

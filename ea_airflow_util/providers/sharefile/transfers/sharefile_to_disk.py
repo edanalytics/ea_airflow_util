@@ -129,17 +129,3 @@ class SharefileToDiskOperator(BaseOperator):
             raise AirflowException(f"Failed transfer from ShareFile to local: no files transferred successfully!")
 
         return self.local_path
-
-        # if local_hash != file['hash']:
-        #     self.log.error('File hashes do not match for remote file {}'.format(remote_file))
-        #     self.log.info('Deleting local copy')
-        #     if os.path.exists(local_file):
-        #         os.remove(local_file)
-        # else:
-        #     self.log.info("Success")
-        #     new_local.append(local_file)
-        #     if self.delete_remote:
-        #         sf_hook.delete(file['item_id'])
-
-        # self.log.info('Transferred {} files'.format(len(new_local)))
-        # return new_local

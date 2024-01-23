@@ -74,10 +74,6 @@ def translate_csv_file_to_jsonl(
     # note: csv path was initially intended to be a full path to a file
     # it can now be a directory in case there are multiple files
 
-    # get local path from xcom
-    if csv_path is None:
-        csv_path = kwargs.get('templates_dict').get('local_path')
-
     # error if csv path is a directory but output path is not null (the loop will overwrite)
     if os.path.isdir(csv_path) and output_path is not None:
         raise AirflowException(
@@ -108,7 +104,7 @@ def translate_csv_file_to_jsonl(
                     serialize_json_records_to_disk(json_records, output_path_new, "w", metadata_dict, to_snake_case, **kwargs)
 
             if delete_csv:
-                os.remove(full_local_path)
+                os.remove(full_local_path)  # TODO: Cannot delete directories (use shutil)
                 logging.info(
                     f"Local path `{full_local_path}` deleted."
                 )
