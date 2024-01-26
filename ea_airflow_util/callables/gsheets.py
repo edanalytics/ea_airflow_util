@@ -1,5 +1,6 @@
 import gspread
 import logging
+import json
 import os
 import random
 import time
@@ -9,6 +10,7 @@ from typing import Optional
 from airflow.providers.google.common.hooks.base_google import GoogleBaseHook
 from airflow.exceptions import AirflowException
 from gspread.exceptions import APIError, WorksheetNotFound
+from google.oauth2.credentials import Credentials
 
 from ea_airflow_util.callables import jsonl
 
@@ -16,6 +18,49 @@ from ea_airflow_util.callables import jsonl
 #####################################################
 # Functions for pulling Google Sheets from the API. #
 #####################################################
+def get_google_client_from_airflow(
+    gcp_conn_id: str,
+    key_field  : Optional[str] = None,
+)-> gspread.Client:
+    """
+    Create a Google Sheets client populated with key data in an Airflow connection.
+    The key data can be saved in a separate, linked file, or as a JSON structure in the connection.
+    The Airflow connection key field can be specified; otherwise, both will be tried.
+
+    Return an authorized gspread client.
+    """
+    gcp_hook = GoogleBaseHook(gcp_conn_id=gcp_conn_id)
+    keyfile_path = gcp_hook.get_field("key_path")
+    keyfile_dict = gcp_hook.get_field("keyfile_dict")
+
+    if key_field is None:
+        logging.warning(
+            "Airflow connection `key_field` not specified. Attempting `key_path` then `keyfile_dict`."
+        )
+
+    # Option 1: Use authentication saved in a separate authorized_user.json file.
+    if key_field in ("key_path", None) and keyfile_path is not None:
+        credentials = Credentials.from_authorized_user_file(keyfile_path)
+        logging.info(
+            f"Credentials gathered from Airflow connection `{gcp_conn_id}` using key_path."
+        )
+
+    # Option 2: Use authentication saved directly in the Airflow connection.
+    elif key_field in ("keyfile_dict", None) and keyfile_dict is not None:
+        keyfile_dict = json.loads(keyfile_dict)
+        credentials = Credentials.from_authorized_user_info(keyfile_dict)
+        logging.info(
+            f"Credentials gathered from Airflow connection `{gcp_conn_id}` using keyfile_dict."
+        )
+
+    # Otherwise, we cannot connect to the sheets client.
+    else:
+        raise AirflowException(
+            "Failed to connect to Google! Unable to retrieve credentials from Airflow!"
+        )
+
+    return gspread.authorize(credentials)
+
 def get_google_spreadsheet_by_url(
     google_cloud_client: gspread.Client,
     google_sheets_url  : str,
@@ -158,8 +203,7 @@ def get_and_serialize_google_survey_url_to_jsonl(
     Optional **kwargs for `serialize_json_records_to_disk` can be specified.
     """
     # Instantiate a Google client for retrieving the sheet contents.
-    credentials = GoogleBaseHook(gcp_conn_id).get_credentials()
-    gcp_client = gspread.authorize(credentials)
+    gcp_client = get_google_client_from_airflow(gcp_conn_id)
 
     # Retrieve the spreadsheet from the Google API.
     spreadsheet = get_google_spreadsheet_by_url(gcp_client, survey_url)
