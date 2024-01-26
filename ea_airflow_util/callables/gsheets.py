@@ -30,8 +30,8 @@ def get_google_client_from_airflow(
     Return an authorized gspread client.
     """
     gcp_hook = GoogleBaseHook(gcp_conn_id=gcp_conn_id)
-    keyfile_path = gcp_hook.get_field("key_path")
-    keyfile_dict = gcp_hook.get_field("keyfile_dict")
+    keyfile_path = gcp_hook._get_field("key_path")
+    keyfile_dict = gcp_hook._get_field("keyfile_dict")
 
     if key_field is None:
         logging.warning(
