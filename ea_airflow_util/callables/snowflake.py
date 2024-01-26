@@ -204,7 +204,7 @@ def _run_table_import_query(
             if slack_on_failure and (slack_conn_id := context["dag"].user_defined_macros.get("slack_conn_id")):
                 slack.slack_alert_insert_failure(
                     context=context, http_conn_id=slack_conn_id,
-                    file_key=s3_key, dest_table=dest_table, error=str(e).splitlines()[0]
+                    file_key=s3_key, table=dest_table, error=str(e).splitlines()[0]
                 )
 
     snowflake_conn.commit()
