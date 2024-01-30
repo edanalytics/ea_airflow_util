@@ -7,7 +7,6 @@ from datetime import datetime
 from functools import partial
 from typing import Optional
 
-
 from airflow import DAG
 from airflow.models.param import Param
 from airflow.operators.python import PythonOperator
@@ -15,11 +14,9 @@ from airflow.utils.task_group import TaskGroup
 
 from airflow_dbt.operators.dbt_operator import DbtRunOperator, DbtSeedOperator, DbtTestOperator
 
+from ea_airflow_util.callables import slack
 from ea_airflow_util.providers.dbt.operators.dbt import DbtRunOperationOperator
-
-# TODO: Reroute these to new structure when merging 0.3.0.
-import ea_airflow_util.dags.dag_util.slack_callbacks as slack_callbacks
-from ea_airflow_util.dags.callables.variable import check_variable, update_variable
+from ea_airflow_util.callables.variable import check_variable, update_variable
 
 
 class RunDbtDag:
@@ -131,7 +128,7 @@ class RunDbtDag:
         """
         # If a Slack connection has been defined, add the failure callback to the default_args.
         if self.slack_conn_id:
-            slack_failure_callback = partial(slack_callbacks.slack_alert_failure, http_conn_id=self.slack_conn_id)
+            slack_failure_callback = partial(slack.slack_alert_failure, http_conn_id=self.slack_conn_id)
             default_args['on_failure_callback'] = slack_failure_callback
 
         return DAG(
