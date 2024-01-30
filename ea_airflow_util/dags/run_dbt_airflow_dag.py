@@ -7,7 +7,6 @@ from datetime import datetime
 from functools import partial
 from typing import Optional
 
-import ea_airflow_util.dags.dag_util.slack_callbacks as slack_callbacks
 
 from airflow import DAG
 from airflow.models.param import Param
@@ -16,21 +15,25 @@ from airflow.utils.task_group import TaskGroup
 
 from airflow_dbt.operators.dbt_operator import DbtRunOperator, DbtSeedOperator, DbtTestOperator
 
-from .operators.dbt_operators import DbtRunOperationOperator
-from .callables.variable import check_variable, update_variable
+from ea_airflow_util.providers.dbt.operators.dbt import DbtRunOperationOperator
+
+# TODO: Reroute these to new structure when merging 0.3.0.
+import ea_airflow_util.dags.dag_util.slack_callbacks as slack_callbacks
+from ea_airflow_util.dags.callables.variable import check_variable, update_variable
 
 
-class RunDbtDag():
+class RunDbtDag:
     """
-    params: environment 
-    params: dbt_repo_path 
-    params: dbt_target_name 
-    params: dbt_bin_path 
-    params: full_refresh -- default to False
-    params: full_refresh_schedule -- default to None
-    params: opt_dest_schema -- default to None
-    params: opt_swap -- default to False 
-    
+    :param environment:
+    :param dbt_repo_path:
+    :param dbt_target_name:
+    :param dbt_bin_path:
+    :param full_refresh: -- default to False
+    :param full_refresh_schedule: -- default to None
+    :param opt_swap: -- default to False
+    :param opt_dest_schema: -- default to None
+    :param opt_swap_target: -- default to opt_dest_schema
+
     """
     params_dict = {
         "force": Param(
@@ -52,8 +55,9 @@ class RunDbtDag():
         full_refresh: bool = False,
         full_refresh_schedule: Optional[str] = None,
 
-        opt_dest_schema: Optional[str] = None,
         opt_swap: bool = False,
+        opt_dest_schema: Optional[str] = None,
+        opt_swap_target: Optional[str] = None,
 
         upload_artifacts: bool = False,
 
@@ -74,8 +78,9 @@ class RunDbtDag():
         self.full_refresh_schedule = full_refresh_schedule
 
         # bluegreen 
-        self.opt_dest_schema = opt_dest_schema
         self.opt_swap        = opt_swap
+        self.opt_dest_schema = opt_dest_schema
+        self.opt_swap_target = opt_swap_target or self.opt_dest_schema
 
         # DBT Artifacts
         self.upload_artifacts = upload_artifacts
@@ -123,8 +128,6 @@ class RunDbtDag():
         :param dag_id:
         :param schedule_interval:
         :param default_args:
-        :param catchup:
-        :user_defined_macros:
         """
         # If a Slack connection has been defined, add the failure callback to the default_args.
         if self.slack_conn_id:
@@ -140,7 +143,9 @@ class RunDbtDag():
             render_template_as_native_obj=True,
             user_defined_macros= {
                 'environment': self.environment,
-            }
+                'slack_conn_id': self.slack_conn_id,
+            },
+            **kwargs
         )
 
 
@@ -167,7 +172,6 @@ class RunDbtDag():
             dag=self.dag
         ) as dbt_task_group:
 
-            # open question: does full refresh seed necessarily need to be scheduled?
             dbt_seed = DbtSeedOperator(
                 task_id= f'dbt_seed_{self.environment}',
                 dir    = self.dbt_repo_path,
@@ -178,7 +182,6 @@ class RunDbtDag():
                 dag=self.dag
             )
 
-            #
             dbt_run = DbtRunOperator(
                 task_id= f'dbt_run_{self.environment}',
                 dir    = self.dbt_repo_path,
@@ -207,13 +210,36 @@ class RunDbtDag():
                     target = self.dbt_target_name,
                     dbt_bin= self.dbt_bin_path,
                     op_name= 'swap_schemas',
-                    vars   = "{dest_schema = self.opt_dest_schema}",
-
+                    arguments={
+                        "dest_schema": self.opt_dest_schema,
+                    },
                     on_success_callback=on_success_callback,
                     dag=self.dag
                 )
 
-                dbt_test >> dbt_swap
+                # Schema swaps only apply to tables, not views.
+                dbt_rerun_views_swap = DbtRunOperator(
+                    task_id=f'dbt_rerun_views_{self.opt_swap_target}',
+                    dir=self.dbt_repo_path,
+                    target=self.opt_swap_target,
+                    dbt_bin=self.dbt_bin_path,
+                    models="config.materialized:view",
+                    full_refresh=self.full_refresh,
+                    dag=self.dag
+                )
+
+                # Rerun the original target also to allow comparison after swap.
+                dbt_rerun_views = DbtRunOperator(
+                    task_id=f'dbt_rerun_views_{self.environment}',
+                    dir=self.dbt_repo_path,
+                    target=self.dbt_target_name,
+                    dbt_bin=self.dbt_bin_path,
+                    models="config.materialized:view",
+                    full_refresh=self.full_refresh,
+                    dag=self.dag
+                )
+
+                dbt_test >> dbt_swap >> [dbt_rerun_views_swap, dbt_rerun_views]
 
 
             # Upload run artifacts to Snowflake

@@ -1,3 +1,7 @@
+### NOTE! This module will be imminently deprecated and replaced with `ea_airflow_util.providers.dbt.operators.dbt`.
+# This version of the module CANNOT handle schema swaps.
+
+
 # AirflowDBT uses Airflow 1.x syntax when defining Hooks and Operators.
 # These warnings clog up the scheduler and should be hidden until the package is updated.
 import warnings
