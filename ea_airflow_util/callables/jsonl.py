@@ -55,7 +55,7 @@ def serialize_json_records_to_disk(
         )
 
 def translate_csv_file_to_jsonl(
-    csv_path   : str = None,
+    local_path: str,
     output_path: str = None,
     delete_csv : bool = False,
     metadata_dict: Optional[dict] = None,
@@ -75,13 +75,13 @@ def translate_csv_file_to_jsonl(
     # it can now be a directory in case there are multiple files
 
     # error if csv path is a directory but output path is not null (the loop will overwrite)
-    if os.path.isdir(csv_path) and output_path is not None:
+    if os.path.isdir(local_path) and output_path is not None:
         raise AirflowException(
             f"Trying to write multiple files to one output file. You will overwrite your output"
         )
 
     # loop and find all the files
-    for root, _, files in os.walk(csv_path):
+    for root, _, files in os.walk(local_path):
         # loop over the files in this directory (since there could potentially be multiple)
         for file in files:
 
@@ -111,7 +111,7 @@ def translate_csv_file_to_jsonl(
 
     # this is slightly awkward bc the output path is being created within the above loop
     # but technically if the csv path ends with a file and is not a directory, there will only be one output path anyway
-    if csv_path.endswith('.csv'):
+    if local_path.endswith('.csv'):
         return output_path
     else:
-        return csv_path
+        return local_path
