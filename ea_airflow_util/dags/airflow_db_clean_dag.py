@@ -2,15 +2,12 @@ import datetime
 import logging
 import subprocess
 
-from functools import partial
 from typing import Optional
 
 from airflow.models.param import Param
-from airflow.models import DAG
 from airflow.operators.python import PythonOperator
 
-import ea_airflow_util.dags.dag_util.slack_callbacks as slack_callbacks
-
+from ea_airflow_util import EACustomDAG
 
 class AirflowDBCleanDAG:
     """
@@ -48,17 +45,11 @@ class AirflowDBCleanDAG:
             ),
         }
 
-        # If a Slack connection has been defined, add the failure callback to the default_args.
-        if slack_conn_id:
-            slack_failure_callback = partial(slack_callbacks.slack_alert_failure, http_conn_id=slack_conn_id)
-            default_args['on_failure_callback'] = slack_failure_callback
-
-        self.dag = DAG(
+        self.dag = EACustomDAG(
             *args,
             params=params_dict,
             default_args=default_args,
-            catchup=False,
-            render_template_as_native_obj=True,
+            slack_conn_id=slack_conn_id,
             **kwargs
         )
 

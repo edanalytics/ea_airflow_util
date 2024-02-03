@@ -1,13 +1,10 @@
-from functools import partial
 from typing import Optional
 
-import ea_airflow_util.dags.dag_util.slack_callbacks as slack_callbacks
-
-from airflow import DAG
 from airflow_dbt.operators.dbt_operator import DbtSnapshotOperator
 
+from ea_airflow_util import EACustomDAG
 
-class DbtSnapshotDag():
+class DbtSnapshotDag:
     """
     params: dbt_repo_path 
     params: dbt_target_name 
@@ -29,34 +26,7 @@ class DbtSnapshotDag():
         self.dbt_target_name = dbt_target_name
         self.dbt_bin_path = dbt_bin_path
 
-        # Slack alerting
-        self.slack_conn_id = slack_conn_id
-
-        self.dag = self.initialize_dag(**kwargs)
-
-
-    # create DAG 
-    def initialize_dag(self, dag_id, schedule_interval, default_args, **kwargs):
-        """
-        :param dag_id:
-        :param schedule_interval:
-        :param default_args:
-        :param catchup:
-        :user_defined_macros:
-        """
-        # If a Slack connection has been defined, add the failure callback to the default_args.
-        if self.slack_conn_id:
-            slack_failure_callback = partial(slack_callbacks.slack_alert_failure, http_conn_id=self.slack_conn_id)
-            default_args['on_failure_callback'] = slack_failure_callback
-
-        return DAG(
-            dag_id=dag_id,
-            schedule_interval=schedule_interval,
-            default_args=default_args,
-            catchup=False,
-            user_defined_macros= {
-            }
-        )
+        self.dag = EACustomDAG(slack_conn_id=slack_conn_id, **kwargs)
 
     def dbt_snapshot_run(self, on_success_callback=None, **kwargs):
 
