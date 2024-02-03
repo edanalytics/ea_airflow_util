@@ -1,3 +1,7 @@
+# ea_airflow_util v0.2.6
+## Fixes
+- All DAGs use `EACustomDAG` to standardize initialization.
+
 # ea_airflow_util v0.2.5
 ## New features
 - Add a dag generator for cleaning up the Airflow database
