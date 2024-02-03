@@ -1,3 +1,7 @@
+# ea_airflow_util v0.2.6
+## New features
+- Add optional `trigger_dag_on_run_success` argument to `RunDbtDag` to trigger external DAG upon completion of `dbt run`.
+
 # ea_airflow_util v0.2.5
 ## New features
 - Add a dag generator for cleaning up the Airflow database

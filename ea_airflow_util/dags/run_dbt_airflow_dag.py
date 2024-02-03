@@ -12,6 +12,7 @@ import ea_airflow_util.dags.dag_util.slack_callbacks as slack_callbacks
 from airflow import DAG
 from airflow.models.param import Param
 from airflow.operators.python import PythonOperator
+from airflow.operators.trigger_dagrun import TriggerDagRunOperator
 from airflow.utils.task_group import TaskGroup
 
 from airflow_dbt.operators.dbt_operator import DbtRunOperator, DbtSeedOperator, DbtTestOperator
@@ -59,6 +60,8 @@ class RunDbtDag():
 
         slack_conn_id: Optional[str] = None,
         dbt_incrementer_var: str = None,
+
+        trigger_dag_on_run_success: Optional[str] = None,
 
         **kwargs
     ):
@@ -115,6 +118,17 @@ class RunDbtDag():
         else:
             self.dbt_var_check_operator = None
             self.dbt_var_reset_operator = None
+
+        # Build optional operator to trigger downstream DAG when `dbt run` succeeds.
+        if trigger_dag_on_run_success:
+            self.trigger_dag_on_run_success_operator = TriggerDagRunOperator(
+                task_id="trigger_downstream_dag",
+                trigger_dag_id=trigger_dag_on_run_success,
+                wait_for_completion=False,  # Keep running DBT DAG while downstream DAG runs.
+                trigger_rule='all_success',
+            )
+        else:
+            self.trigger_dag_on_run_success_operator = None
 
 
     # create DAG 
@@ -228,6 +242,10 @@ class RunDbtDag():
                 )
 
                 dbt_build_artifact_tables >> dbt_seed
+
+            # Trigger downstream DAG when `dbt run` succeeds
+            if self.trigger_dag_on_run_success_operator:
+                dbt_run >> self.trigger_dag_on_run_success_operator
 
         # Apply the DBT variable operators if defined.
         if self.dbt_incrementer_var:
