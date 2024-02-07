@@ -9,7 +9,7 @@ from airflow.models.param import Param
 from airflow.models import DAG
 from airflow.operators.python import PythonOperator
 
-import ea_airflow_util.dags.dag_util.slack_callbacks as slack_callbacks
+from ea_airflow_util.callables import slack
 
 
 class AirflowDBCleanDAG:
@@ -50,7 +50,7 @@ class AirflowDBCleanDAG:
 
         # If a Slack connection has been defined, add the failure callback to the default_args.
         if slack_conn_id:
-            slack_failure_callback = partial(slack_callbacks.slack_alert_failure, http_conn_id=slack_conn_id)
+            slack_failure_callback = partial(slack.slack_alert_failure, http_conn_id=slack_conn_id)
             default_args['on_failure_callback'] = slack_failure_callback
 
         self.dag = DAG(
