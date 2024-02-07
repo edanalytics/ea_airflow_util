@@ -9,8 +9,7 @@ from airflow.providers.amazon.aws.hooks.s3 import S3Hook
 from airflow.providers.snowflake.hooks.snowflake import SnowflakeHook
 from snowflake.connector import DictCursor
 
-from ea_airflow_util.callables import s3
-from ea_airflow_util.callables import slack
+from ea_airflow_util.callables import s3, slack
 
 
 def snowflake_to_disk(

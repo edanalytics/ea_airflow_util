@@ -7,7 +7,6 @@ from datetime import datetime
 from functools import partial
 from typing import Optional
 
-
 from airflow import DAG
 from airflow.models.param import Param
 from airflow.operators.python import PythonOperator
@@ -75,7 +74,7 @@ class RunDbtDag:
         self.full_refresh = full_refresh
         self.full_refresh_schedule = full_refresh_schedule
 
-        # bluegreen 
+        # bluegreen
         self.opt_swap        = opt_swap
         self.opt_dest_schema = opt_dest_schema
         self.opt_swap_target = opt_swap_target or self.opt_dest_schema
