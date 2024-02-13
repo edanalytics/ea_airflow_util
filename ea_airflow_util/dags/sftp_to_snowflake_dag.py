@@ -4,10 +4,10 @@ import shutil
 
 from typing import Optional
 
-from airflow.operators.python_operator import PythonOperator
-from airflow.operators.bash_operator import BashOperator
-from airflow.providers.sftp.hooks.sftp import SFTPHook
 from airflow.providers.amazon.aws.hooks.s3 import S3Hook
+from airflow.operators.bash_operator import BashOperator
+from airflow.operators.python_operator import PythonOperator
+from airflow.providers.sftp.hooks.sftp import SFTPHook
 from airflow.providers.snowflake.hooks.snowflake import SnowflakeHook
 from airflow.utils.task_group import TaskGroup
 

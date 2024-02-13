@@ -1,5 +1,7 @@
-import os
 import logging
+import os
+
+from typing import Optional
 
 from airflow.operators.python_operator import PythonOperator
 from airflow.providers.amazon.aws.hooks.s3 import S3Hook
@@ -9,7 +11,6 @@ from airflow.utils.helpers import chain
 
 
 from ea_airflow_util import EACustomDAG
-from ea_airflow_util.callables import slack
 from ea_airflow_util.callables.airflow import xcom_pull_template
 from ea_airflow_util.providers.aws.operators.s3 import LoopS3FileTransformOperator
 

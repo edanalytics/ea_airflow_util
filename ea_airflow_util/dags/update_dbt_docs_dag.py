@@ -7,7 +7,7 @@ from airflow.providers.amazon.aws.hooks.s3 import S3Hook
 
 from ea_airflow_util import EACustomDAG
 
-# You can pass the S3 `bucket`` to this function, but if not, it will use the bucket defined in the Schema from
+# You can pass the S3 `bucket` to this function, but if not, it will use the bucket defined in the Schema from
 # the S3 Airflow connection.
 # (see https://stackoverflow.com/questions/72091014/how-do-i-specify-a-bucket-name-using-an-s3-connection-in-airflow)
 def upload_to_s3(conn_id: str, filename: str, key: str) -> None: # , bucket_name: str
