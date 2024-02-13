@@ -7,7 +7,7 @@ from typing import Optional
 from airflow.models.param import Param
 from airflow.operators.python import PythonOperator
 
-from ea_airflow_util import EACustomDAG
+from ea_airflow_util.dags.ea_custom_dag import EACustomDAG
 
 
 class AirflowDBCleanDAG:

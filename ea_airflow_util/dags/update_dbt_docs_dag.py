@@ -5,7 +5,7 @@ from airflow_dbt.operators.dbt_operator import DbtDocsGenerateOperator
 from airflow.operators.python import PythonOperator
 from airflow.providers.amazon.aws.hooks.s3 import S3Hook
 
-from ea_airflow_util import EACustomDAG
+from ea_airflow_util.dags.ea_custom_dag import EACustomDAG
 
 # You can pass the S3 `bucket` to this function, but if not, it will use the bucket defined in the Schema from
 # the S3 Airflow connection.

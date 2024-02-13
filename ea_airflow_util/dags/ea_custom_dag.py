@@ -5,7 +5,7 @@ from airflow import DAG
 from functools import partial
 from typing import Optional
 
-from ea_airflow_util import slack_callbacks
+from ea_airflow_util.callables import slack
 
 
 class EACustomDAG(DAG):
@@ -31,10 +31,10 @@ class EACustomDAG(DAG):
 
         # If a Slack connection has been defined, add failure callback to the default_args and SLA-miss callback.
         if slack_conn_id:
-            slack_failure_callback = partial(slack_callbacks.slack_alert_failure, http_conn_id=slack_conn_id)
+            slack_failure_callback = partial(slack.slack_alert_failure, http_conn_id=slack_conn_id)
             default_args['on_failure_callback'] = slack_failure_callback
 
-            slack_sla_miss_callback = partial(slack_callbacks.slack_alert_sla_miss, http_conn_id=slack_conn_id)
+            slack_sla_miss_callback = partial(slack.slack_alert_sla_miss, http_conn_id=slack_conn_id)
 
         else:
             slack_sla_miss_callback = None
@@ -51,6 +51,7 @@ class EACustomDAG(DAG):
             sla_miss_callback=slack_sla_miss_callback,
             **self.subset_kwargs_to_class(super, kwargs)  # Remove kwargs not expected in DAG.
         )
+
 
     @staticmethod
     def subset_kwargs_to_class(class_: object, kwargs: dict) -> dict:

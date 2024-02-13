@@ -2,7 +2,7 @@ from typing import Optional
 
 from airflow_dbt.operators.dbt_operator import DbtSnapshotOperator
 
-from ea_airflow_util import EACustomDAG
+from ea_airflow_util.dags.ea_custom_dag import EACustomDAG
 
 
 class DbtSnapshotDag:

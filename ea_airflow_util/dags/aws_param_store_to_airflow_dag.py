@@ -9,7 +9,7 @@ from airflow.decorators import task
 from airflow.exceptions import AirflowFailException
 from airflow.models import Connection
 
-from ea_airflow_util import EACustomDAG
+from ea_airflow_util.dags.ea_custom_dag import EACustomDAG
 from ea_airflow_util.callables.ssm import SSMParameterStore
 
 
