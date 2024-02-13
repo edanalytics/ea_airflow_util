@@ -1,18 +1,18 @@
 from functools import partial
 from typing import Optional
 
-import ea_airflow_util.dags.dag_util.slack_callbacks as slack_callbacks
+from ea_airflow_util.callables import slack
 
 from airflow import DAG
 from airflow_dbt.operators.dbt_operator import DbtSnapshotOperator
 
 
-class DbtSnapshotDag():
+class DbtSnapshotDag:
     """
-    params: dbt_repo_path 
-    params: dbt_target_name 
-    params: dbt_bin_path 
-    
+    :param dbt_repo_path:
+    :param dbt_target_name:
+    :param dbt_bin_path:
+    :param slack_conn_id:
     """
     def __init__(self,
         # required dbt paths and target
@@ -29,9 +29,7 @@ class DbtSnapshotDag():
         self.dbt_target_name = dbt_target_name
         self.dbt_bin_path = dbt_bin_path
 
-        # Slack alerting
         self.slack_conn_id = slack_conn_id
-
         self.dag = self.initialize_dag(**kwargs)
 
 
@@ -41,12 +39,10 @@ class DbtSnapshotDag():
         :param dag_id:
         :param schedule_interval:
         :param default_args:
-        :param catchup:
-        :user_defined_macros:
         """
         # If a Slack connection has been defined, add the failure callback to the default_args.
         if self.slack_conn_id:
-            slack_failure_callback = partial(slack_callbacks.slack_alert_failure, http_conn_id=self.slack_conn_id)
+            slack_failure_callback = partial(slack.slack_alert_failure, http_conn_id=self.slack_conn_id)
             default_args['on_failure_callback'] = slack_failure_callback
 
         return DAG(
@@ -54,8 +50,10 @@ class DbtSnapshotDag():
             schedule_interval=schedule_interval,
             default_args=default_args,
             catchup=False,
-            user_defined_macros= {
-            }
+            user_defined_macros={
+                'slack_conn_id': self.slack_conn_id,
+            },
+            **kwargs
         )
 
     def dbt_snapshot_run(self, on_success_callback=None, **kwargs):
@@ -67,5 +65,3 @@ class DbtSnapshotDag():
             dbt_bin= self.dbt_bin_path,
             dag=self.dag
         )
-
-        dbt_snapshot_task
