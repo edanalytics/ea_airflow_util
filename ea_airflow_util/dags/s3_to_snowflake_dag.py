@@ -7,9 +7,12 @@ from airflow.providers.amazon.aws.operators.s3 import S3ListOperator
 from airflow.providers.snowflake.hooks.snowflake import SnowflakeHook
 from airflow.utils.helpers import chain
 
-from .operators.loop_s3_file_transform_operator import LoopS3FileTransformOperator
-from .dag_util.xcom_util import xcom_pull_template
+
 from ea_airflow_util import EACustomDAG
+from ea_airflow_util.callables import slack
+from ea_airflow_util.callables.airflow import xcom_pull_template
+from ea_airflow_util.providers.aws.operators.s3 import LoopS3FileTransformOperator
+
 
 class S3ToSnowflakeDag:
     """
@@ -29,17 +32,16 @@ class S3ToSnowflakeDag:
         data_source: str,
         resource_names: str,
         transform_script: str,
-        do_delete_from_source: bool = True,                                
-                 
+
         s3_source_conn_id: str,
         s3_dest_conn_id: str,
         s3_dest_file_extension: str,
 
-        #TODO once on latest version of airflow, use dagrun parameter to allow full_replace runs even if not set here at dag level
-        full_replace: bool,
-
-        slack_conn_id: str,
         pool: str,
+        full_replace: bool = False,  #TODO once on latest version of airflow, use dagrun parameter to allow full_replace runs even if not set here at dag level
+
+        do_delete_from_source: bool = True,
+        slack_conn_id: Optional[str] = None,
 
         **kwargs
     ) -> None:
@@ -64,7 +66,7 @@ class S3ToSnowflakeDag:
 
         self.dag = EACustomDAG(slack_conn_id=slack_conn_id, **kwargs)
 
-
+    
     def build_s3_to_snowflake_dag(self, **kwargs):
 
         for resource_name in self.resource_names:

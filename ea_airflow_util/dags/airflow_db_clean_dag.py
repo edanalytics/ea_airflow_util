@@ -9,6 +9,7 @@ from airflow.operators.python import PythonOperator
 
 from ea_airflow_util import EACustomDAG
 
+
 class AirflowDBCleanDAG:
     """
     Delete data older than a specified retention period from all relevant Airflow backend tables.
@@ -60,6 +61,7 @@ class AirflowDBCleanDAG:
             dag=self.dag
         )
 
+    
     def cli_airflow_db_clean(self, **context):
         """
         Use a wrapper Python method instead of BashOperator for additional logging and easier command construction.

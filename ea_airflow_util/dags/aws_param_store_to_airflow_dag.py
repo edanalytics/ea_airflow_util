@@ -9,8 +9,8 @@ from airflow.decorators import task
 from airflow.exceptions import AirflowFailException
 from airflow.models import Connection
 
-from .dag_util.ssm_parameter_store import SSMParameterStore
 from ea_airflow_util import EACustomDAG
+from ea_airflow_util.callables.ssm import SSMParameterStore
 
 
 class ConnectionKwargs:
@@ -66,6 +66,8 @@ class AWSParamStoreToAirflowDAG:
 
         join_numbers: bool = True,
 
+        slack_conn_id: Optional[str] = None,
+
         **kwargs
     ):
         self.region_name = region_name
@@ -76,6 +78,7 @@ class AWSParamStoreToAirflowDAG:
         self.tenant_mapping      = tenant_mapping or {}
 
         self.session = airflow.settings.Session()
+        self.slack_conn_id = slack_conn_id
         self.dag = self.build_dag(**kwargs)
 
 
@@ -119,6 +122,7 @@ class AWSParamStoreToAirflowDAG:
         with EACustomDAG(
             dag_id=dag_id,
             default_args=default_args,
+            slack_conn_id=self.slack_conn_id,
             **kwargs
         ) as dag:
             upload_connections_from_paramstore()

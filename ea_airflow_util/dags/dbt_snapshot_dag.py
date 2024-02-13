@@ -4,12 +4,13 @@ from airflow_dbt.operators.dbt_operator import DbtSnapshotOperator
 
 from ea_airflow_util import EACustomDAG
 
+
 class DbtSnapshotDag:
     """
-    params: dbt_repo_path 
-    params: dbt_target_name 
-    params: dbt_bin_path 
-    
+    :param dbt_repo_path:
+    :param dbt_target_name:
+    :param dbt_bin_path:
+    :param slack_conn_id:
     """
     def __init__(self,
         # required dbt paths and target
@@ -25,11 +26,10 @@ class DbtSnapshotDag:
         self.dbt_repo_path = dbt_repo_path
         self.dbt_target_name = dbt_target_name
         self.dbt_bin_path = dbt_bin_path
-
         self.dag = EACustomDAG(slack_conn_id=slack_conn_id, **kwargs)
 
+    
     def dbt_snapshot_run(self, on_success_callback=None, **kwargs):
-
         dbt_snapshot_task = DbtSnapshotOperator(
             task_id= f'dbt_snapshot',
             dir    = self.dbt_repo_path,
@@ -37,5 +37,3 @@ class DbtSnapshotDag:
             dbt_bin= self.dbt_bin_path,
             dag=self.dag
         )
-
-        dbt_snapshot_task

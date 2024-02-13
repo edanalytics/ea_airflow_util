@@ -1,6 +1,7 @@
 import os
 import logging
 import shutil
+
 from typing import Optional
 
 from airflow.operators.python_operator import PythonOperator
@@ -8,7 +9,6 @@ from airflow.operators.bash_operator import BashOperator
 from airflow.providers.sftp.hooks.sftp import SFTPHook
 from airflow.providers.amazon.aws.hooks.s3 import S3Hook
 from airflow.providers.snowflake.hooks.snowflake import SnowflakeHook
-from airflow.exceptions import AirflowSkipException
 from airflow.utils.task_group import TaskGroup
 
 from ea_airflow_util import EACustomDAG
@@ -26,10 +26,9 @@ class SFTPToSnowflakeDag:
         database: str,
         schema: str,                   
 
-        slack_conn_id: str,
         pool: str,
-
         do_delete_from_local: Optional[bool] = False,
+        slack_conn_id: Optional[str] = None,
 
         #These parameters can be passed on initialization or when calling the build_tenant_year_resource_taskgroup function, depending on where they are specified in the config
         domain: Optional[str] = None,
@@ -51,7 +50,7 @@ class SFTPToSnowflakeDag:
         self.do_delete_from_local = do_delete_from_local
 
         self.dag = EACustomDAG(slack_conn_id=slack_conn_id, **kwargs)
-
+    
     
     def build_tenant_year_resource_taskgroup(self,
         tenant_code: str,

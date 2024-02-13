@@ -19,12 +19,12 @@ def upload_to_s3(conn_id: str, filename: str, key: str) -> None: # , bucket_name
     hook.load_file(filename=filename, key=key, replace=True) # , bucket_name=bucket_name)
 
 
-class UpdateDbtDocsDag():
+class UpdateDbtDocsDag:
     """
-    params: environment 
-    params: dbt_repo_path 
-    params: dbt_target_name 
-    params: dbt_bin_path 
+    :param environment:
+    :param dbt_repo_path:
+    :param dbt_target_name:
+    :param dbt_bin_path:
     
     """
     def __init__(self,
@@ -39,6 +39,8 @@ class UpdateDbtDocsDag():
         dbt_docs_custom_css: Optional[str] = None,
         dbt_docs_images: Optional[list] = None,
 
+        slack_conn_id: Optional[str] = None,
+
         **kwargs
     ):
         # self.environment = environment
@@ -52,17 +54,19 @@ class UpdateDbtDocsDag():
         self.dbt_docs_custom_css = dbt_docs_custom_css
         self.dbt_docs_images = dbt_docs_images
 
-        self.dag = EACustomDAG(**kwargs)
+        self.dag = EACustomDAG(slack_conn_id=slack_conn_id, **kwargs)
 
+    
     def update_dbt_docs(self, on_success_callback=None, **kwargs):
 
         dbt_docs_generate_task = DbtDocsGenerateOperator(
-                task_id= f'dbt_generate_docs',
-                dir    = self.dbt_repo_path,
-                target = self.dbt_target_name,
-                dbt_bin= self.dbt_bin_path,
-                dag=self.dag
-            )
+            task_id= f'dbt_generate_docs',
+            dir    = self.dbt_repo_path,
+            target = self.dbt_target_name,
+            dbt_bin= self.dbt_bin_path,
+            on_success_callback=on_success_callback,
+            dag=self.dag
+        )
         
         docs_files = ["target/index.html", "target/catalog.json", "target/manifest.json"]
         # if a custom html file exists, replace the file path with configured path. do the same for css if exists
