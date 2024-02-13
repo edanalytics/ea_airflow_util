@@ -1,4 +1,4 @@
-# ea_airflow_util v0.2.6
+# ea_airflow_util v0.3.0
 ## Fixes
 - All DAGs use `EACustomDAG` to standardize initialization.
 
