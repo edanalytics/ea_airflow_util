@@ -4,16 +4,15 @@ import warnings
 warnings.filterwarnings("ignore", module="airflow_dbt", category=DeprecationWarning)
 
 from datetime import datetime
-from functools import partial
 from typing import Optional
 
-from airflow import DAG
 from airflow.models.param import Param
 from airflow.operators.python import PythonOperator
 from airflow.utils.task_group import TaskGroup
 
 from airflow_dbt.operators.dbt_operator import DbtRunOperator, DbtSeedOperator, DbtTestOperator
 
+from ea_airflow_util import EACustomDAG
 from ea_airflow_util.callables import slack
 from ea_airflow_util.providers.dbt.operators.dbt import DbtRunOperationOperator
 from ea_airflow_util.callables.variable import check_variable, update_variable
@@ -82,13 +81,17 @@ class RunDbtDag:
         # DBT Artifacts
         self.upload_artifacts = upload_artifacts
 
-        # Slack alerting
-        self.slack_conn_id = slack_conn_id
-
         # Dynamic runs via variables
         self.dbt_incrementer_var = dbt_incrementer_var
 
-        self.dag = self.initialize_dag(**kwargs)
+        self.dag = EACustomDAG(
+            slack_conn_id=slack_conn_id,
+            params=self.params_dict,
+            user_defined_macros= {
+                'environment': self.environment,
+            },
+            **kwargs
+        )
 
         # Build operators to check the value of the DBT var at the start and reset it at the end.
         if self.dbt_incrementer_var:
@@ -118,34 +121,7 @@ class RunDbtDag:
             self.dbt_var_check_operator = None
             self.dbt_var_reset_operator = None
 
-
-    # create DAG 
-    def initialize_dag(self, dag_id, schedule_interval, default_args, **kwargs):
-        """
-        :param dag_id:
-        :param schedule_interval:
-        :param default_args:
-        """
-        # If a Slack connection has been defined, add the failure callback to the default_args.
-        if self.slack_conn_id:
-            slack_failure_callback = partial(slack.slack_alert_failure, http_conn_id=self.slack_conn_id)
-            default_args['on_failure_callback'] = slack_failure_callback
-
-        return DAG(
-            dag_id=dag_id,
-            schedule_interval=schedule_interval,
-            default_args=default_args,
-            catchup=False,
-            params=self.params_dict,
-            render_template_as_native_obj=True,
-            user_defined_macros= {
-                'environment': self.environment,
-                'slack_conn_id': self.slack_conn_id,
-            },
-            **kwargs
-        )
-
-
+    
     # build function for tasks
     def build_dbt_run(self, on_success_callback=None, **kwargs):
         """

@@ -5,11 +5,11 @@ import re
 from typing import Iterator, Optional
 
 import airflow
-from airflow import DAG
 from airflow.decorators import task
 from airflow.exceptions import AirflowFailException
 from airflow.models import Connection
 
+from ea_airflow_util import EACustomDAG
 from ea_airflow_util.callables.ssm import SSMParameterStore
 
 
@@ -119,13 +119,10 @@ class AWSParamStoreToAirflowDAG:
                     )
 
 
-        with DAG(
+        with EACustomDAG(
             dag_id=dag_id,
             default_args=default_args,
-            catchup=False,
-            user_defined_macros={
-                'slack_conn_id': self.slack_conn_id,
-            },
+            slack_conn_id=self.slack_conn_id,
             **kwargs
         ) as dag:
             upload_connections_from_paramstore()

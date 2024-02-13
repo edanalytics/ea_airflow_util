@@ -1,10 +1,11 @@
 import os
 from typing import Optional
 
-from airflow import DAG
 from airflow_dbt.operators.dbt_operator import DbtDocsGenerateOperator
 from airflow.operators.python import PythonOperator
 from airflow.providers.amazon.aws.hooks.s3 import S3Hook
+
+from ea_airflow_util import EACustomDAG
 
 # You can pass the S3 `bucket`` to this function, but if not, it will use the bucket defined in the Schema from
 # the S3 Airflow connection.
@@ -53,28 +54,9 @@ class UpdateDbtDocsDag:
         self.dbt_docs_custom_css = dbt_docs_custom_css
         self.dbt_docs_images = dbt_docs_images
 
-        self.slack_conn_id = slack_conn_id
-        self.dag = self.initialize_dag(**kwargs)
+        self.dag = EACustomDAG(slack_conn_id=slack_conn_id, **kwargs)
 
-
-    # create DAG 
-    def initialize_dag(self, dag_id, schedule_interval, default_args, **kwargs):
-        """
-        :param dag_id:
-        :param schedule_interval:
-        :param default_args:
-        """
-        return DAG(
-            dag_id=dag_id,
-            schedule_interval=schedule_interval,
-            default_args=default_args,
-            catchup=False,
-            user_defined_macros={
-                'slack_conn_id': self.slack_conn_id,
-            },
-            **kwargs
-        )
-
+    
     def update_dbt_docs(self, on_success_callback=None, **kwargs):
 
         dbt_docs_generate_task = DbtDocsGenerateOperator(

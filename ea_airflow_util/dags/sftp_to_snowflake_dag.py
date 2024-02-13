@@ -2,19 +2,16 @@ import os
 import logging
 import shutil
 
-from functools import partial
 from typing import Optional
 
-from airflow import DAG
-from airflow.exceptions import AirflowSkipException
-from airflow.operators.python import PythonOperator
-from airflow.operators.bash import BashOperator
+from airflow.operators.python_operator import PythonOperator
+from airflow.operators.bash_operator import BashOperator
 from airflow.providers.sftp.hooks.sftp import SFTPHook
 from airflow.providers.amazon.aws.hooks.s3 import S3Hook
 from airflow.providers.snowflake.hooks.snowflake import SnowflakeHook
 from airflow.utils.task_group import TaskGroup
 
-from ea_airflow_util.callables import slack
+from ea_airflow_util import EACustomDAG
 
 
 class SFTPToSnowflakeDag:
@@ -49,51 +46,11 @@ class SFTPToSnowflakeDag:
         self.database = database
         self.schema = schema
 
-        self.slack_conn_id = slack_conn_id
         self.pool = pool
- 
         self.do_delete_from_local = do_delete_from_local
 
-        self.dag = self.initialize_dag(**kwargs)
-
-
-    def initialize_dag(self,
-        dag_id: str,
-        schedule_interval: str,
-        default_args: dict,
-        **kwargs
-    ) -> DAG:
-        """
-
-        :param dag_id:
-        :param schedule_interval:
-        :param default_args:
-        :return:
-        """
-        # If a Slack connection has been defined, add the failure callback to the default_args.
-        if self.slack_conn_id:
-            slack_failure_callback = partial(slack.slack_alert_failure, http_conn_id=self.slack_conn_id)
-            default_args['on_failure_callback'] = slack_failure_callback
-
-            # Define an SLA-miss callback as well.
-            slack_sla_miss_callback = partial(slack.slack_alert_sla_miss, http_conn_id=self.slack_conn_id)
-        else:
-            slack_sla_miss_callback = None
-
-        return DAG(
-            dag_id=dag_id,
-            schedule_interval=schedule_interval,
-            default_args=default_args,
-            catchup=False,
-            user_defined_macros={
-                'slack_conn_id': self.slack_conn_id,
-            },
-            render_template_as_native_obj=True,
-            max_active_runs=1,
-            sla_miss_callback=slack_sla_miss_callback,
-            **kwargs
-        )
-        
+        self.dag = EACustomDAG(slack_conn_id=slack_conn_id, **kwargs)
+    
     
     def build_tenant_year_resource_taskgroup(self,
         tenant_code: str,
