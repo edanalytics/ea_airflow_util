@@ -20,6 +20,7 @@ class EACustomDAG(DAG):
         max_active_runs: int = 1,
         render_template_as_native_obj: bool = True,
         catchup: bool = False,
+        start_date: Optional[str] = None,
         **kwargs
     ):
         """
@@ -44,6 +45,7 @@ class EACustomDAG(DAG):
 
         super().__init__(
             *args,
+            start_date=start_date or default_args.get('start_date'),  # Fix bug where start_date is not passed through tasks.
             catchup=catchup,
             render_template_as_native_obj=render_template_as_native_obj,
             max_active_runs=max_active_runs,
