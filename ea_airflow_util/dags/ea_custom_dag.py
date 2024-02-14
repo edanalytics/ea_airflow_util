@@ -1,4 +1,5 @@
 import copy
+import datetime
 import inspect
 
 from airflow import DAG
@@ -43,9 +44,15 @@ class EACustomDAG(DAG):
         # Add slack_conn_id to UDMs for dynamic task-alerting.
         user_defined_macros['slack_conn_id'] = slack_conn_id
 
+        # Fix bug where start_date is not passed through tasks.
+        start_date = start_date or default_args.get('start_date')
+        if isinstance(start_date, str):
+            start_date = datetime.datetime.strptime(start_date, '%Y-%m-%d')
+
+
         super().__init__(
             *args,
-            start_date=start_date or default_args.get('start_date'),  # Fix bug where start_date is not passed through tasks.
+            start_date=start_date,
             catchup=catchup,
             render_template_as_native_obj=render_template_as_native_obj,
             max_active_runs=max_active_runs,
