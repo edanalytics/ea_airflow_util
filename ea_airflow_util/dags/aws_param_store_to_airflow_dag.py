@@ -82,11 +82,7 @@ class AWSParamStoreToAirflowDAG:
         self.dag = self.build_dag(**kwargs)
 
 
-    def build_dag(self,
-        dag_id: str,
-        default_args: dict,
-        **kwargs
-    ):
+    def build_dag(self, **kwargs):
         """
 
         :param dag_id:
@@ -120,8 +116,6 @@ class AWSParamStoreToAirflowDAG:
 
 
         with EACustomDAG(
-            dag_id=dag_id,
-            default_args=default_args,
             slack_conn_id=self.slack_conn_id,
             **kwargs
         ) as dag:
