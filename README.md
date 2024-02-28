@@ -15,18 +15,19 @@ Additionally, DBT artifacts are optionally uploaded using the [Brooklyn Data dbt
 
 -----
 
-| Argument              | Description                                                                                            |
-|-----------------------|--------------------------------------------------------------------------------------------------------|
-| environment           | environment name for the DAG label                                                                     |
-| dbt_repo_path         | path to the project `/dbt` folder                                                                      |
-| dbt_target_name       | name of the DBT target to select                                                                       |
-| dbt_bin_path          | path to the environment `/dbt` folder                                                                  |
-| full_refresh          | boolean flag for whether to apply the `--full-refresh` flag to incremental models (default `False`)    |
-| full_refresh_schedule | Cron schedule for when to automatically kick off a full refresh run                                    |
-| opt_dest_schema       | optional destination schema to swap target schema with if `opt_swap=True`                              |
-| opt_swap              | boolean flag for whether to swap target schema with `opt_dest_schema` after each run (default `False`) |
-| upload_artifacts      | boolean flag for whether to upload DBT artifacts at the end of the run (default `False`)               |
-| slack_conn_id         | Slack webhook Airflow connection ID for sending run errors to a Slack channel                          |
+| Argument                    | Description                                                                                            |
+|-----------------------------|--------------------------------------------------------------------------------------------------------|
+| environment                 | environment name for the DAG label                                                                     |
+| dbt_repo_path               | path to the project `/dbt` folder                                                                      |
+| dbt_target_name             | name of the DBT target to select                                                                       |
+| dbt_bin_path                | path to the environment `/dbt` folder                                                                  |
+| full_refresh                | boolean flag for whether to apply the `--full-refresh` flag to incremental models (default `False`)    |
+| full_refresh_schedule       | Cron schedule for when to automatically kick off a full refresh run                                    |
+| opt_dest_schema             | optional destination schema to swap target schema with if `opt_swap=True`                              |
+| opt_swap                    | boolean flag for whether to swap target schema with `opt_dest_schema` after each run (default `False`) |
+| upload_artifacts            | boolean flag for whether to upload DBT artifacts at the end of the run (default `False`)               |
+| slack_conn_id               | Slack webhook Airflow connection ID for sending run errors to a Slack channel                          |
+| trigger_dags_on_run_success | optional list of dags to be triggered by a successful dbt_run                                          |
 
 Additional DAG arguments (e.g. `default_args`) can be passed as kwargs.
 
