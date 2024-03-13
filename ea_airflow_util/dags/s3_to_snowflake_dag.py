@@ -42,8 +42,6 @@ class S3ToSnowflakeDag:
         full_replace: bool = False,  #TODO once on latest version of airflow, use dagrun parameter to allow full_replace runs even if not set here at dag level
 
         do_delete_from_source: bool = True,
-        slack_conn_id: Optional[str] = None,
-
         **kwargs
     ) -> None:
         self.tenant_code = tenant_code
@@ -65,7 +63,7 @@ class S3ToSnowflakeDag:
         self.full_replace = full_replace
         self.pool = pool
 
-        self.dag = EACustomDAG(slack_conn_id=slack_conn_id, **kwargs)
+        self.dag = EACustomDAG(**kwargs)
 
     
     def build_s3_to_snowflake_dag(self, **kwargs):

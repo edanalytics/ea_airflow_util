@@ -23,9 +23,8 @@ class AirflowDBCleanDAG:
         retention_days: int = 90,
         dry_run: bool = False,
         verbose: bool = False,
-        slack_conn_id: Optional[str] = None,
 
-        # Generic DAG arguments
+        # Generic EACustomDAG arguments
         *args, **kwargs
     ):
         params_dict = {
@@ -49,7 +48,6 @@ class AirflowDBCleanDAG:
         self.dag = EACustomDAG(
             *args,
             params=params_dict,
-            slack_conn_id=slack_conn_id,
             **kwargs
         )
 

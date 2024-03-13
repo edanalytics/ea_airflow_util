@@ -38,9 +38,6 @@ class UpdateDbtDocsDag:
         dbt_docs_custom_html: Optional[str] = None,
         dbt_docs_custom_css: Optional[str] = None,
         dbt_docs_images: Optional[list] = None,
-
-        slack_conn_id: Optional[str] = None,
-
         **kwargs
     ):
         # self.environment = environment
@@ -54,7 +51,7 @@ class UpdateDbtDocsDag:
         self.dbt_docs_custom_css = dbt_docs_custom_css
         self.dbt_docs_images = dbt_docs_images
 
-        self.dag = EACustomDAG(slack_conn_id=slack_conn_id, **kwargs)
+        self.dag = EACustomDAG(**kwargs)
 
     
     def update_dbt_docs(self, on_success_callback=None, **kwargs):

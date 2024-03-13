@@ -29,7 +29,6 @@ class SFTPToSnowflakeDag:
 
         pool: str,
         do_delete_from_local: Optional[bool] = False,
-        slack_conn_id: Optional[str] = None,
 
         #These parameters can be passed on initialization or when calling the build_tenant_year_resource_taskgroup function, depending on where they are specified in the config
         domain: Optional[str] = None,
@@ -50,7 +49,7 @@ class SFTPToSnowflakeDag:
         self.pool = pool
         self.do_delete_from_local = do_delete_from_local
 
-        self.dag = EACustomDAG(slack_conn_id=slack_conn_id, **kwargs)
+        self.dag = EACustomDAG(**kwargs)
     
     
     def build_tenant_year_resource_taskgroup(self,

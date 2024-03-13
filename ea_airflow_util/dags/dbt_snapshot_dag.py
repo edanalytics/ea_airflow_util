@@ -17,16 +17,13 @@ class DbtSnapshotDag:
         dbt_repo_path  : str,
         dbt_target_name: str,
         dbt_bin_path   : str,
-
-        slack_conn_id: Optional[str] = None,
-
         **kwargs
     ):
         # dbt paths
         self.dbt_repo_path = dbt_repo_path
         self.dbt_target_name = dbt_target_name
         self.dbt_bin_path = dbt_bin_path
-        self.dag = EACustomDAG(slack_conn_id=slack_conn_id, **kwargs)
+        self.dag = EACustomDAG(**kwargs)
 
     
     def dbt_snapshot_run(self, on_success_callback=None, **kwargs):
