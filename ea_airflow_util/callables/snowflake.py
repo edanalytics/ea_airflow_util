@@ -240,7 +240,7 @@ def import_s3_to_snowflake(
     hook = SnowflakeHook(snowflake_conn_id)
     snowflake_conn = hook.get_conn()
 
-    s3_subkeys = s3._list_s3_keys(s3_hook, s3_bucket, s3_key)
+    s3_subkeys = s3.list_s3_keys(s3_hook, s3_bucket, s3_key)
     logging.info("Attempting to load these files: " + '\n'.join(s3_subkeys))
 
     # check what type of file (this will determine file format for snowflake loading)

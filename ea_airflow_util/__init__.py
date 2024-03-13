@@ -47,7 +47,7 @@ rename_mapping = {
         "name": "ea_airflow_util.callables",
         "child_mapping": {
             "xcom_util": "airflow",
-            "s3_to_postgres": "s3",
+            "s3_to_postgres": "sql",
             "slack_callbacks": "slack",
             "snowflake_to_disk": "snowflake",
             "ssm_parameter_store": "ssm",
