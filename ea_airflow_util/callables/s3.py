@@ -175,7 +175,6 @@ def s3_to_postgres(
         column_customization = ''
     if options is None:
         options = ''
-
     if s3_key is None:
         s3_key = context.get('templates_dict').get('s3_key')
 
@@ -221,8 +220,8 @@ def s3_to_postgres(
     if metadata_qry:
         with conn.cursor() as cur:
             cur.execute(metadata_qry.format(s3_key=s3_key))
-    conn.commit()
 
+    conn.commit()
     logging.info(ret_value)
 
 
