@@ -1,6 +1,6 @@
 # ea_airflow_util v0.3.0
 ## New features
-- Migrate FTP, ShareFile, snake_case, and ZIP utilities from Rally into `ea_airflow_util`
+- Migrate FTP, ShareFile, casing, and ZIP utilities from Rally into `ea_airflow_util`
 - New `EACustomDAG` factory to streamline DAG instantiation moving forward
 
 ## Under the hood
