@@ -10,7 +10,6 @@ from typing import List, Optional, Union
 
 from airflow.exceptions import AirflowException, AirflowSkipException
 from airflow.providers.amazon.aws.hooks.s3 import S3Hook
-from airflow.providers.microsoft.mssql.hooks.mssql import MsSqlHook
 from airflow.providers.postgres.hooks.postgres import PostgresHook
 
 
@@ -27,6 +26,8 @@ def mssql_to_disk(conn_string: str, tables: Union[str, List[str]], local_path: s
     """
 
     """
+    from airflow.providers.microsoft.mssql.hooks.mssql import MsSqlHook  # Rare import
+
     # Sanitize input arguments and prepare environment for write.
     if isinstance(tables, str):
         tables = (tables,)
