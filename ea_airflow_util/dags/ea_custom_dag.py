@@ -49,7 +49,6 @@ class EACustomDAG(DAG):
         if isinstance(start_date, str):
             start_date = datetime.datetime.strptime(start_date, '%Y-%m-%d')
 
-
         super().__init__(
             *args,
             start_date=start_date,

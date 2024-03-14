@@ -5,28 +5,16 @@ from typing import Union
 from airflow.providers.slack.hooks.slack_webhook import SlackWebhookHook
 
 
-def _execute_slack_message(
-    http_conn_id: str,
-    message: str,
-    **kwargs
-):
+def _execute_slack_message(http_conn_id: str, message: str, **kwargs):
     """
     This class runs the SlackWebhookOperator with prebuilt messages.
     https://airflow.apache.org/docs/apache-airflow-providers-slack/stable/_api/airflow/providers/slack/operators/slack_webhook/index.html
 
     Kwargs in init are passed to SlackWebhookOperator.
     """
-    return SlackWebhookHook(
-        http_conn_id=http_conn_id,
-        message=message,
-        **kwargs
-    ).execute()
+    return SlackWebhookHook(http_conn_id=http_conn_id, message=message, **kwargs).execute()
 
-def slack_alert_failure(
-    context: dict,
-    http_conn_id: str,
-    **kwargs
-):
+def slack_alert_failure(context: dict, http_conn_id: str, **kwargs):
     """  """
     message = textwrap.dedent(f"""
         :red_circle: Task Failed. 
@@ -37,11 +25,7 @@ def slack_alert_failure(
     """)
     return _execute_slack_message(http_conn_id=http_conn_id, message=message, **kwargs)
 
-def slack_alert_success(
-    context: dict,
-    http_conn_id: str,
-    **kwargs
-):
+def slack_alert_success(context: dict, http_conn_id: str, **kwargs):
     """  """
     message = textwrap.dedent(f"""
         :heavy_check_mark: Task Succeeded. 
@@ -51,12 +35,7 @@ def slack_alert_success(
     """)
     return _execute_slack_message(http_conn_id=http_conn_id, message=message, **kwargs)
 
-def slack_alert_sla_miss(
-    http_conn_id: str,
-    *args,
-    slas: list,
-    **kwargs
-):
+def slack_alert_sla_miss(http_conn_id: str, *args, slas: list, **kwargs):
     """
     Inspired by this StackOverflow: https://stackoverflow.com/questions/64040649
     Note: SLA callbacks require 5 arguments be provided. We only use `slas` to build the message.

@@ -65,9 +65,6 @@ class AWSParamStoreToAirflowDAG:
         tenant_mapping: Optional[str] = None,
 
         join_numbers: bool = True,
-
-        slack_conn_id: Optional[str] = None,
-
         **kwargs
     ):
         self.region_name = region_name
@@ -78,7 +75,6 @@ class AWSParamStoreToAirflowDAG:
         self.tenant_mapping      = tenant_mapping or {}
 
         self.session = airflow.settings.Session()
-        self.slack_conn_id = slack_conn_id
         self.dag = self.build_dag(**kwargs)
 
 
@@ -115,10 +111,7 @@ class AWSParamStoreToAirflowDAG:
                     )
 
 
-        with EACustomDAG(
-            slack_conn_id=self.slack_conn_id,
-            **kwargs
-        ) as dag:
+        with EACustomDAG(**kwargs) as dag:
             upload_connections_from_paramstore()
 
         return dag

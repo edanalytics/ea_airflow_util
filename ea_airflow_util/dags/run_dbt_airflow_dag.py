@@ -56,8 +56,6 @@ class RunDbtDag:
         opt_swap_target: Optional[str] = None,
 
         upload_artifacts: bool = False,
-
-        slack_conn_id: Optional[str] = None,
         dbt_incrementer_var: str = None,
         trigger_dags_on_run_success: Optional[list] = None,
 
@@ -86,7 +84,6 @@ class RunDbtDag:
         self.dbt_incrementer_var = dbt_incrementer_var
 
         self.dag = EACustomDAG(
-            slack_conn_id=slack_conn_id,
             params=self.params_dict,
             user_defined_macros= {
                 'environment': self.environment,
