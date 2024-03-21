@@ -2,16 +2,15 @@ import itertools
 import logging
 import re
 
-from collections import defaultdict
 from typing import Iterator, Optional
 
 import airflow
-from airflow import DAG
 from airflow.decorators import task
-from airflow.exceptions import AirflowFailException, AirflowSkipException
+from airflow.exceptions import AirflowFailException
 from airflow.models import Connection
 
-from .dag_util.ssm_parameter_store import SSMParameterStore
+from ea_airflow_util.dags.ea_custom_dag import EACustomDAG
+from ea_airflow_util.callables.ssm import SSMParameterStore
 
 
 class ConnectionKwargs:
@@ -66,7 +65,6 @@ class AWSParamStoreToAirflowDAG:
         tenant_mapping: Optional[str] = None,
 
         join_numbers: bool = True,
-
         **kwargs
     ):
         self.region_name = region_name
@@ -80,11 +78,7 @@ class AWSParamStoreToAirflowDAG:
         self.dag = self.build_dag(**kwargs)
 
 
-    def build_dag(self,
-        dag_id: str,
-        default_args: dict,
-        **kwargs
-    ):
+    def build_dag(self, **kwargs):
         """
 
         :param dag_id:
@@ -117,12 +111,7 @@ class AWSParamStoreToAirflowDAG:
                     )
 
 
-        with DAG(
-            dag_id=dag_id,
-            default_args=default_args,
-            catchup=False,
-            **kwargs
-        ) as dag:
+        with EACustomDAG(**kwargs) as dag:
             upload_connections_from_paramstore()
 
         return dag
