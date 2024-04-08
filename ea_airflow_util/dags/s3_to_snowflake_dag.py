@@ -111,14 +111,14 @@ class S3ToSnowflakeDag():
 
             s3_source_prefix = os.path.join(
                 self.tenant_code, self.data_source,
-                str(self.api_year), '{{ ds_nodash }}',
-                resource_name
+                str(self.api_year), resource_name,
+                '{{ ds_nodash }}'
             )
 
             datalake_prefix = os.path.join(
                 self.tenant_code, str(self.api_year),
-                '{{ ds_nodash }}', '{{ ts_nodash }}',
-                resource_name
+                resource_name, '{{ ds_nodash }}',
+                '{{ ts_nodash }}'
             )
             
             ## List the s3 files from the source bucket
