@@ -11,6 +11,7 @@ from ea_airflow_util.dags.sftp_to_snowflake_dag import SFTPToSnowflakeDag
 from ea_airflow_util.callables.airflow import xcom_pull_template
 from ea_airflow_util.callables import slack as slack_callbacks
 from ea_airflow_util.callables.variable import check_variable, update_variable
+from ea_airflow_util.callables import airflow_connection
 
 from ea_airflow_util.providers.aws.operators.s3 import LoopS3FileTransformOperator
 from ea_airflow_util.providers.dbt.operators.dbt import DbtRunOperationOperator
