@@ -279,10 +279,6 @@ Helpers for getting data out of and into Snowflake
 Copy data from Snowflake to local disk using a passed query.
 Optional arguments alter formatting and chunking when writing to disk.
 
-### import_s3_to_snowflake(s3_conn_id, s3_bucket, s3_key, snowflake_conn_id, dest_table, stage, **kwargs)
-Copy data from S3 into Snowflake using a predefined stage.
-Optional arguments alter table clean-up and import logic.
-
 -----
 
 </details>
