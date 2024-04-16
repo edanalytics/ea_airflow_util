@@ -1,3 +1,14 @@
+# ea_airflow_util v0.3.0
+## New features
+- Migrate FTP, ShareFile, casing, and ZIP utilities from Rally into `ea_airflow_util`
+- New `EACustomDAG` factory to streamline DAG instantiation moving forward
+
+## Under the hood
+- Move all Python callables out from `/airflow/dags/dag_util` into `/airflow/callables`
+  - Note that all original imports are still valid and are secretly rerouted in `__init__.py`.
+- Overload `callables.airflow.xcom_pull_template` to accept a task ID string or an Airflow `Operator`
+- All DAGs use `EACustomDAG` to standardize initialization
+
 # ea_airflow_util v0.2.6
 ## New features
 - Add optional `trigger_dags_on_run_success` argument to `RunDbtDag` to trigger a list of external DAGs upon completion of `dbt run`.
