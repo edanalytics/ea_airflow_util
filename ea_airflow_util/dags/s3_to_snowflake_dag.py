@@ -193,12 +193,10 @@ class S3ToSnowflakeDag():
             where tenant_code = '{self.tenant_code}'
               and api_year = '{self.api_year}'
         '''
-
-        resource_name_db = resource_name.lower()
         
         logging.info(f"Copying from data lake to raw: {datalake_prefix}")
         copy_sql = f'''
-            copy into {self.database}.{self.schema}.{self.data_source}__{resource_name_db}
+            copy into {self.database}.{self.schema}.{self.data_source}__{resource_name}
                 (tenant_code, api_year, pull_date, pull_timestamp, file_row_number, filename, name, v)
             from (
                 select
