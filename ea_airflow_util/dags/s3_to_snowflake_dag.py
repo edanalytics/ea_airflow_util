@@ -202,8 +202,8 @@ class S3ToSnowflakeDag():
                 select
                     '{self.tenant_code}' as tenant_code,
                     '{self.api_year}' as api_year,
-                    to_date(split_part(metadata$filename, '/', 3), 'YYYYMMDD') as pull_date,
-                    to_timestamp(split_part(metadata$filename, '/', 4), 'YYYYMMDDTHH24MISS') as pull_timestamp,
+                    to_date(split_part(metadata$filename, '/', 4), 'YYYYMMDD') as pull_date,
+                    to_timestamp(split_part(metadata$filename, '/', 5), 'YYYYMMDDTHH24MISS') as pull_timestamp,
                     metadata$file_row_number as file_row_number,
                     metadata$filename as filename,
                     '{resource_name}' as name,
