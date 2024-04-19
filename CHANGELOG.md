@@ -1,3 +1,5 @@
+# ea_airflow_util v0.3.1
+
 # ea_airflow_util v0.3.0
 ## New features
 - Migrate FTP, ShareFile, casing, and ZIP utilities from Rally into `ea_airflow_util`
