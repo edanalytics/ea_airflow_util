@@ -1,3 +1,10 @@
+# ea_airflow_util v0.3.1
+## New features
+- Boolean argument `is_manual_upload` in `S3ToSnowflakeDag` rearranges S3 source pathing to easier structure for partners
+
+## Under the hood
+- Copy statement in `S3ToSnowflakeDag` uses regex instead of string-splitting to infer pull-date and pull-timestamp
+
 # ea_airflow_util v0.3.0
 ## New features
 - Migrate FTP, ShareFile, casing, and ZIP utilities from Rally into `ea_airflow_util`
