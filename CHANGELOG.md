@@ -5,6 +5,10 @@
 ## Under the hood
 - Copy statement in `S3ToSnowflakeDag` uses regex instead of string-splitting to infer pull-date and pull-timestamp
 
+## Fixes
+- Fix bug in `EACustomDAG` where `default_args` were not passed to DAG super init.
+
+
 # ea_airflow_util v0.3.0
 ## New features
 - Migrate FTP, ShareFile, casing, and ZIP utilities from Rally into `ea_airflow_util`
