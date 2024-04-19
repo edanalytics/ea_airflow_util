@@ -121,8 +121,8 @@ class S3ToSnowflakeDag():
             else:
                 s3_source_prefix = os.path.join(
                     self.tenant_code, self.data_source,
-                    str(self.api_year), resource_name,
-                    '{{ ds_nodash }}'
+                    str(self.api_year), '{{ ds_nodash }}',
+                    resource_name
                 )
             
             datalake_prefix = os.path.join(
