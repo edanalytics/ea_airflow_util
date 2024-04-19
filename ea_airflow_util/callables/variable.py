@@ -1,11 +1,12 @@
 import logging
+
 from typing import Callable, Union
 
 from airflow.exceptions import AirflowSkipException
 from airflow.models import Variable
 
 
-def update_variable(var: str, value: Union[Callable, int, str], **kwargs):
+def update_variable(var: str, value: Union[Callable, int, str], **context):
     """
     Update a specified Airflow variable.
 
@@ -22,7 +23,7 @@ def update_variable(var: str, value: Union[Callable, int, str], **kwargs):
         Variable.update(var, value)
 
 
-def check_variable(var: str, condition: Callable, force: bool = False, **kwargs):
+def check_variable(var: str, condition: Callable, force: bool = False, **context):
     """
     Return a Python operator that skips if the retrieved variable does not meet the provided condition.
     """

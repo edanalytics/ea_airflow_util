@@ -1,21 +1,21 @@
-import os
 import logging
+import os
 
-from functools import partial
+from typing import Optional
 
-from airflow import DAG
 from airflow.operators.python_operator import PythonOperator
 from airflow.providers.amazon.aws.hooks.s3 import S3Hook
 from airflow.providers.amazon.aws.operators.s3 import S3ListOperator
 from airflow.providers.snowflake.hooks.snowflake import SnowflakeHook
 from airflow.utils.helpers import chain
 
-import ea_airflow_util.dags.dag_util.slack_callbacks as slack_callbacks
-from .operators.loop_s3_file_transform_operator import LoopS3FileTransformOperator
-from .dag_util.xcom_util import xcom_pull_template
+
+from ea_airflow_util.dags.ea_custom_dag import EACustomDAG
+from ea_airflow_util.callables.airflow import xcom_pull_template
+from ea_airflow_util.providers.aws.operators.s3 import LoopS3FileTransformOperator
 
 
-class S3ToSnowflakeDag():
+class S3ToSnowflakeDag:
     """
     This DAG transfers data from an S3 bucket location into the Snowflake raw data lake. It should be used when data sources
     are not available from an Ed-Fi ODS but need to be brought into the data warehouse.
@@ -33,19 +33,16 @@ class S3ToSnowflakeDag():
         data_source: str,
         resource_names: str,
         transform_script: str,
-        do_delete_from_source: bool = True,                                
-                 
+
         s3_source_conn_id: str,
         s3_dest_conn_id: str,
         s3_dest_file_extension: str,
         is_manual_upload: bool = False,
 
-        #TODO once on latest version of airflow, use dagrun parameter to allow full_replace runs even if not set here at dag level
-        full_replace: bool,
-
-        slack_conn_id: str,
         pool: str,
+        full_replace: bool = False,  #TODO once on latest version of airflow, use dagrun parameter to allow full_replace runs even if not set here at dag level
 
+        do_delete_from_source: bool = True,
         **kwargs
     ) -> None:
         self.tenant_code = tenant_code
@@ -66,47 +63,11 @@ class S3ToSnowflakeDag():
         self.is_manual_upload = is_manual_upload
 
         self.full_replace = full_replace
-        
-        self.slack_conn_id = slack_conn_id
         self.pool = pool
 
-        self.dag = self.initialize_dag(**kwargs)
+        self.dag = EACustomDAG(**kwargs)
 
-
-    def initialize_dag(self,
-        dag_id: str,
-        schedule_interval: str,
-        default_args: dict,
-        **kwargs
-    ) -> DAG:
-        """
-
-        :param dag_id:
-        :param schedule_interval:
-        :param default_args:
-        :return:
-        """
-        # If a Slack connection has been defined, add the failure callback to the default_args.
-        if self.slack_conn_id:
-            slack_failure_callback = partial(slack_callbacks.slack_alert_failure, http_conn_id=self.slack_conn_id)
-            default_args['on_failure_callback'] = slack_failure_callback
-
-            # Define an SLA-miss callback as well.
-            slack_sla_miss_callback = partial(slack_callbacks.slack_alert_sla_miss, http_conn_id=self.slack_conn_id)
-        else:
-            slack_sla_miss_callback = None
-
-        return DAG(
-            dag_id=dag_id,
-            schedule_interval=schedule_interval,
-            default_args=default_args,
-            catchup=False,
-            render_template_as_native_obj=True,
-            max_active_runs=1,
-            sla_miss_callback=slack_sla_miss_callback,
-            **kwargs
-        )
-
+    
     def build_s3_to_snowflake_dag(self, **kwargs):
 
         for resource_name in self.resource_names:
