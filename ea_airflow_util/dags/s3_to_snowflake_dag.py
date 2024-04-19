@@ -37,6 +37,7 @@ class S3ToSnowflakeDag:
         s3_source_conn_id: str,
         s3_dest_conn_id: str,
         s3_dest_file_extension: str,
+        is_manual_upload: bool = False,
 
         pool: str,
         full_replace: bool = False,  #TODO once on latest version of airflow, use dagrun parameter to allow full_replace runs even if not set here at dag level
@@ -59,6 +60,7 @@ class S3ToSnowflakeDag:
         self.s3_source_conn_id = s3_source_conn_id
         self.s3_dest_conn_id = s3_dest_conn_id
         self.s3_dest_file_extension = s3_dest_file_extension
+        self.is_manual_upload = is_manual_upload
 
         self.full_replace = full_replace
         self.pool = pool
@@ -70,18 +72,26 @@ class S3ToSnowflakeDag:
 
         for resource_name in self.resource_names:
 
-            s3_source_prefix = os.path.join(
-                self.tenant_code, self.data_source,
-                str(self.api_year), '{{ ds_nodash }}',
-                resource_name
-            )
-
+            # different source prefix depending on whether the upload to external bucket is manual or not
+            if self.is_manual_upload:
+                s3_source_prefix = os.path.join(
+                    self.tenant_code, self.data_source,
+                    resource_name, str(self.api_year), 
+                    '{{ ds_nodash }}'
+                ) 
+            else:
+                s3_source_prefix = os.path.join(
+                    self.tenant_code, self.data_source,
+                    str(self.api_year), '{{ ds_nodash }}',
+                    resource_name
+                )
+            
             datalake_prefix = os.path.join(
                 self.tenant_code, str(self.api_year),
                 '{{ ds_nodash }}', '{{ ts_nodash }}',
                 resource_name
             )
-            
+
             ## List the s3 files from the source bucket
             list_s3_objects = S3ListOperator(
                 task_id=f'list_s3_objects_{resource_name}',
@@ -155,6 +165,10 @@ class S3ToSnowflakeDag:
               and api_year = '{self.api_year}'
         '''
 
+        date_regex = "\\\\d{8}"
+        ts_regex = "\\\\d{8}T\\\\d{6}"
+
+        
         logging.info(f"Copying from data lake to raw: {datalake_prefix}")
         copy_sql = f'''
             copy into {self.database}.{self.schema}.{self.data_source}__{resource_name}
@@ -163,8 +177,8 @@ class S3ToSnowflakeDag:
                 select
                     '{self.tenant_code}' as tenant_code,
                     '{self.api_year}' as api_year,
-                    to_date(split_part(metadata$filename, '/', 3), 'YYYYMMDD') as pull_date,
-                    to_timestamp(split_part(metadata$filename, '/', 4), 'YYYYMMDDTHH24MISS') as pull_timestamp,
+                    TO_DATE(REGEXP_SUBSTR(metadata$filename, '{date_regex}'), 'YYYYMMDD') AS pull_date,
+                    TO_TIMESTAMP(REGEXP_SUBSTR(metadata$filename, '{ts_regex}'), 'YYYYMMDDTHH24MISS') AS pull_timestamp,
                     metadata$file_row_number as file_row_number,
                     metadata$filename as filename,
                     '{resource_name}' as name,
