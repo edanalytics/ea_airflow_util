@@ -55,6 +55,7 @@ class EACustomDAG(DAG):
             catchup=catchup,
             render_template_as_native_obj=render_template_as_native_obj,
             max_active_runs=max_active_runs,
+            default_args=default_args,
             user_defined_macros=user_defined_macros,
             sla_miss_callback=slack_sla_miss_callback,
             **self.subset_kwargs_to_class(DAG, kwargs)  # Remove kwargs not expected in DAG.
