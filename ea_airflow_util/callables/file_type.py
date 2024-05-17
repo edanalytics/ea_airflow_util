@@ -11,7 +11,7 @@ def xml_to_json(
     Transform an XML file into a JSON format.
     """    
     
-    # Open the input XML file and read data in form of python dictionary using xmltodict module.
+    # Open the input XML file and read data in form of python dictionary using the "xmltodict" module.
     try:
         with open(xml_path) as xml_file:
             data_dict = xmltodict.parse(xml_file.read())
@@ -20,10 +20,10 @@ def xml_to_json(
     except Exception as error:
         logging.error(f"Error: {str(error)}")
       
-    # Generate the object using json.dumps() corresponding to JSON data.
+    # Generate the json_data object using json.dumps().
     json_data = json.dumps(data_dict)
 
-    # Check if output_path is provided, otherwise set it to a default value (XML folder path).
+    # Check if output_path is provided, otherwise set it to a default value (original XML folder path).
     if output_path is None:
         output_path = os.path.dirname(xml_path)
         output_directory = f'{output_path}/json'
@@ -37,7 +37,7 @@ def xml_to_json(
     if not os.path.exists(output_directory):
         os.makedirs(output_directory)
 
-    # Write the contents of the JSON file into the folder path with a progress bar.
+    # Write the contents of the JSON file into the output folder path.
     file_path = os.path.join(output_directory, f'{file_name}.json')
     try:
         with open(file_path, "w") as json_file:
