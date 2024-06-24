@@ -82,8 +82,6 @@ class SSMParameterStore:
         self._keys = {}
         self._substores = {}
 
-        paginator = self._client.get_paginator('describe_parameters')
-
         # Different logic is used when passing a complete prefix vs a wildcard.
         if self.TENANT_REPR in self._prefix:
             parameter_filters=[
@@ -95,6 +93,8 @@ class SSMParameterStore:
                 dict(Key="Path", Option="Recursive", Values=[self._prefix])
             ]
 
+        # Iterate parameters and build out an internal mapping.
+        paginator = self._client.get_paginator('describe_parameters')
         for page in paginator.paginate(ParameterFilters=parameter_filters):
             for p in page['Parameters']:
 
