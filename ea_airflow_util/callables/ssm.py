@@ -25,6 +25,7 @@
 import boto3
 import datetime
 import re
+import time
 from typing import Optional
 
 from botocore.config import Config
@@ -108,6 +109,8 @@ class SSMParameterStore:
                     paths = p['Name'][len(self._prefix):].split('/')
 
                 self._update_keys(self._keys, paths)
+            
+            time.sleep(1)
 
 
     @classmethod
