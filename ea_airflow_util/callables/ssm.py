@@ -84,11 +84,11 @@ class SSMParameterStore:
 
         paginator = self._client.get_paginator('describe_parameters')
         pager = paginator.paginate(
-            ParameterFilters={
+            ParameterFilters=[{
                 'Key': 'Name',
                 'Option': 'Contains',
                 'Values': self._prefix.split(self.TENANT_REPR),
-            }
+            },]
         )
 
         for page in pager:
