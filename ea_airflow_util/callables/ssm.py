@@ -83,15 +83,19 @@ class SSMParameterStore:
         self._substores = {}
 
         paginator = self._client.get_paginator('describe_parameters')
-        pager = paginator.paginate(
-            ParameterFilters=[{
-                'Key': 'Name',
-                'Option': 'Contains',
-                'Values': self._prefix.split(self.TENANT_REPR),
-            },]
-        )
 
-        for page in pager:
+        # Different logic is used when passing a complete prefix vs a wildcard.
+        if self.TENANT_REPR in self._prefix:
+            parameter_filters=[
+                dict(Key="Name", Option="Contains", Values=[affix])
+                for affix in self._prefix.split(self.TENANT_REPR)
+            ]
+        else:
+            parameter_filters=[
+                dict(Key="Path", Option="Recursive", Values=[self._prefix])
+            ]
+
+        for page in paginator.paginate(ParameterFilters=parameter_filters):
             for p in page['Parameters']:
 
                 # If a wildcard is in the prefix string, extract and set the tenant code as the first path element.
