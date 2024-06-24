@@ -29,7 +29,7 @@ class ConnectionKwargs:
         elif key == 'url':
             self.__kwargs['host'] = value
         else:
-            self.__kwargs[key] = value
+            logging.info(f"Ignoring unexpected parameter key: {key}")
 
     def to_conn(self, conn_id: str) -> dict:
         """
