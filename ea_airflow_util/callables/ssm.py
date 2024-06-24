@@ -24,6 +24,7 @@
 
 import boto3
 import datetime
+import re
 from typing import Optional
 
 from botocore.config import Config
@@ -33,6 +34,7 @@ class SSMParameterStore:
     """
     Provide a dictionary-like interface to access AWS SSM Parameter Store
     """
+    TENANT_REPR = "{tenant_code}"
 
     def __init__(self,
         prefix     : Optional[str]  = None,
@@ -53,7 +55,11 @@ class SSMParameterStore:
         if self._keys is None:
             self.refresh()
 
-        abs_key = "%s%s" % (self._prefix, name)
+        if self.TENANT_REPR in self._prefix:
+            abs_key = self._prefix.replace(self.TENANT_REPR, name)
+        else:
+            abs_key = "%s%s" % (self._prefix, name)
+        
         if name not in self._keys:
             if 'default' in kwargs:
                 return kwargs['default']
@@ -78,14 +84,25 @@ class SSMParameterStore:
 
         paginator = self._client.get_paginator('describe_parameters')
         pager = paginator.paginate(
-            ParameterFilters=[
-                dict(Key="Path", Option="Recursive", Values=[self._prefix])
-            ]
+            ParameterFilters={
+                'Key': 'Name',
+                'Option': 'Contains',
+                'Values': self._prefix.split(self.TENANT_REPR),
+            }
         )
 
         for page in pager:
             for p in page['Parameters']:
-                paths = p['Name'][len(self._prefix):].split('/')
+
+                # If a wildcard is in the prefix string, extract and set the tenant code as the first path element.
+                if self.TENANT_REPR in self._prefix:
+                    inferred_tenant = re.search(self._prefix.replace(self.TENANT_REPR, "(.*)"), p['Name']).group(1)
+                    inferred_prefix = self._prefix.replace(self.TENANT_REPR, inferred_tenant)
+                    paths = [inferred_tenant, *p['Name'][len(inferred_prefix):].split('/')]
+
+                else:
+                    paths = p['Name'][len(self._prefix):].split('/')
+
                 self._update_keys(self._keys, paths)
 
 
