@@ -35,9 +35,12 @@ class ConnectionKwargs:
         """
         Convert connection pieces into a JSON connection.
         """
-        if self.__kwargs.keys() < {"host", "login", "password"}:
+        conn_keys = {"host", "login", "password"}
+        param_keys = self.__kwargs.keys()
+
+        if param_keys < conn_keys:
             raise ValueError(
-                f"Connection is missing one or more required fields."
+                f"Connection is missing one or more required fields: {conn_keys.diff(param_keys)}"
             )
 
         return Connection(conn_id=conn_id, conn_type='http', **self.__kwargs)
