@@ -40,7 +40,7 @@ class ConnectionKwargs:
 
         if param_keys < conn_keys:
             raise ValueError(
-                f"Connection is missing one or more required fields: {conn_keys.diff(param_keys)}"
+                f"Connection is missing one or more required fields: {conn_keys.difference(param_keys)}"
             )
 
         return Connection(conn_id=conn_id, conn_type='http', **self.__kwargs)
