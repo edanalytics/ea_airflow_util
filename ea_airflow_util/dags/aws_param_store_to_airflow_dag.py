@@ -29,7 +29,7 @@ class ConnectionKwargs:
         elif key == 'url':
             self.__kwargs['host'] = value
         else:
-            logging.info(f"Ignoring unexpected parameter key: {key}")
+            logging.debug(f"Ignoring unexpected parameter key: {key}")
 
     def to_conn(self, conn_id: str) -> dict:
         """
@@ -105,10 +105,10 @@ class AWSParamStoreToAirflowDAG:
             ):
                 try:
                     self.upload_connection_kwargs_to_airflow(conn_id, conn_kwargs)
+                except NameError:  # Internal-declared error
+                    logging.info(f"Skipping existing connection: `{conn_id}`")
                 except Exception as err:
-                    logging.warning(
-                        f"Failed to import `{conn_id}`: {err}"
-                    )
+                    logging.warning(f"Failed to import `{conn_id}`: {err}")
 
 
         with EACustomDAG(**kwargs) as dag:
