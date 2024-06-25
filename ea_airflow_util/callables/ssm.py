@@ -85,19 +85,18 @@ class SSMParameterStore:
 
         # Different logic is used when passing a complete prefix vs a wildcard.
         if self.TENANT_REPR in self._prefix:
-            prefix, suffix = self._prefix.split(self.TENANT_REPR)
-            parameter_filters=[
-                dict(Key="Path", Option="Recursive", Values=[prefix]),
-                dict(Key="Name", Option="Contains", Values=[suffix]),
-            ]
+            filter_prefix, _ = self._prefix.split(self.TENANT_REPR, 1)
         else:
-            parameter_filters=[
-                dict(Key="Path", Option="Recursive", Values=[self._prefix])
-            ]
+            filter_prefix = self._prefix
 
-        # Iterate parameters and build out an internal mapping.
         paginator = self._client.get_paginator('describe_parameters')
-        for page in paginator.paginate(ParameterFilters=parameter_filters):
+        pager = paginator.paginate(
+            ParameterFilters=[
+                dict(Key="Path", Option="Recursive", Values=[filter_prefix])
+            ]
+        )
+
+        for page in pager:
             for p in page['Parameters']:
 
                 # If a wildcard is in the prefix string, extract and set the tenant code as the first path element.
