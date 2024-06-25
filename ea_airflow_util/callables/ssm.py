@@ -85,9 +85,10 @@ class SSMParameterStore:
 
         # Different logic is used when passing a complete prefix vs a wildcard.
         if self.TENANT_REPR in self._prefix:
+            prefix, suffix = self._prefix.split(self.TENANT_REPR)
             parameter_filters=[
-                dict(Key="Name", Option="Contains", Values=[affix])
-                for affix in self._prefix.split(self.TENANT_REPR)
+                dict(Key="Path", Option="Recursive", Values=[prefix]),
+                dict(Key="Name", Option="Contains", Values=[suffix]),
             ]
         else:
             parameter_filters=[
