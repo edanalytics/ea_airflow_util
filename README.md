@@ -609,6 +609,9 @@ Finally, there is an optional boolean argument `join_numbers` that is turned on 
 When true, dynamically-inferred tenant-codes are standardized further to remove underscores between district name and code.
 For example, `york_1` becomes `york1`.
 
+When tenant-identification is not the penultimate element of the path, use the string `{tenant_code}` to automatically infer it for the mapping.
+For example, `/ed-fi/apiClients/districts-2425-ds5/{tenant_code}/prod/Stadium` will find parameters that match the path shape, but will label paths based on the inferred `tenant_code`.
+
 </details>
 
 

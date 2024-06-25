@@ -1,3 +1,8 @@
+# ea_airflow_util v0.3.2
+## New features
+- `AWSParamStoreToAirflowDAG` allows more flexibility when passing Parameter Store paths. Use `{tenant_code}` when the tenant is in the middle of the path, instead of the end.
+
+
 # ea_airflow_util v0.3.1
 ## New features
 - Boolean argument `is_manual_upload` in `S3ToSnowflakeDag` rearranges S3 source pathing to easier structure for partners
