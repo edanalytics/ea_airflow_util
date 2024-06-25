@@ -29,15 +29,18 @@ class ConnectionKwargs:
         elif key == 'url':
             self.__kwargs['host'] = value
         else:
-            self.__kwargs[key] = value
+            logging.debug(f"Ignoring unexpected parameter key: {key}")
 
     def to_conn(self, conn_id: str) -> dict:
         """
         Convert connection pieces into a JSON connection.
         """
-        if self.__kwargs.keys() < {"host", "login", "password"}:
+        conn_keys = {"host", "login", "password"}
+        param_keys = self.__kwargs.keys()
+
+        if param_keys < conn_keys:
             raise ValueError(
-                f"Connection is missing one or more required fields."
+                f"Connection is missing one or more required fields: {conn_keys.difference(param_keys)}"
             )
 
         return Connection(conn_id=conn_id, conn_type='http', **self.__kwargs)
@@ -105,10 +108,10 @@ class AWSParamStoreToAirflowDAG:
             ):
                 try:
                     self.upload_connection_kwargs_to_airflow(conn_id, conn_kwargs)
+                except NameError:  # Internal-declared error
+                    logging.info(f"Skipping existing connection: `{conn_id}`")
                 except Exception as err:
-                    logging.warning(
-                        f"Failed to import `{conn_id}`: {err}"
-                    )
+                    logging.warning(f"Failed to import `{conn_id}`: {err}")
 
 
         with EACustomDAG(**kwargs) as dag:
