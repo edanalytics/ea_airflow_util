@@ -83,11 +83,9 @@ def sharefile_to_disk(
 
         # if a file pattern was specified, skip files which do not match
         remote_file = os.path.join(file_path, file_name)
-        if file_pattern:
-            re_pattern = re.compile(file_pattern)
-            if not re.search(re_pattern, file_name):
-                logging.info("File does not match pattern, skipping file: " + remote_file)
-                continue
+        if file_pattern and not re.search(file_pattern, file_name):
+            logging.info("File does not match pattern, skipping file: " + remote_file)
+            continue
 
         logging.info("Attempting to get file: " + remote_file)
 
