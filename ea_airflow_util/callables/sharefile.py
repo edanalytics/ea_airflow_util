@@ -26,8 +26,8 @@ def sharefile_to_disk(
     sharefile_conn_id: str,
     sharefile_path: str,
     local_path: str,
-    ds_nodash: Optional[str] = None,
-    ts_nodash: Optional[str] = None,
+    ds_nodash: Optional[str] = None,  # Deprecated
+    ts_nodash: Optional[str] = None,  # Deprecated
     delete_remote: bool = False,
     file_pattern: Optional[str] = None
 ):
@@ -65,9 +65,6 @@ def sharefile_to_disk(
         raise AirflowSkipException
 
     ### Iterate and download the files locally, filtering on a pattern if specified.
-    # Set a date path, including optional elements if passed as args.
-    date_path = os.path.join(*filter(None, [local_path, ds_nodash, ts_nodash]))
-
     # for all files, move to local
     num_successes = 0
 
@@ -93,9 +90,9 @@ def sharefile_to_disk(
         file_name = file_name.lower().replace(' ', '_')  # lower filename and replace spaces with underscores
 
         if parent_id == base_path_id:
-            full_local_path = os.path.join(date_path, file_name)
+            full_local_path = os.path.join(local_path, file_name)
         else:
-            full_local_path = os.path.join(date_path, file_path_no_base, file_name)
+            full_local_path = os.path.join(local_path, file_path_no_base, file_name)
 
         # create dir (works if there is a file name or not)
         os.makedirs(os.path.dirname(full_local_path), exist_ok=True)
@@ -116,4 +113,4 @@ def sharefile_to_disk(
     if num_successes == 0:
         raise AirflowException(f"Failed transfer from ShareFile to local: no files transferred successfully!")
 
-    return date_path
+    return local_path
