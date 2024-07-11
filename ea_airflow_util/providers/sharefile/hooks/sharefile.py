@@ -2,7 +2,6 @@ import io
 import requests
 
 from airflow.hooks.base import BaseHook
-from airflow.exceptions import AirflowException
 
 
 # Note: consider making each file use its own session with context handler
@@ -45,7 +44,7 @@ class SharefileHook(BaseHook):
         response = requests.post(auth_url, data=params, headers=headers)
         if response.status_code != 200:
             self.log.error('Failed to authenticate with status {}'.format(response.status_code))
-            raise AirflowException
+            response.raise_for_status()
         token = response.json()['access_token']
 
         # create our request header and session
@@ -75,7 +74,7 @@ class SharefileHook(BaseHook):
                 f.write(dl_response.content)
         else:
             self.log.error('Item request failed with status code: {}'.format(dl_response.status_code))
-            raise AirflowException
+            dl_response.raise_for_status()
 
     def delete(self, item_id):
         # establish a session if we don't already have one
@@ -87,7 +86,7 @@ class SharefileHook(BaseHook):
         response = self.session.delete(self.base_url + item_path)
         if response.status_code != 204:
             self.log.error('Delete failed with response code {}'.format(response.status_code))
-            raise AirflowException
+            response.raise_for_status()
 
     def get_path_id(self, path):
         if not self.session:
@@ -100,7 +99,7 @@ class SharefileHook(BaseHook):
             return response.json()['Id']
         else:
             self.log.error('Failed to get id for path {}'.format(path))
-            raise AirflowException
+            response.raise_for_status()
 
     def item_info(self, id):
         if not self.session:
@@ -111,7 +110,7 @@ class SharefileHook(BaseHook):
         # do we need to check response.json()['TimedOut']?
         if response.status_code != 200:
             self.log.error(f'Getting item info failed for id {id}')
-            raise AirflowException
+            response.raise_for_status()
 
         results = response.json()
 
@@ -141,7 +140,7 @@ class SharefileHook(BaseHook):
         # do we need to check response.json()['TimedOut']?
         if response.status_code != 200:
             self.log.error('Search failed')
-            raise AirflowException
+            response.raise_for_status()
 
         results = response.json()['Results']
 
@@ -165,7 +164,7 @@ class SharefileHook(BaseHook):
             return response.json()['value']
         else:
             self.log.error('Access controls request failed with status code: {}'.format(response.status_code))
-            raise AirflowException
+            response.raise_for_status()
 
     def get_user(self, user_id):
         # establish a session if we don't already have one
@@ -185,7 +184,7 @@ class SharefileHook(BaseHook):
             return response.json()
         else:
             self.log.error('Users request failed with status code: {}'.format(response.status_code))
-            raise AirflowException
+            response.raise_for_status()
 
     def get_children(self, item_id):
         # establish a session if we don't already have one
@@ -205,7 +204,7 @@ class SharefileHook(BaseHook):
             return response.json()['value']
         else:
             self.log.error('Get children request failed with status code: {}'.format(response.status_code))
-            raise AirflowException
+            response.raise_for_status()
 
     def file_to_memory(self, item_id):
         """
@@ -230,7 +229,7 @@ class SharefileHook(BaseHook):
             #     flo.write(dl_response.content)
         else:
             self.log.error('Item request failed with status code: {}'.format(dl_response.status_code))
-            raise AirflowException
+            dl_response.raise_for_status()
 
         return flo
 
