@@ -1,5 +1,6 @@
 import logging
 import os
+import pytz
 import re
 import requests
 
@@ -155,7 +156,8 @@ def check_for_new_files(sharefile_conn_id: str, sharefile_path: str, expected_fi
     new_file_count = 0
 
     for file in sf_all_files:
-        if updated_after == 'None' or file['CreationDate'] >= updated_after:
+        file_updated_time = datetime.strptime(file['CreationDate'], '%Y-%m-%dT%H:%M:%S.%fZ').replace(tzinfo=pytz.UTC)
+        if updated_after == 'None' or file_updated_time >= updated_after:
             new_file_count += 1
 
     if new_file_count == 0:
