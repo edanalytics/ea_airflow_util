@@ -124,7 +124,7 @@ class S3ToSnowflakeDag:
                 custom_metadata_columns={
                     'tenant_code': f"'{self.tenant_code}'",
                     'api_year': f"'{self.api_year}'",
-                    'resource_name': f"'{resource_name}'"
+                    'name': f"'{resource_name}'"
                 },
                 s3_destination_key=datalake_prefix,
                 full_refresh=self.full_replace,

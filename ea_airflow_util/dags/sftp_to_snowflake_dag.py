@@ -149,7 +149,7 @@ class SFTPToSnowflakeDag:
                 custom_metadata_columns={
                     'tenant_code': f"'{tenant_code}'",
                     'api_year': f"'{api_year}'",
-                    'resource_name': f"'{resource_name}'"
+                    'name': f"'{resource_name}'"
                 },
                 s3_destination_key=datalake_date_path,
                 full_refresh=full_replace,
