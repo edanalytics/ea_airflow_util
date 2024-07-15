@@ -3,10 +3,10 @@ import os
 import re
 import requests
 
+from datetime import datetime
 from typing import List
 
-from airflow.exceptions import AirflowSkipException
-from airflow.exceptions import AirflowException
+from airflow.exceptions import AirflowException, AirflowSkipException, AirflowFailException
 
 from ea_airflow_util.providers.sharefile.hooks.sharefile import SharefileHook
 
@@ -113,3 +113,51 @@ def sharefile_to_disk(sharefile_conn_id, sharefile_path, local_path, ds_nodash, 
         raise AirflowException(f"Failed transfer from ShareFile to local: no files transferred successfully!")
 
     return date_path
+
+
+def check_for_new_files(sharefile_conn_id: str, sharefile_path: str, expected_files: int, updated_after: datetime):
+    """
+    Checks a ShareFile folder for files
+
+    :param sharefile_conn_id: reference to a specific ShareFile connection
+    :type sharefile_conn_id: string
+    :param sharefile_path: The root directory to transfer, such as '/CORE_Data_System'
+    :type sharefile_path: string
+    :param expected_files: Number of files expected to be found at the Sharefile path; fails if different
+    :type expected_files: int
+    :param updated_after: Checks whether any files have been added since this date; raises a skip exception if not
+    :type updated_after: datetime
+    """
+
+    # use hook to make connection
+    sf_hook = SharefileHook(sharefile_conn_id)
+    sf_hook.get_conn()
+
+    # get the item id of the remote path, find all files within that path (up to 1000)
+    try: 
+        path_id = sf_hook.get_path_id(sharefile_path)
+        sf_all_files = sf_hook.find_files(path_id)
+    except: 
+        logging.info(f"Folder not found: {sharefile_path}")
+        raise AirflowSkipException
+
+    # skip if no files found
+    if len(sf_all_files) == 0:
+        logging.info(f"No files found in '{sharefile_path}'.")
+        raise AirflowSkipException
+
+    # fail if other than expected number of files is found
+    if len(sf_all_files) != expected_files:
+        logging.info(f"{len(sf_all_files)} files found in the Sharefile folder '{sharefile_path}'. Expected {expected_files}.")
+        raise AirflowFailException
+
+    # check how many files have been added since the last successful run 
+    new_file_count = 0
+
+    for file in sf_all_files:
+        if updated_after == 'None' or file['CreationDate'] >= updated_after:
+            new_file_count += 1
+
+    if new_file_count == 0:
+        logging.info(f"No new files in '{sharefile_path}' since last run.")
+        raise AirflowSkipException
