@@ -9,10 +9,10 @@ from airflow.providers.amazon.aws.hooks.s3 import S3Hook
 from airflow.operators.bash_operator import BashOperator
 from airflow.operators.python_operator import PythonOperator
 from airflow.providers.sftp.hooks.sftp import SFTPHook
-from airflow.providers.snowflake.hooks.snowflake import SnowflakeHook
 from airflow.utils.task_group import TaskGroup
 
 from ea_airflow_util.dags.ea_custom_dag import EACustomDAG
+from ea_airflow_util.providers.aws.operators.s3 import S3ToSnowflakeOperator
 
 
 class SFTPToSnowflakeDag:
@@ -140,7 +140,7 @@ class SFTPToSnowflakeDag:
             )
 
             ## Copy data from dest bucket (data lake stage) to snowflake raw table
-            copy_to_raw = PythonOperator(
+            copy_to_raw = S3ToSnowflakeOperator(
                 task_id=f'{taskgroup_grain}_copy_to_raw',
                 snowflake_conn_id=self.snowflake_conn_id,
                 database=self.database,
