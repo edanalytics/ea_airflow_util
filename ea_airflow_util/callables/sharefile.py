@@ -102,6 +102,7 @@ def sharefile_to_disk(
             sf_hook.download_to_disk(item_id=item_id, local_path=full_local_path)
 
             if delete_remote:
+                logging.info(f'delete_remote set to True; removing {remote_file} from ShareFile...')
                 sf_hook.delete(item_id)
 
             num_successes += 1
