@@ -29,7 +29,8 @@ def sharefile_to_disk(
     ds_nodash: Optional[str] = None,  # Deprecated
     ts_nodash: Optional[str] = None,  # Deprecated
     delete_remote: bool = False,
-    file_pattern: Optional[str] = None
+    file_pattern: Optional[str] = None,
+    **kwargs
 ):
     """
     Transfers all files from a ShareFile folder to a local date-stamped directory,
