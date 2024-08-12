@@ -77,6 +77,26 @@ class SharefileHook(BaseHook):
             self.log.error('Item request failed with status code: {}'.format(dl_response.status_code))
             raise AirflowException
 
+    def upload_file(self, sharefile_folder, local_file):
+        # establish a session if we don't already have one
+        if not self.session:
+            self.get_conn()
+
+        # sharefile's upload logic is weird
+        # https://api.sharefile.com/samples/python
+        # TODO: can I do this with a normal post?
+
+        upload_static_uri = f"{self.base_url}/Items({sharefile_folder})/Upload"
+
+        upload_uri_resp = self.session.get(upload_static_uri)
+        upload_config = upload_uri_resp.json()
+        upload_static_uri = upload_config["ChunkUri"]
+
+        # TODO: read mode?
+        # TODO: file name...
+        files = {'file': open(local_file, 'rb')}
+        self.session.post(upload_static_uri)
+
     def delete(self, item_id):
         # establish a session if we don't already have one
         if not self.session:

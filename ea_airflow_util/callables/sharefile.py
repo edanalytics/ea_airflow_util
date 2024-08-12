@@ -1,5 +1,6 @@
 import logging
 import os
+import pathlib
 import re
 import requests
 
@@ -9,6 +10,7 @@ from airflow.exceptions import AirflowSkipException
 from airflow.exceptions import AirflowException
 
 from ea_airflow_util.providers.sharefile.hooks.sharefile import SharefileHook
+from airflow.providers.amazon.aws.hooks.s3 import S3Hook
 
 def list_sharefile_objects(sharefile_conn_id: str, remote_dir: str) -> List[str]:
     sharefile_hook = SharefileHook(sharefile_conn_id)
@@ -112,4 +114,43 @@ def sharefile_to_disk(sharefile_conn_id, sharefile_path, local_path, ds_nodash, 
     if num_successes == 0:
         raise AirflowException(f"Failed transfer from ShareFile to local: no files transferred successfully!")
 
-    return date_path
+    return local_path
+
+def disk_to_sharefile(
+    sharefile_conn_id: str,
+    sharefile_folder: str,
+    local_path: str,
+):
+    # NOTE: file or folder
+    # use hook to make connection
+    sf_hook = SharefileHook(sharefile_conn_id)
+
+    path = pathlib.Path(local_path)
+    if path.is_dir():
+        # upload all files in directory
+        for filepath in path.iterdir():
+            sf_hook.upload_file(sharefile_folder, filepath)
+    else:
+        sf_hook.upload_file(sharefile_folder, path)
+
+# TODO: optionally take a dir?
+#   |--> probably not a good idea
+# TODO: should there be an s3_to_disk function??
+def s3_to_sharefile(
+    s3_conn_id: str,
+    s3_key: str,
+    sharefile_conn_id: str,
+    sharefile_folder: str,
+    delete_source_file: bool = False, # TODO: keep?
+):
+    s3_hook = S3Hook(s3_conn_id)
+    s3_creds = s3_hook.get_connection(s3_hook.aws_conn_id)
+    s3_bucket = s3_creds.schema
+    downloaded_file = s3_hook.download_file(s3_key, s3_bucket, preserve_file_name=True)
+
+    disk_to_sharefile(sharefile_conn_id, sharefile_folder, downloaded_file)
+
+    os.remove(downloaded_file)
+
+    if delete_source_file:
+        s3_hook.delete_objects(s3_bucket, s3_key)
