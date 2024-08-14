@@ -3,6 +3,7 @@ import os
 import pathlib
 import re
 import requests
+import uuid
 
 from typing import List
 
@@ -116,41 +117,34 @@ def sharefile_to_disk(sharefile_conn_id, sharefile_path, local_path, ds_nodash, 
 
     return local_path
 
-def disk_to_sharefile(
-    sharefile_conn_id: str,
-    sharefile_folder: str,
-    local_path: str,
-):
-    # NOTE: file or folder
-    # use hook to make connection
-    sf_hook = SharefileHook(sharefile_conn_id)
 
-    path = pathlib.Path(local_path)
-    if path.is_dir():
+def disk_to_sharefile(sf_conn_id: str, sf_folder_path: str, local_path: str):
+    """Post a file or the contents of a directory to the specified Sharefile folder"""
+    sf_hook = SharefileHook(sf_conn_id )
+
+    sf_folder_id = sf_hook.folder_id_from_path(sf_folder_path)
+    if sf_folder_id is None:
+        raise AirflowException(f"failed to find Sharefile folder {sf_folder_path}")
+
+    local_path = pathlib.Path(local_path)
+    if local_path.is_dir():
         # upload all files in directory
-        for filepath in path.iterdir():
-            sf_hook.upload_file(sharefile_folder, filepath)
+        for filepath in local_path.iterdir():
+            sf_hook.upload_file(sf_folder_id, filepath)
     else:
-        sf_hook.upload_file(sharefile_folder, path)
+        sf_hook.upload_file(sf_folder_id, local_path)
 
-# TODO: optionally take a dir?
-#   |--> probably not a good idea
-# TODO: should there be an s3_to_disk function??
-def s3_to_sharefile(
-    s3_conn_id: str,
-    s3_key: str,
-    sharefile_conn_id: str,
-    sharefile_folder: str,
-    delete_source_file: bool = False, # TODO: keep?
-):
+
+def s3_to_sharefile(s3_conn_id: str, s3_key: str, sf_conn_id: str, sf_folder_path: str):
+    """Copy a single file from S3 to Sharefile"""
+
     s3_hook = S3Hook(s3_conn_id)
     s3_creds = s3_hook.get_connection(s3_hook.aws_conn_id)
     s3_bucket = s3_creds.schema
+
     downloaded_file = s3_hook.download_file(s3_key, s3_bucket, preserve_file_name=True)
 
-    disk_to_sharefile(sharefile_conn_id, sharefile_folder, downloaded_file)
+    disk_to_sharefile(sf_conn_id, sf_folder_path, downloaded_file)
 
+    # claen up the disk
     os.remove(downloaded_file)
-
-    if delete_source_file:
-        s3_hook.delete_objects(s3_bucket, s3_key)

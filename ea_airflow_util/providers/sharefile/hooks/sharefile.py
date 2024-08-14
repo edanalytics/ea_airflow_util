@@ -1,4 +1,6 @@
 import io
+from pathlib import Path
+
 import requests
 
 from airflow.hooks.base import BaseHook
@@ -77,25 +79,42 @@ class SharefileHook(BaseHook):
             self.log.error('Item request failed with status code: {}'.format(dl_response.status_code))
             raise AirflowException
 
-    def upload_file(self, sharefile_folder, local_file):
+    def upload_file(self, folder_id, local_file):
         # establish a session if we don't already have one
         if not self.session:
             self.get_conn()
 
-        # sharefile's upload logic is weird
+        # referencing sharefile's upload logic here
         # https://api.sharefile.com/samples/python
-        # TODO: can I do this with a normal post?
+        upload_config_uri = f"{self.base_url}/Items({folder_id})/Upload"
+        upload_config_resp = self.session.get(upload_config_uri)
+        upload_config = upload_config_resp.json()
+    
+        upload_uri = ""
+        try:
+            upload_uri = upload_config["ChunkUri"]
+        except KeyError:
+            # most likely an invalid or nonexistent folder ID
+            raise AirflowException(f"Failed to get upload link for {local_file}; Reason: {upload_config['reason']}; Message: {upload_config['message']['value']}")
 
-        upload_static_uri = f"{self.base_url}/Items({sharefile_folder})/Upload"
+        files = {Path(local_file).name: open(local_file, 'rb')}
+        resp = self.session.post(upload_uri, files=files)
+        resp.raise_for_status()
 
-        upload_uri_resp = self.session.get(upload_static_uri)
-        upload_config = upload_uri_resp.json()
-        upload_static_uri = upload_config["ChunkUri"]
 
-        # TODO: read mode?
-        # TODO: file name...
-        files = {'file': open(local_file, 'rb')}
-        self.session.post(upload_static_uri)
+    def folder_id_from_path(self, folder_path):
+        """Given a complete Sharefile folder path, returns the ID of the leaf folder. If the path is not found, returns `None`"""
+        folders = self.find_folders("allshared")
+
+        result = None
+        for folder in folders:
+            # special handling for folders just under th root
+            test_path = f"{folder['ParentSemanticPath']}/{folder['DisplayName']}" if folder['ParentSemanticPath'] != '/' else f"/{folder['DisplayName']}"
+            if test_path == folder_path:
+                result = folder["ItemID"]
+                break
+
+        return result
 
     def delete(self, item_id):
         # establish a session if we don't already have one
@@ -137,16 +156,21 @@ class SharefileHook(BaseHook):
 
         return results
 
+    def find_folders(self, folder_id):
+        return self._find_items(folder_id, "Folder")
+
+    def find_files(self, folder_id):
+        return self._find_items(folder_id, "File")
 
     ## this method started returning inconsistent results
     # specifically: the parentSemanticPath would sometimes be IDs rather than names
     # hence we switched to the below simplesearch method
-    def find_files(self, folder_id):
+    def _find_items(self, folder_id, item_type):
         if not self.session:
             self.get_conn()
         qry = {
             "Query": {
-                "ItemType": "File",
+                "ItemType": item_type,
                 "ParentID": folder_id
             },
             "Paging": {
