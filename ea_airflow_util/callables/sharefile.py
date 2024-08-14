@@ -5,7 +5,7 @@ import re
 import requests
 
 from datetime import datetime
-from typing import List
+from typing import List, Optional
 
 from airflow.exceptions import AirflowException, AirflowSkipException, AirflowFailException
 
@@ -116,7 +116,7 @@ def sharefile_to_disk(sharefile_conn_id, sharefile_path, local_path, ds_nodash, 
     return date_path
 
 
-def check_for_new_files(sharefile_conn_id: str, sharefile_path: str, expected_files: int, updated_after: datetime):
+def check_for_new_files(sharefile_conn_id: str, sharefile_path: str, num_expected_files: Optional[int] = None, updated_after: Optional[datetime] = None):
     """
     Checks a ShareFile folder for files
 
@@ -124,8 +124,8 @@ def check_for_new_files(sharefile_conn_id: str, sharefile_path: str, expected_fi
     :type sharefile_conn_id: string
     :param sharefile_path: The root directory to transfer, such as '/CORE_Data_System'
     :type sharefile_path: string
-    :param expected_files: Number of files expected to be found at the Sharefile path; fails if different
-    :type expected_files: int
+    :param num_expected_files: Number of files expected to be found at the Sharefile path; fails if different
+    :type num_expected_files: int
     :param updated_after: Checks whether any files have been added since this date; raises a skip exception if not
     :type updated_after: datetime
     """
@@ -148,8 +148,8 @@ def check_for_new_files(sharefile_conn_id: str, sharefile_path: str, expected_fi
         raise AirflowSkipException
 
     # fail if other than expected number of files is found
-    if len(sf_all_files) != expected_files:
-        logging.info(f"{len(sf_all_files)} files found in the Sharefile folder '{sharefile_path}'. Expected {expected_files}.")
+    if num_expected_files is not None and len(sf_all_files) != num_expected_files:
+        logging.info(f"{len(sf_all_files)} files found in the Sharefile folder '{sharefile_path}'. Expected {num_expected_files}.")
         raise AirflowFailException
 
     # check how many files have been added since the last successful run 
@@ -157,7 +157,8 @@ def check_for_new_files(sharefile_conn_id: str, sharefile_path: str, expected_fi
 
     for file in sf_all_files:
         file_updated_time = datetime.strptime(file['CreationDate'], '%Y-%m-%dT%H:%M:%S.%fZ').replace(tzinfo=pytz.UTC)
-        if updated_after == 'None' or file_updated_time >= updated_after:
+        # updated_after will be a None string if airflow cannot find a previous successful dag run
+        if updated_after is None or updated_after == 'None' or file_updated_time >= updated_after:
             new_file_count += 1
 
     if new_file_count == 0:

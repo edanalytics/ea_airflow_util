@@ -86,7 +86,7 @@ class LoadSharefileCustomUsersDag:
                     op_kwargs       = {
                         'sharefile_conn_id': self.sharefile_conn_id,
                         'sharefile_path'   : os.path.join(self.sharefile_base_path, tenant),
-                        'expected_files'   : 1,
+                        'num_expected_files'   : 1,
                         'updated_after'    : '{{prev_data_interval_start_success}}'
                     },
                     dag=self.dag
