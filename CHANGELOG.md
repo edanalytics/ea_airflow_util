@@ -1,3 +1,8 @@
+# Unreleased
+## New features
+- Add `s3_to_sharefile` and `disk_to_sharefile` callables
+- Add methods to the `SharefileHook`
+
 # ea_airflow_util v0.3.1
 ## New features
 - Boolean argument `is_manual_upload` in `S3ToSnowflakeDag` rearranges S3 source pathing to easier structure for partners

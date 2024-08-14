@@ -163,6 +163,15 @@ Helpers when interfacing with Sharefile
 ### list_sharefile_objects(sharefile_conn_id, remote_dir)
 List object names in a specified Sharefile directory.
 
+### sharefile_to_disk(sharefile_conn_id, sharefile_path, local_path, ds_nodash, ts_nodash, delete_remote=False, file_pattern=None)
+Transfer all files from a ShareFile folder to a local date-stamped directory, optionally deleting the remote copy.
+
+### disk_to_sharefile(sf_conn_id, sf_folder_path, local_path)
+Post a file or the contents of a directory to the specified Sharefile folder
+
+### s3_to_sharefile(s3_conn_id, s3_key, sf_conn_id, sf_folder_path):
+Copy a single file from S3 to Sharefile
+
 -----
 
 </details>
@@ -699,10 +708,13 @@ Note that the connection in Airflow must be configured in an unusual way:
 Methods:
 - get_conn()
 - download(item_id, local_path)
+- upload_file(folder_id, local_file)
+- folder_id_from_path(folder_path)
 - delete(item_id)
 - get_path_id(path)
 - item_info(id)
 - find_files(folder_id)
+- find_folders(folder_id)
 - get_access_controls(item_id)
 - get_user(user_id)
 - get_children(item_id)
