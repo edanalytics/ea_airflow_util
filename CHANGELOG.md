@@ -1,4 +1,6 @@
 # ea_airflow_util v0.3.2
+## New features
+- `AWSParamStoreToAirflowDAG` allows more flexibility when passing Parameter Store paths. Use `{tenant_code}` when the tenant is in the middle of the path, instead of the end.
 
 
 # ea_airflow_util v0.3.1
