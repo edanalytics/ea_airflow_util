@@ -24,6 +24,8 @@
 
 import boto3
 import datetime
+import re
+import time
 from typing import Optional
 
 from botocore.config import Config
@@ -33,6 +35,7 @@ class SSMParameterStore:
     """
     Provide a dictionary-like interface to access AWS SSM Parameter Store
     """
+    TENANT_REPR = "{tenant_code}"
 
     def __init__(self,
         prefix     : Optional[str]  = None,
@@ -53,7 +56,11 @@ class SSMParameterStore:
         if self._keys is None:
             self.refresh()
 
-        abs_key = "%s%s" % (self._prefix, name)
+        if self.TENANT_REPR in self._prefix:
+            abs_key = self._prefix.replace(self.TENANT_REPR, name)
+        else:
+            abs_key = "%s%s" % (self._prefix, name)
+        
         if name not in self._keys:
             if 'default' in kwargs:
                 return kwargs['default']
@@ -76,17 +83,36 @@ class SSMParameterStore:
         self._keys = {}
         self._substores = {}
 
+        # Different logic is used when passing a complete prefix vs a wildcard.
+        if self.TENANT_REPR in self._prefix:
+            filter_prefix, _ = self._prefix.split(self.TENANT_REPR, 1)
+        else:
+            filter_prefix = self._prefix
+
         paginator = self._client.get_paginator('describe_parameters')
         pager = paginator.paginate(
             ParameterFilters=[
-                dict(Key="Path", Option="Recursive", Values=[self._prefix])
+                dict(Key="Path", Option="Recursive", Values=[filter_prefix])
             ]
         )
 
         for page in pager:
             for p in page['Parameters']:
-                paths = p['Name'][len(self._prefix):].split('/')
+
+                # If a wildcard is in the prefix string, extract and set the tenant code as the first path element.
+                # Replace "{tenant_code}" in the user-prefix with a Regex wildcard capture group and extract the dynamic value.
+                # Add the inferred tenant and everything that follows it to the path keys.
+                if self.TENANT_REPR in self._prefix:
+                    inferred_tenant = re.search(self._prefix.replace(self.TENANT_REPR, "(.*)"), p['Name']).group(1)
+                    inferred_prefix = self._prefix.replace(self.TENANT_REPR, inferred_tenant)
+                    paths = [inferred_tenant, *p['Name'][len(inferred_prefix):].split('/')]
+
+                else:
+                    paths = p['Name'][len(self._prefix):].split('/')
+
                 self._update_keys(self._keys, paths)
+            
+            time.sleep(1)
 
 
     @classmethod
