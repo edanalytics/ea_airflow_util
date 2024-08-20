@@ -23,7 +23,16 @@ def list_sharefile_objects(sharefile_conn_id: str, remote_dir: str) -> List[str]
     return [object['ParentName'] for object in sharefile_objects]
 
 
-def sharefile_to_disk(sharefile_conn_id, sharefile_path, local_path, ds_nodash, ts_nodash, delete_remote=False, file_pattern=None):
+def sharefile_to_disk(
+    sharefile_conn_id: str,
+    sharefile_path: str,
+    local_path: str,
+    ds_nodash: Optional[str] = None,  # Deprecated
+    ts_nodash: Optional[str] = None,  # Deprecated
+    delete_remote: bool = False,
+    file_pattern: Optional[str] = None,
+    **kwargs
+):
     """
     Transfers all files from a ShareFile folder to a local date-stamped directory,
     optionally deleting the remote copy.
@@ -38,6 +47,7 @@ def sharefile_to_disk(sharefile_conn_id, sharefile_path, local_path, ds_nodash, 
     :type delete_remote: bool
     """
 
+    ### Connect to ShareFile and determine whether files are present.
     # use hook to make connection
     sf_hook = SharefileHook(sharefile_conn_id)
     sf_hook.get_conn()
@@ -56,53 +66,46 @@ def sharefile_to_disk(sharefile_conn_id, sharefile_path, local_path, ds_nodash, 
         logging.info("No files on FTP")
         raise AirflowSkipException
 
-    # extract relevant file details
-    files = []
-    for res in remote_files:
-        file_details = {'file_name': res['FileName'],
-                        'size': res['Size'],
-                        'hash': res['MD5'],
-                        'parent_id': res['ParentID'],
-                        'file_path': res['ParentSemanticPath'],
-                        'file_path_no_base': res['ParentSemanticPath'].replace(sharefile_path, ''),
-                        'item_id': res['ItemID']}
-
-        files.append(file_details)
-
+    ### Iterate and download the files locally, filtering on a pattern if specified.
     # for all files, move to local
-    date_path = os.path.join(local_path, str(ds_nodash), str(ts_nodash))
     num_successes = 0
 
-    for file in files:
+    for res in remote_files:
+
+        file_name = res['FileName']
+        parent_id = res['ParentID']
+        file_path = res['ParentSemanticPath']
+        file_path_no_base = res['ParentSemanticPath'].replace(sharefile_path, '')
+        item_id = res['ItemID']
+        # size = res['Size']  # Not used for anything downstream
+        # hash = res['MD5']
 
         # if a file pattern was specified, skip files which do not match
-        remote_file = os.path.join(file['file_path'], file['file_name'])
-        if file_pattern is not None:
-            re_pattern = re.compile(file_pattern)
-            if not re.search(re_pattern, file['file_name']):
-                logging.info("File does not match pattern, skipping file: " + remote_file)
-                continue
+        remote_file = os.path.join(file_path, file_name)
+        if file_pattern and not re.search(file_pattern, file_name):
+            logging.info("File does not match pattern, skipping file: " + remote_file)
+            continue
 
         logging.info("Attempting to get file: " + remote_file)
 
-        # lower filename and replace spaces with underscores
-        file['file_name'] = file['file_name'].lower().replace(' ', '_')
-
         # check to see if there is other metadata needed in local path and if not, add filename to local path
-        if file['parent_id'] == base_path_id:
-            full_local_path = os.path.join(date_path, file['file_name'])
+        file_name = file_name.lower().replace(' ', '_')  # lower filename and replace spaces with underscores
+
+        if parent_id == base_path_id:
+            full_local_path = os.path.join(local_path, file_name)
         else:
-            full_local_path = os.path.join(date_path, file['file_path_no_base'], file['file_name'])
+            full_local_path = os.path.join(local_path, file_path_no_base, file_name)
 
         # create dir (works if there is a file name or not)
         os.makedirs(os.path.dirname(full_local_path), exist_ok=True)
 
         # download the file and hash it
         try:
-            sf_hook.download_to_disk(item_id=file['item_id'], local_path=full_local_path)
+            sf_hook.download_to_disk(item_id=item_id, local_path=full_local_path)
 
             if delete_remote:
-                sf_hook.delete(file['item_id'])
+                logging.info(f'delete_remote set to True; removing {remote_file} from ShareFile...')
+                sf_hook.delete(item_id)
 
             num_successes += 1
 
@@ -113,7 +116,7 @@ def sharefile_to_disk(sharefile_conn_id, sharefile_path, local_path, ds_nodash, 
     if num_successes == 0:
         raise AirflowException(f"Failed transfer from ShareFile to local: no files transferred successfully!")
 
-    return date_path
+    return local_path
 
 
 def check_for_new_files(sharefile_conn_id: str, sharefile_path: str, num_expected_files: Optional[int] = None, updated_after: Optional[datetime] = None):
