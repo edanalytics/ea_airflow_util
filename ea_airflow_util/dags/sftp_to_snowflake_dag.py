@@ -9,10 +9,10 @@ from airflow.providers.amazon.aws.hooks.s3 import S3Hook
 from airflow.operators.bash_operator import BashOperator
 from airflow.operators.python_operator import PythonOperator
 from airflow.providers.sftp.hooks.sftp import SFTPHook
-from airflow.providers.snowflake.hooks.snowflake import SnowflakeHook
 from airflow.utils.task_group import TaskGroup
 
 from ea_airflow_util.dags.ea_custom_dag import EACustomDAG
+from ea_airflow_util.providers.aws.operators.s3 import S3ToSnowflakeOperator
 
 
 class SFTPToSnowflakeDag:
@@ -140,18 +140,20 @@ class SFTPToSnowflakeDag:
             )
 
             ## Copy data from dest bucket (data lake stage) to snowflake raw table
-            copy_to_raw = PythonOperator(
+            copy_to_raw = S3ToSnowflakeOperator(
                 task_id=f'{taskgroup_grain}_copy_to_raw',
-                python_callable=self.copy_from_datalake_to_raw,
-                op_kwargs={
-                    'datalake_date_path': datalake_date_path,
-                    'domain': domain,
-                    'tenant_code': tenant_code,
-                    'api_year': api_year,
-                    'resource_name': resource_name,
-                    'full_replace': full_replace
+                snowflake_conn_id=self.snowflake_conn_id,
+                database=self.database,
+                schema=self.schema,
+                table_name=f'{domain}__{resource_name}',
+                custom_metadata_columns={
+                    'tenant_code': f"'{tenant_code}'",
+                    'api_year': f"'{api_year}'",
+                    'name': f"'{resource_name}'"
                 },
-                pool=self.pool,
+                s3_destination_key=datalake_date_path,
+                full_refresh=full_replace,
+                delete_where=f"where tenant_code = '{tenant_code}' and api_year = '{api_year}'",
                 dag=self.dag
             )
 
@@ -269,56 +271,6 @@ class SFTPToSnowflakeDag:
             )
 
         return s3_destination_key
-    
-    
-    def copy_from_datalake_to_raw(self, datalake_date_path, domain, tenant_code, api_year, resource_name, full_replace):
-        """
-        Copy raw data from data lake to data warehouse, including object metadata.
-        
-        :param datalake_date_path:  
-        :param domain
-        :param tenant_code
-        :param api_year
-        :param resource_name
-        :param full_replace
-        :return:
-        """
-        delete_sql = f'''
-            delete from {self.database}.{self.schema}.{domain}__{resource_name}
-            where tenant_code = '{tenant_code}'
-              and api_year = '{api_year}'
-        '''
-
-        logging.info(f"Copying from data lake to raw: {datalake_date_path}")
-        copy_sql = f'''
-            copy into {self.database}.{self.schema}.{domain}__{resource_name}
-                (tenant_code, api_year, pull_date, pull_timestamp, file_row_number, filename, name, v)
-            from (
-                select
-                    '{tenant_code}' as tenant_code,
-                    '{api_year}' as api_year,
-                    to_date(split_part(metadata$filename, '/', 3), 'YYYYMMDD') as pull_date,
-                    to_timestamp(split_part(metadata$filename, '/', 4), 'YYYYMMDDTHH24MISS') as pull_timestamp,
-                    metadata$file_row_number as file_row_number,
-                    metadata$filename as filename,
-                    '{resource_name}' as name,
-                    t.$1 as v
-                from @{self.database}.util.airflow_stage/{datalake_date_path}/
-                (file_format => 'json_default') t
-            ) FORCE=TRUE
-        '''
-
-        # Commit the copy query to Snowflake
-        snowflake_hook = SnowflakeHook(snowflake_conn_id=self.snowflake_conn_id)
-
-        if full_replace:
-            cursor_log_delete = snowflake_hook.run(sql=delete_sql)
-            logging.info(cursor_log_delete)
-
-        cursor_log_copy = snowflake_hook.run(sql=copy_sql)
-
-        #TODO look into ways to return copy metadata (n rows copied, n failures, etc.) right now it just says "1 row affected"
-        logging.info(cursor_log_copy)
 
 
     def delete_from_local(self, parent_to_delete):
