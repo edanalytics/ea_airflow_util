@@ -103,6 +103,10 @@ class SharefileHook(BaseHook):
 
     def folder_id_from_path(self, folder_path):
         """Given a complete Sharefile folder path, returns the ID of the leaf folder. If the path is not found, returns `None`"""
+        # Sharefile's documentation doesn't explicitly describe how "allshared" is supposed to be used,
+        #    but it appears to be a stand-in for "root." By searching for all folders underneath "allshared"
+        #    we should get a list of every folder in the hierarchy (including nested ones)
+        # ref: https://api.sharefile.com/samples/python
         folders = self.find_folders("allshared")
 
         result = None

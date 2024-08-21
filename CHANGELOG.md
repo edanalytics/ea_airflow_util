@@ -3,6 +3,14 @@
 - `AWSParamStoreToAirflowDAG` allows more flexibility when passing Parameter Store paths. Use `{tenant_code}` when the tenant is in the middle of the path, instead of the end.
 - Add `s3_to_sharefile` and `disk_to_sharefile` callables
 - Add methods to the `SharefileHook`
+- Add ShareFile callable `check_for_new_files()` to assert expectations in ShareFile directory
+- Add `S3ToSnowflakeOperator` to S3 operators
+- Add `LoadSharefileCustomUsersDag` to automate Heimdall user creation from uploaded authenticated users files in ShareFile
+
+## Under the hood
+- Code and error-handling improved in callable `sharefile_to_disk`. Arguments `ds_nodash` and `ts_nodash` are deprecated.
+- Refactor `SFTPToSnowflakeDAG` and `S3ToSnowflakeDAG` to use new `S3ToSnowflakeOperator`
+
 
 # ea_airflow_util v0.3.1
 ## New features
