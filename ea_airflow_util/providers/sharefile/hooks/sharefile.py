@@ -89,7 +89,7 @@ class SharefileHook(BaseHook):
         upload_config_resp = self.session.get(upload_config_uri)
         upload_config = upload_config_resp.json()
     
-        upload_uri = ""
+        upload_uri = None
         try:
             upload_uri = upload_config["ChunkUri"]
         except KeyError:
