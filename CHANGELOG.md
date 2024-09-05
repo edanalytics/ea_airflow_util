@@ -10,6 +10,7 @@
 ## Under the hood
 - Code and error-handling improved in callable `sharefile_to_disk`. Arguments `ds_nodash` and `ts_nodash` are deprecated.
 - Refactor `SFTPToSnowflakeDAG` and `S3ToSnowflakeDAG` to use new `S3ToSnowflakeOperator`
+- Update callable `ftp.download_all` to accept either a remote directory or file.
 
 
 # ea_airflow_util v0.3.1
