@@ -28,15 +28,23 @@ def download_all(
     # Connect and download all selected files.
     hook = SFTPHook(ftp_conn_id)
 
-    files_to_download = [
-        file for file in hook.list_directory(remote_dir)
-        if not endswith or file.endswith(endswith)
-    ]
+    _, _has_extension = os.path.splitext(remote_dir)  # Overload to support files and directories.
+    if _has_extension:
+        files_to_download = [remote_dir]
+    else:
+        files_to_download = [
+            file for file in hook.list_directory(remote_dir)
+            if not endswith or file.endswith(endswith)
+        ]
     logging.info(f"Found {len(files_to_download)} files to download from remote directory `{remote_dir}`.")
 
     for file in files_to_download:
-        remote_path = os.path.join(remote_dir, file)
-        local_path  = os.path.join(local_dir, file.lower().replace(' ', '_'))
+        if file == remote_dir:  # File passed as remote_dir
+            remote_path = remote_dir
+            local_path = os.path.join(local_dir, os.path.basename(file).lower().replace(' ', '_'))
+        else:
+            remote_path = os.path.join(remote_dir, file)
+            local_path  = os.path.join(local_dir, file.lower().replace(' ', '_'))
 
         try:
             hook.retrieve_large_file(remote_path, local_path)
