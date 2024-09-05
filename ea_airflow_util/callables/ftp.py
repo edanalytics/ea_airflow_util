@@ -28,10 +28,14 @@ def download_all(
     # Connect and download all selected files.
     hook = SFTPHook(ftp_conn_id)
 
-    files_to_download = [
-        file for file in hook.list_directory(remote_dir)
-        if not endswith or file.endswith(endswith)
-    ]
+    _, _has_extension = os.path.splitext(remote_dir)  # Overload to support files and directories.
+    if _has_extension:
+        files_to_download = [remote_dir]
+    else:
+        files_to_download = [
+            file for file in hook.list_directory(remote_dir)
+            if not endswith or file.endswith(endswith)
+        ]
     logging.info(f"Found {len(files_to_download)} files to download from remote directory `{remote_dir}`.")
 
     for file in files_to_download:
