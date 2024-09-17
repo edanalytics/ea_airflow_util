@@ -140,7 +140,7 @@ def disk_to_sharefile(sf_conn_id: str, sf_folder_path: str, local_path: str):
         sf_hook.upload_file(sf_folder_id, local_path)
 
 
-def s3_to_sharefile(s3_conn_id: str, s3_key: str, sf_conn_id: str, sf_folder_path: str):
+def s3_to_sharefile(s3_conn_id: str, s3_key: str, sf_conn_id: str, sf_folder_path: str, dest_filename: str = None):
     """Copy a single file from S3 to Sharefile"""
 
     s3_hook = S3Hook(s3_conn_id)
@@ -148,6 +148,17 @@ def s3_to_sharefile(s3_conn_id: str, s3_key: str, sf_conn_id: str, sf_folder_pat
     s3_bucket = s3_creds.schema
 
     downloaded_file = s3_hook.download_file(s3_key, s3_bucket, preserve_file_name=True)
+
+    # If a destination filename is provided, rename the downloaded file
+    if dest_filename:
+        # Get the directory of the downloaded file
+        download_dir = os.path.dirname(downloaded_file)
+        # Define the new path with the new filename
+        dest_file_path = os.path.join(download_dir, dest_filename)
+        # Rename the downloaded file
+        os.rename(downloaded_file, dest_file_path)
+        # Update the downloaded_file variable to the new file path
+        downloaded_file = dest_file_path
 
     disk_to_sharefile(sf_conn_id, sf_folder_path, downloaded_file)
 
