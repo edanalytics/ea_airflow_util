@@ -65,6 +65,7 @@ class LoadSharefileCustomUsersDag:
         self.delete_remote = delete_remote
 
         self.dag = EACustomDAG(**kwargs)
+        self.build_sharefile_custom_users_dag()
         
     def build_sharefile_custom_users_dag(self, **kwargs):
 
