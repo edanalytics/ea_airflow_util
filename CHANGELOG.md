@@ -1,3 +1,12 @@
+# ea_airflow_util v0.3.3
+## Under the hood
+- Add `dest_filename` argument to `s3_to_sharefile` callable to optionally override filename
+- Add `LoadSharefileCustomUsersDag` to top-level package import path
+
+## Fixes
+- Run DAG setup method during `LoadSharefileCustomUsersDag` initialization
+
+
 # ea_airflow_util v0.3.2
 ## New features
 - `AWSParamStoreToAirflowDAG` allows more flexibility when passing Parameter Store paths. Use `{tenant_code}` when the tenant is in the middle of the path, instead of the end.
