@@ -170,7 +170,7 @@ class SharefileHook(BaseHook):
     ## this method started returning inconsistent results
     # specifically: the parentSemanticPath would sometimes be IDs rather than names
     # hence we switched to the below simplesearch method
-    def _find_items(self, folder_id, item_type):
+    def _find_items(self, folder_id, item_type, unique=True):
         if not self.session:
             self.get_conn()
         qry = {
@@ -193,6 +193,19 @@ class SharefileHook(BaseHook):
             response.raise_for_status()
 
         results = response.json()['Results']
+
+        # it appears that, in the presense of file versioning, search will return
+        # multiple items, though with the same ID and no mechanism to distinguish between 
+        # versions via the api. Since this is useless, by default we will make the search 
+        # results unique by item id.
+        if unique:
+            item_ids = set()
+            unique_items = []
+            for item in results:
+                if item['ItemID'] not in item_ids:
+                    item_ids.add(item['ItemID'])
+                    unique_items.append(item)
+            results = unique_items
 
         return results
 

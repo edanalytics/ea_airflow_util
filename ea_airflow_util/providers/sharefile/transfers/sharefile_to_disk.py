@@ -61,27 +61,12 @@ class SharefileToDiskOperator(BaseOperator):
             file_details = {
                 'file_name': res['FileName'],
                 'size': res['Size'],
-                'hash': res['MD5'],
                 'parent_id': res['ParentID'],
                 'file_path_no_base': res['ParentSemanticPath'].replace(self.sharefile_path, ''),
-                'file_path_ftp': res['ParentSemanticPath'].replace('/Rally Analytics Platform', ''),
+                'file_path_ftp': res['ParentSemanticPath'],
                 'item_id': res['ItemID']
             }
 
-            # tmp workaround for item ids
-            # remove id version of core data system folder, if it exists
-            # file_details['file_path_ftp'] = file_details['file_path_ftp'].replace('/fo01ffd8-aab9-4f51-8e14-e50943209698', '')
-
-            # todo: not sure this is necessary, not sure exactly what the problem in CDW was that required this code
-            try:
-                path_elements = file_details['file_path_ftp'].split('/')[1:]
-                id_lookup = {id: sf_hook.item_info(id)['Name'] for id in path_elements if len(id) == 36}
-                for id, name in id_lookup.items():
-                    # replace ids with names
-                    file_details['file_path_ftp'] = file_details['file_path_ftp'].replace(id, name)
-            except AirflowException:
-                self.log.info(f'ID lookup failed for {file_details["file_name"]}. Is ShareFile fixed?')
-            # end tmp workaround
 
             files.append(file_details)
 
@@ -105,7 +90,7 @@ class SharefileToDiskOperator(BaseOperator):
             # create dir (works if there is a file name or not)
             os.makedirs(os.path.dirname(full_local_path), exist_ok=True)
 
-            # download the file and hash it
+            # download the file
             try:
                 sf_hook.download_to_disk(item_id=file['item_id'], local_path=full_local_path)
 
@@ -126,6 +111,6 @@ class SharefileToDiskOperator(BaseOperator):
                 continue
 
         if num_successes == 0:
-            raise AirflowException(f"Failed transfer from ShareFile to local: no files transferred successfully!")
+            raise AirflowException("Failed transfer from ShareFile to local: no files transferred successfully!")
 
         return self.local_path
