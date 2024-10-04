@@ -1,3 +1,7 @@
+# ea_airflow_util v0.3.4
+## Fixes
+- Handle duplicate search results in sharefile.
+
 # ea_airflow_util v0.3.3
 ## Under the hood
 - Add `dest_filename` argument to `s3_to_sharefile` callable to optionally override filename
