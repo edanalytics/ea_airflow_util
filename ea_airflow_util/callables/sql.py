@@ -165,10 +165,10 @@ def s3_dir_to_postgres(
             failed_count += 1
             continue
 
-    if failed_count == len(s3_keys):
-        raise AirflowException('All inserts failed')
+    if failed_count:
+        raise AirflowException(f'Loaded {len(s3_keys) - failed_count} of {len(s3_keys)} keys.')
 
-    logging.info(f'Loaded {len(s3_keys) - failed_count} of {len(s3_keys)} keys.')
+    logging.info('All inserts succeeded')
 
     if delete_s3_dir:
         s3_hook.delete_objects(s3_bucket, s3_keys)
