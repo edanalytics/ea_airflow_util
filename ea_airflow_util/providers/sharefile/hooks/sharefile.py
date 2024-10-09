@@ -111,15 +111,14 @@ class SharefileHook(BaseHook):
         # ref: https://api.sharefile.com/samples/python
         folders = self.find_folders("allshared")
 
-        result = None
         for folder in folders:
-            # special handling for folders just under th root
+            # special handling for folders just under the root
             test_path = f"{folder['ParentSemanticPath']}/{folder['DisplayName']}" if folder['ParentSemanticPath'] != '/' else f"/{folder['DisplayName']}"
             if test_path == folder_path:
-                result = folder["ItemID"]
-                break
-
-        return result
+                return folder["ItemID"]
+        else:
+            self.log.warning(f"No matching folder found for path: {folder_path}")
+            return None
 
     def delete(self, item_id):
         # establish a session if we don't already have one
