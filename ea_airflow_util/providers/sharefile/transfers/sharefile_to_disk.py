@@ -77,7 +77,8 @@ class SharefileToDiskOperator(BaseOperator):
         if self.most_recent_file:
             # of files found in directory, find the one with the most recent edit timestamp
             max_timestamp = None
-            for res in remote_files:
+            chosen_file = []
+            for res in files:
                 # seem to be cases where search is out of date and returns items that don't exist
                 try:
                     item_info = sf_hook.item_info(res['ItemID'])
@@ -87,7 +88,9 @@ class SharefileToDiskOperator(BaseOperator):
                 item_info = {key: item_info[key] for key in ('Id', 'ProgenyEditDate')}
                 if max_timestamp is None or item_info['ProgenyEditDate'] > max_timestamp:
                     max_timestamp = item_info['ProgenyEditDate']
-                    remote_files = [res]
+                    chosen_file = [res]
+            files = chosen_file
+
 
         # for all files, move to local
         num_successes = 0
