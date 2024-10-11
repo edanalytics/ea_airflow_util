@@ -85,10 +85,12 @@ class SharefileToDiskOperator(BaseOperator):
                 except:
                     # if the item fails to fetch item info, it probably doesn't exist, so can't be most recent
                     continue
-                item_info = {key: item_info[key] for key in ('Id', 'ProgenyEditDate')}
-                if max_timestamp is None or item_info['ProgenyEditDate'] > max_timestamp:
-                    max_timestamp = item_info['ProgenyEditDate']
+                # grab last modified, compare to current max known
+                item_last_modified = item_info['ProgenyEditDate']
+                if max_timestamp is None or item_last_modified > max_timestamp:
+                    max_timestamp = item_last_modified
                     chosen_file = [res]
+            # overwrite files list with singular chosen item
             files = chosen_file
 
 
