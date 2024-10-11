@@ -81,7 +81,7 @@ class SharefileToDiskOperator(BaseOperator):
             for res in files:
                 # seem to be cases where search is out of date and returns items that don't exist
                 try:
-                    item_info = sf_hook.item_info(res['ItemID'])
+                    item_info = sf_hook.item_info(res['item_id'])
                 except:
                     # if the item fails to fetch item info, it probably doesn't exist, so can't be most recent
                     continue
