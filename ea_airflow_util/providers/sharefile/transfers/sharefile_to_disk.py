@@ -23,6 +23,8 @@ class SharefileToDiskOperator(BaseOperator):
     :type local_path: string
     :param delete_remote: Optionally delete original file on ShareFile
     :type delete_remote: bool
+    :param most_recent_file: If we expect a single file at a given path and want the most recent version of it
+    :type most_recent_file: bool
 
     """
 
@@ -33,6 +35,7 @@ class SharefileToDiskOperator(BaseOperator):
         sharefile_path: str,
         local_path: str,
         delete_remote: bool = False,
+        most_recent_file: bool = False,
         *args, **kwargs
     ):
         super(SharefileToDiskOperator, self).__init__(*args, **kwargs)
@@ -40,6 +43,7 @@ class SharefileToDiskOperator(BaseOperator):
         self.sharefile_path = sharefile_path
         self.local_path = local_path
         self.delete_remote = delete_remote
+        self.most_recent_file = most_recent_file
 
     def execute(self, **context):
         # use hook to make connection
@@ -69,6 +73,21 @@ class SharefileToDiskOperator(BaseOperator):
 
 
             files.append(file_details)
+
+        if self.most_recent_file:
+            # of files found in directory, find the one with the most recent edit timestamp
+            max_timestamp = None
+            for res in remote_files:
+                # seem to be cases where search is out of date and returns items that don't exist
+                try:
+                    item_info = sf_hook.item_info(res['ItemID'])
+                except:
+                    # if the item fails to fetch item info, it probably doesn't exist, so can't be most recent
+                    continue
+                item_info = {key: item_info[key] for key in ('Id', 'ProgenyEditDate')}
+                if max_timestamp is None or item_info['ProgenyEditDate'] > max_timestamp:
+                    max_timestamp = item_info['ProgenyEditDate']
+                    remote_files = [res]
 
         # for all files, move to local
         num_successes = 0
@@ -114,3 +133,4 @@ class SharefileToDiskOperator(BaseOperator):
             raise AirflowException("Failed transfer from ShareFile to local: no files transferred successfully!")
 
         return self.local_path
+
