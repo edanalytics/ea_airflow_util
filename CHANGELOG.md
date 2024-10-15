@@ -1,3 +1,12 @@
+# ea_airflow_util v0.3.5
+## New features
+- Add optional `most_recent_file` flag to `SharefileToDiskOperator` to extract the most recent version of a singleton file from a path.
+
+## Under the hood
+- Log a warning message when `SharefileHook.folder_id_from_path()` finds no files for a given path.
+- Change logic in callable `sql.s3_dir_to_postgres()` to raise an AirflowException if any copy of S3 key fails, instead of only when all fail.
+
+
 # ea_airflow_util v0.3.4
 ## Fixes
 - Handle duplicate search results in sharefile.
