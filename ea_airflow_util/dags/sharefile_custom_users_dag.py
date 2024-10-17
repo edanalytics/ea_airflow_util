@@ -1,6 +1,7 @@
 import os
 from typing import List
 
+from airflow.models.param import Param
 from airflow.utils.task_group import TaskGroup
 from airflow.operators.python import PythonOperator
 from airflow.operators.trigger_dagrun import TriggerDagRunOperator
@@ -64,7 +65,15 @@ class LoadSharefileCustomUsersDag:
         self.heimdall_dag_id = heimdall_dag_id
         self.delete_remote = delete_remote
 
-        self.dag = EACustomDAG(**kwargs)
+        params = {
+            'force': Param(
+                default=False,
+                type='boolean',
+                description='Ignore recency of files, just load all'
+            ),
+        },
+
+        self.dag = EACustomDAG(params=params, **kwargs)
         self.build_sharefile_custom_users_dag()
         
     def build_sharefile_custom_users_dag(self, **kwargs):
@@ -84,10 +93,11 @@ class LoadSharefileCustomUsersDag:
                 check_for_new_files = PythonOperator(
                     task_id         = f"check_for_new_files",
                     python_callable = sharefile.check_for_new_files,
+                    provide_context = True,
                     op_kwargs       = {
                         'sharefile_conn_id': self.sharefile_conn_id,
                         'sharefile_path'   : os.path.join(self.sharefile_base_path, tenant),
-                        'num_expected_files'   : 1,
+                        'num_expected_files': None,
                         'updated_after'    : '{{prev_data_interval_start_success}}'
                     },
                     dag=self.dag
@@ -100,6 +110,7 @@ class LoadSharefileCustomUsersDag:
                     sharefile_path    = os.path.join(self.sharefile_base_path, tenant),
                     local_path        = os.path.join(self.tmp_dir, self.s3_base_dir, '{{ds_nodash}}', '{{ts_nodash}}', tenant),
                     delete_remote     = self.delete_remote,
+                    most_recent_file  = True,
                     retries           = 3,
                     dag=self.dag
                 )

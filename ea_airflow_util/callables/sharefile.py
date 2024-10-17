@@ -165,7 +165,7 @@ def s3_to_sharefile(s3_conn_id: str, s3_key: str, sf_conn_id: str, sf_folder_pat
     # claen up the disk
     os.remove(downloaded_file)
 
-def check_for_new_files(sharefile_conn_id: str, sharefile_path: str, num_expected_files: Optional[int] = None, updated_after: Optional[datetime] = None):
+def check_for_new_files(sharefile_conn_id: str, sharefile_path: str, num_expected_files: Optional[int] = None, updated_after: Optional[datetime] = None, **context):
     """
     Checks a ShareFile folder for files
 
@@ -210,6 +210,6 @@ def check_for_new_files(sharefile_conn_id: str, sharefile_path: str, num_expecte
         if updated_after is None or updated_after == 'None' or file_updated_time >= updated_after:
             new_file_count += 1
 
-    if new_file_count == 0:
+    if not context['params'].get('force') and new_file_count == 0:
         logging.info(f"No new files in '{sharefile_path}' since last run.")
         raise AirflowSkipException
