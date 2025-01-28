@@ -51,20 +51,23 @@ def _run_table_clear_query(
     dest_table: str,
     truncate: bool = False,
     delete_source_orgs: Optional[set] = None,
+    delete_where_clause: Optional[set] = None
 ):
     """
     Isolated logic for truncating or deleting from a table.
     """
-    if truncate and delete_source_orgs:
-        raise ValueError(f'!!! Only specify one of (truncate, delete) during Snowflake import to `{dest_table}`!')
+    if sum(truncate, delete_source_orgs, delete_where_clause is not None) > 1:
+        raise ValueError(f'!!! Only specify one of (truncate, delete, delete_where_clause) during Snowflake import to `{dest_table}`!')
 
-    if truncate and not delete_source_orgs:
+    # Truncate only
+    if truncate and not delete_source_orgs and delete_where_clause is None:
         logging.info(f'Truncating table `{dest_table}`')
         with snowflake_conn.cursor() as cur:
             cur.execute(f"truncate {dest_table};")
 
-    elif delete_source_orgs and not truncate:
-        # create comma-seperated string of source org set
+    # Delete source orgs only
+    elif delete_source_orgs and not truncate and delete_where_clause is None:
+        # create comma-separated string of source org set
         delete_source_orgs = "('" + "','".join(delete_source_orgs) + "')"
         logging.info(f'Deleting {delete_source_orgs} from `{dest_table}`')
 
@@ -74,7 +77,18 @@ def _run_table_clear_query(
                 where source_org in {delete_source_orgs}
             """
             cur.execute(delete_qry)
+    
+    # Delete with where clause only
+    elif delete_where_clause is not None and not delete_source_orgs and not truncate:
+        logging.info(f'Deleting where {delete_where_clause} from `{dest_table}`')
 
+        with snowflake_conn.cursor() as cur:
+            delete_qry = f"""
+                delete from {dest_table} 
+                where {delete_where_clause}
+            """
+            cur.execute(delete_qry)
+        
 
 def _run_table_import_query(
     # S3 parameters
@@ -225,6 +239,7 @@ def import_s3_to_snowflake(
     # Table clear parameters
     truncate: bool = False,
     delete: bool = False,
+    delete_where_clause: str = None,
     metadata: str = None,
 
     # Meta-parameters
@@ -260,7 +275,8 @@ def import_s3_to_snowflake(
         snowflake_conn,
         dest_table,
         truncate=truncate,
-        delete_source_orgs=delete_source_orgs
+        delete_source_orgs=delete_source_orgs,
+        delete_where_clause=delete_where_clause
     )
 
     _run_table_import_query(
