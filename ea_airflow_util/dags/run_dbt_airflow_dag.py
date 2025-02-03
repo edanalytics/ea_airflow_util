@@ -148,7 +148,8 @@ class RunDbtDag:
         """
         # set a logic to force a full refresh 
         day = datetime.today().weekday()
-        if self.full_refresh_schedule == day or "{{ dag_run.conf['full_refresh'] }}":
+        dag_conf_full_refresh = kwargs.get('dag_run', {}).get('conf', {}).get('full_refresh') or False
+        if self.full_refresh_schedule == day or dag_conf_full_refresh:
            self.full_refresh = True
 
         with TaskGroup(
