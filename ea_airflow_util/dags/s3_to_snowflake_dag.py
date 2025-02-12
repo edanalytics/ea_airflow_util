@@ -9,7 +9,7 @@ from ea_airflow_util.dags.ea_custom_dag import EACustomDAG
 from ea_airflow_util.callables.airflow import xcom_pull_template
 from ea_airflow_util.callables import s3
 from ea_airflow_util.providers.aws.operators.s3 import LoopS3FileTransformOperator, S3ToSnowflakeOperator
-
+from airflow.providers.amazon.aws.sensors.s3 import S3KeySensor
 
 class S3ToSnowflakeDag:
     """
@@ -39,6 +39,7 @@ class S3ToSnowflakeDag:
         full_replace: bool = False,  #TODO once on latest version of airflow, use dagrun parameter to allow full_replace runs even if not set here at dag level
 
         do_delete_from_source: bool = True,
+        use_s3_sensor: bool = False,  # New parameter to enable/disable sensor
         **kwargs
     ) -> None:
         self.tenant_code = tenant_code
@@ -60,6 +61,8 @@ class S3ToSnowflakeDag:
 
         self.full_replace = full_replace
         self.pool = pool
+
+        self.use_s3_sensor = use_s3_sensor
 
         self.dag = EACustomDAG(**kwargs)
 
@@ -88,7 +91,22 @@ class S3ToSnowflakeDag:
                 resource_name
             )
 
-            ## List the s3 files from the source bucket
+            # Conditionally add S3KeySensor
+            if self.use_s3_sensor:
+                s3_key_sensor = S3KeySensor(
+                    task_id=f'wait_for_s3_file_{resource_name}',
+                    bucket_key=f'{s3_source_prefix}/*',
+                    bucket_name='{{ conn.%s.schema }}' % self.s3_source_conn_id,
+                    wildcard_match=True,
+                    aws_conn_id=self.s3_source_conn_id,
+                    poke_interval=60,
+                    timeout=600,
+                    dag=self.dag
+                )
+            else:
+                s3_key_sensor = None
+
+            # List S3 objects
             list_s3_objects = S3ListOperator(
                 task_id=f'list_s3_objects_{resource_name}',
                 bucket='{{ conn.%s.schema }}' % self.s3_source_conn_id,  # Pass bucket as Jinja template to avoid Hook during DAG-init
@@ -146,8 +164,10 @@ class S3ToSnowflakeDag:
             else:
                 delete_from_source = None
 
-            ### Default route: List -> Transfer -> Copy -> Delete from source
+            # Define task execution order
+            ## Default route: Sensor (optional) -> List -> Transfer -> Copy -> Delete from source
             task_order = (
+                s3_key_sensor,
                 list_s3_objects,
                 transfer_s3_to_s3,
                 copy_to_raw,
