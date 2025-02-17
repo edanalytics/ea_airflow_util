@@ -6,7 +6,7 @@ from typing import Any, List, Optional, Sequence, Union
 
 from airflow.exceptions import AirflowSkipException
 from airflow.models import BaseOperator
-from airflow.providers.amazon.aws.operators.s3 import S3FileTransformOperator, S3CopyObjectOperator
+from airflow.providers.amazon.aws.operators.s3 import S3FileTransformOperator
 from airflow.providers.snowflake.hooks.snowflake import SnowflakeHook
 from airflow.utils.decorators import apply_defaults
 
@@ -96,61 +96,6 @@ class LoopS3FileTransformOperator(S3FileTransformOperator):
 
         return transferred_keys
     
-
-class LoopS3CopyOperator(BaseOperator):
-    """
-    This operator loops over multiple source S3 keys and copies each file to the destination S3 location.
-    """
-
-    template_fields = ('source_s3_keys', 'dest_s3_prefix')
-
-    def __init__(self,
-        source_s3_keys: Optional[List[str]] = None,
-        dest_s3_prefix: Optional[str] = None,
-        source_aws_conn_id: str = 'aws_default',
-        source_verify: Optional[Union[bool, str]] = None,
-        dest_aws_conn_id: str = 'aws_default',
-        dest_verify: Optional[Union[bool, str]] = None,
-        **kwargs
-    ):
-        super().__init__(**kwargs)
-
-        self.source_aws_conn_id = source_aws_conn_id
-        self.source_s3_keys = source_s3_keys
-        self.source_verify = source_verify
-
-        self.dest_aws_conn_id = dest_aws_conn_id
-        self.dest_s3_prefix = dest_s3_prefix or ''
-        self.dest_verify = dest_verify
-
-    def execute(self, context):
-        """
-        Loop over source and destination keys, using the S3CopyObjectOperator for each.
-        """
-
-        # Remove directories from the listing
-        self.source_s3_keys = list(filter(lambda key: not key.endswith('/'), self.source_s3_keys))
-
-        if not self.source_s3_keys:
-            raise AirflowSkipException("No files found in source S3 bucket to copy")
-
-        copied_keys = []
-
-        for source_s3_key in self.source_s3_keys:
-            dest_s3_key = os.path.join(self.dest_s3_prefix, os.path.basename(source_s3_key))
-
-            copy_task = S3CopyObjectOperator(
-                task_id=f"copy_s3_{os.path.basename(source_s3_key)}",
-                source_bucket_key=source_s3_key,
-                dest_bucket_key=dest_s3_key,
-                source_bucket_name=None,  # Should be set dynamically in DAG
-                dest_bucket_name=None,  # Should be set dynamically in DAG
-                aws_conn_id=self.source_aws_conn_id
-            )
-            copy_task.execute(context)
-            copied_keys.append(dest_s3_key)
-
-        return copied_keys
 
 class S3ToSnowflakeOperator(BaseOperator):
     """
