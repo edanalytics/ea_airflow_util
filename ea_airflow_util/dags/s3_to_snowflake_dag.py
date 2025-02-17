@@ -8,7 +8,7 @@ from airflow.utils.helpers import chain
 from ea_airflow_util.dags.ea_custom_dag import EACustomDAG
 from ea_airflow_util.callables.airflow import xcom_pull_template
 from ea_airflow_util.callables import s3
-from ea_airflow_util.providers.aws.operators.s3 import LoopS3FileTransformOperator, S3ToSnowflakeOperator
+from ea_airflow_util.providers.aws.operators.s3 import LoopS3FileTransformOperator, LoopS3CopyOperator, S3ToSnowflakeOperator
 from airflow.providers.amazon.aws.sensors.s3 import S3KeySensor
 
 class S3ToSnowflakeDag:
@@ -118,18 +118,29 @@ class S3ToSnowflakeDag:
 
             ## Transfer from source to dest bucket, and run transform script
             if self.s3_dest_conn_id:
-                transfer_s3_to_s3 = LoopS3FileTransformOperator(
-                    task_id=f'transfer_s3_to_s3_{resource_name}',
-                    source_s3_keys=xcom_pull_template(list_s3_objects.task_id),
-                    dest_s3_prefix=datalake_prefix,
-                    transform_script=self.transform_script if self.transform_script else None,
-                    select_expression=None if self.transform_script else "SELECT * FROM S3Object",
-                    source_aws_conn_id=self.s3_source_conn_id,
-                    dest_aws_conn_id=self.s3_dest_conn_id,
-                    dest_s3_file_extension=self.s3_dest_file_extension,
-                    replace=True,
-                    dag=self.dag
-                )
+                if self.transform_script:
+                    transfer_s3_to_s3 = LoopS3FileTransformOperator(
+                        task_id=f'transfer_s3_to_s3_{resource_name}',
+                        source_s3_keys=xcom_pull_template(list_s3_objects.task_id),
+                        dest_s3_prefix=datalake_prefix,
+                        transform_script=self.transform_script if self.transform_script else None,
+                        select_expression=None if self.transform_script else "SELECT * FROM S3Object",
+                        source_aws_conn_id=self.s3_source_conn_id,
+                        dest_aws_conn_id=self.s3_dest_conn_id,
+                        dest_s3_file_extension=self.s3_dest_file_extension,
+                        replace=True,
+                        dag=self.dag
+                    )
+                else:
+                    transfer_s3_to_s3 = LoopS3CopyOperator(
+                        task_id=f'copy_s3_to_s3_{resource_name}',
+                        source_s3_keys=xcom_pull_template(list_s3_objects.task_id),
+                        dest_s3_prefix=datalake_prefix,
+                        source_aws_conn_id=self.s3_source_conn_id,
+                        dest_aws_conn_id=self.s3_dest_conn_id,
+                        replace=True,
+                        dag=self.dag
+                    )
             else:
                 transfer_s3_to_s3 = None
 
