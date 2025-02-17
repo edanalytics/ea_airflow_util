@@ -110,8 +110,7 @@ class LoopS3CopyOperator(BaseOperator):
         source_aws_conn_id: str = 'aws_default',
         source_verify: Optional[Union[bool, str]] = None,
         dest_aws_conn_id: str = 'aws_default',
-        dest_verify: Optional[Union[bool, str]] = None,
-        replace: bool = False,
+        dest_verify: Optional[Union[bool, str]] = None
         **kwargs
     ):
         super().__init__(**kwargs)
@@ -123,8 +122,6 @@ class LoopS3CopyOperator(BaseOperator):
         self.dest_aws_conn_id = dest_aws_conn_id
         self.dest_s3_prefix = dest_s3_prefix or ''
         self.dest_verify = dest_verify
-
-        self.replace = replace
 
     def execute(self, context):
         """
@@ -148,8 +145,7 @@ class LoopS3CopyOperator(BaseOperator):
                 dest_bucket_key=dest_s3_key,
                 source_bucket_name=None,  # Should be set dynamically in DAG
                 dest_bucket_name=None,  # Should be set dynamically in DAG
-                aws_conn_id=self.source_aws_conn_id,
-                replace=self.replace
+                aws_conn_id=self.source_aws_conn_id
             )
             copy_task.execute(context)
             copied_keys.append(dest_s3_key)

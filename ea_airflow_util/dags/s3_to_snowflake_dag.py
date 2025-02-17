@@ -138,7 +138,6 @@ class S3ToSnowflakeDag:
                         dest_s3_prefix=datalake_prefix,
                         source_aws_conn_id=self.s3_source_conn_id,
                         dest_aws_conn_id=self.s3_dest_conn_id,
-                        replace=True,
                         dag=self.dag
                     )
             else:
