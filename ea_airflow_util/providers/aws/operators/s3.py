@@ -110,7 +110,7 @@ class LoopS3CopyOperator(BaseOperator):
         source_aws_conn_id: str = 'aws_default',
         source_verify: Optional[Union[bool, str]] = None,
         dest_aws_conn_id: str = 'aws_default',
-        dest_verify: Optional[Union[bool, str]] = None
+        dest_verify: Optional[Union[bool, str]] = None,
         **kwargs
     ):
         super().__init__(**kwargs)
