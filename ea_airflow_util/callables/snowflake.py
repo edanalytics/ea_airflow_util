@@ -56,7 +56,7 @@ def _run_table_clear_query(
     """
     Isolated logic for truncating or deleting from a table.
     """
-    if sum([truncate, delete_source_orgs, delete_where_clause is not None]) > 1:
+    if sum([truncate or 0, delete_source_orgs or 0, delete_where_clause is not None]) > 1:
         raise ValueError(f'!!! Only specify one of (truncate, delete, delete_where_clause) during Snowflake import to `{dest_table}`!')
 
     # Truncate only
