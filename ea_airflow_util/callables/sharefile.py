@@ -127,7 +127,7 @@ def disk_to_sharefile(sf_conn_id: str, sf_folder_path: str, local_path: str):
     """Post a file or the contents of a directory to the specified Sharefile folder"""
     sf_hook = SharefileHook(sf_conn_id )
 
-    sf_folder_id = sf_hook.folder_id_from_path(sf_folder_path)
+    sf_folder_id = sf_hook.get_path_id(sf_folder_path)
     if sf_folder_id is None:
         raise AirflowException(f"failed to find Sharefile folder {sf_folder_path}")
 
