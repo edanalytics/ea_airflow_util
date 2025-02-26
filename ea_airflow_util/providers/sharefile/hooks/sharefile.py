@@ -197,7 +197,6 @@ class SharefileHook(BaseHook):
             }
 
             response = self.session.post(self.base_url + '/Items/AdvancedSimpleSearch', json=qry)
-            skip += 1000  # Increment skip for next page call
 
             # do we need to check response.json()['TimedOut']?
             if response.status_code != 200:
@@ -207,6 +206,8 @@ class SharefileHook(BaseHook):
             # End pagination if no items were retrieved.
             if not (results := response.json()['Results']):
                 break
+
+            skip += len(results)  # Increment skip for next page call
 
             for item in results:
 
