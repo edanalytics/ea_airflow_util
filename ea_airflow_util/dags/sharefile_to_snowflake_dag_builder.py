@@ -25,15 +25,6 @@ class SharefileTransferToSnowflakeDagBuilder:
         schedule_interval (str or None): The schedule interval for the DAG.
     """
 
-    params_dict = {
-        "file_sources": Param(
-            default=list(self.file_sources),
-            examples=list(self.file_sources),
-            type="list",
-            description="Newline-separated list of file sources to pull from ShareFile",
-        ),
-    }
-        
     def __init__(self,
                 dag_id,
                 airflow_default_args, 
@@ -46,7 +37,20 @@ class SharefileTransferToSnowflakeDagBuilder:
         self.file_sources = file_sources
         self.schedule_interval = schedule_interval
 
-        self.dag = Dag(params=self.params_dict, **kwargs)
+        self.params_dict = {
+            "file_sources": Param(
+                default=list(self.file_sources),
+                examples=list(self.file_sources),
+                type="list",
+                description="Newline-separated list of file sources to pull from ShareFile",
+            ),
+        }
+
+        self.dag = DAG(dag_id=self.dag_id, 
+                       params=self.params_dict,
+                       default_args=self.airflow_default_args, 
+                       schedule_interval=self.schedule_interval, 
+                       **kwargs)
 
     def check_if_file_in_params(self, file):
         """
