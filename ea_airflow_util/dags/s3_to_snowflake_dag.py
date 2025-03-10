@@ -29,7 +29,7 @@ class S3ToSnowflakeDag:
         data_source: str,
         resource_names: str,
         transform_script: str,
-        prefix_the_short_name: bool = True,
+        prefix_the_source_name: bool = True,
 
         s3_source_conn_id: str,
         s3_dest_conn_id: str,
@@ -54,7 +54,7 @@ class S3ToSnowflakeDag:
         self.resource_names = resource_names
         self.transform_script = transform_script      
         self.do_delete_from_source = do_delete_from_source
-        self.prefix_the_short_name = prefix_the_short_name
+        self.prefix_the_source_name = prefix_the_source_name
         
         self.s3_source_conn_id = s3_source_conn_id
         self.s3_dest_conn_id = s3_dest_conn_id
@@ -141,7 +141,7 @@ class S3ToSnowflakeDag:
                 snowflake_conn_id=self.snowflake_conn_id,
                 database=self.database,
                 schema=self.schema,
-                table_name=f'{self.data_source}__{resource_name}' if self.prefix_the_short_name else f'{resource_name}',
+                table_name=f'{self.data_source}__{resource_name}' if self.prefix_the_source_name else f'{resource_name}',
                 custom_metadata_columns={
                     'tenant_code': f"'{self.tenant_code}'",
                     'api_year': f"'{self.api_year}'",
