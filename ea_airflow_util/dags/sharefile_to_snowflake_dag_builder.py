@@ -36,9 +36,9 @@ class SharefileTransferToSnowflakeDagBuilder:
         self.schedule_interval = schedule_interval
 
         self.dag = None
-        self._initialize_dag()
+        # self._initialize_dag()
     
-    def _initialize_dag(self):
+    def initialize_dag(self):
         """
         Initializes the DAG with the provided configuration and sets up the parameters.
 
