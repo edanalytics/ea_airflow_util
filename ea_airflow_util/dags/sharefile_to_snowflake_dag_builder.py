@@ -29,8 +29,7 @@ class SharefileTransferToSnowflakeDagBuilder:
                 dag_id,
                 airflow_default_args, 
                 file_sources, 
-                schedule_interval = None, 
-                **kwargs
+                schedule_interval = None
     ):
         self.dag_id = dag_id
         self.airflow_default_args = airflow_default_args
@@ -49,8 +48,8 @@ class SharefileTransferToSnowflakeDagBuilder:
         self.dag = DAG(dag_id=self.dag_id, 
                        params=self.params_dict,
                        default_args=self.airflow_default_args, 
-                       schedule_interval=self.schedule_interval, 
-                       **kwargs)
+                       schedule_interval=self.schedule_interval
+                       )
 
     def check_if_file_in_params(self, file):
         """
