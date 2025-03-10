@@ -11,6 +11,7 @@ from edu_edfi_airflow.callables import s3
 from ea_airflow_util.providers.aws.operators.s3 import S3ToSnowflakeOperator
 
 from airflow.providers.amazon.aws.hooks.s3 import S3Hook
+from ea_airflow_util import EACustomDAG
 
 
 class SharefileTransferToSnowflakeDagBuilder:
@@ -27,13 +28,13 @@ class SharefileTransferToSnowflakeDagBuilder:
 
     def __init__(self,
                 dag_id,
-                airflow_default_args, 
-                file_sources, 
+                airflow_default_args_dict, 
+                file_sources_dict, 
                 schedule_interval = None
     ):
         self.dag_id = dag_id
-        self.airflow_default_args = airflow_default_args
-        self.file_sources = file_sources
+        self.airflow_default_args = airflow_default_args_dict
+        self.file_sources = file_sources_dict
         self.schedule_interval = schedule_interval
 
         self.params_dict = {
@@ -45,8 +46,8 @@ class SharefileTransferToSnowflakeDagBuilder:
             ),
         }
 
-        self.dag = DAG(dag_id=self.dag_id, 
-                       params=self.params_dict,
+        self.dag = EACustomDAG(dag_id=self.dag_id, 
+                        params=self.params_dict,
                        default_args=self.airflow_default_args, 
                        schedule_interval=self.schedule_interval
                        )
