@@ -38,8 +38,8 @@ class SharefileTransferToSnowflakeDagBuilder:
 
         self.params_dict = {
             "file_sources": Param(
-                default=list(self.file_sources),
-                examples=list(self.file_sources),
+                default=list(self.file_sources.keys()),
+                examples=list(self.file_sources.keys()),
                 type="list",
                 description="Newline-separated list of file sources to pull from ShareFile",
             ),
