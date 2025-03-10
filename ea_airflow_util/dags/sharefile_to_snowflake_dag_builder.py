@@ -24,44 +24,29 @@ class SharefileTransferToSnowflakeDagBuilder:
         file_sources (list): List of file sources to be processed.
         schedule_interval (str or None): The schedule interval for the DAG.
     """
+
+    params_dict = {
+        "file_sources": Param(
+            default=list(self.file_sources),
+            examples=list(self.file_sources),
+            type="list",
+            description="Newline-separated list of file sources to pull from ShareFile",
+        ),
+    }
+        
     def __init__(self,
                 dag_id,
                 airflow_default_args, 
                 file_sources, 
-                schedule_interval = None
+                schedule_interval = None, 
+                **kwargs
     ):
         self.dag_id = dag_id
         self.airflow_default_args = airflow_default_args
         self.file_sources = file_sources
         self.schedule_interval = schedule_interval
 
-        self.dag = None
-        self._initialize_dag()
-    
-    def _initialize_dag(self):
-        """
-        Initializes the DAG with the provided configuration and sets up the parameters.
-
-        This is an internal method used to initialize the DAG.
-        """
-        params = {
-            "file_sources": Param(
-                default=list(self.file_sources),
-                examples=list(self.file_sources),
-                type="list",
-                description="Newline-separated list of file sources to pull from ShareFile",
-            ),
-        }
-
-        self.dag = DAG(
-            dag_id=self.dag_id,
-            default_args=self.airflow_default_args,
-            schedule_interval=self.schedule_interval,
-            params=params,
-            catchup=False,
-        )
-
-        globals()[self.dag.dag_id] = self.dag
+        self.dag = Dag(params=self.params_dict, **kwargs)
 
     def check_if_file_in_params(self, file):
         """
@@ -107,7 +92,8 @@ class SharefileTransferToSnowflakeDagBuilder:
             dag=self.dag
         )
 
-    def transform_to_jsonl(self, file, local_path, delete_csv):
+    def transform_to_jsonl(self, file, local_path, delete_csv
+                           ) -> PythonOperator:
         """
         Transforms a CSV file to JSONL format.
 
@@ -131,7 +117,8 @@ class SharefileTransferToSnowflakeDagBuilder:
             dag=self.dag
         )
 
-    def transfer_disk_to_s3(self, file, local_path, s3_conn_id):
+    def transfer_disk_to_s3(self, file, local_path, s3_conn_id
+                            ) -> PythonOperator:
         """
         Transfers a file from local disk to Amazon S3.
 
