@@ -186,7 +186,7 @@ class S3ToSnowflakeOperator(BaseOperator):
                     TO_TIMESTAMP(REGEXP_SUBSTR(metadata$filename, '{ts_regex}'), 'YYYYMMDDTHH24MISS') AS pull_timestamp,
                     metadata$file_row_number AS file_row_number,
                     metadata$filename AS filename,
-                    {metadata_columns}
+                    {metadata_columns if metadata_columns else ''}
                     t.$1 AS v
                 FROM @{self.database}.util.airflow_stage/{self.s3_destination_key}
                 (file_format => 'json_default') t
