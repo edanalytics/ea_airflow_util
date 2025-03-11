@@ -51,8 +51,6 @@ class SharefileTransferToSnowflakeDagBuilder:
                        default_args=self.airflow_default_args, 
                        schedule_interval=self.schedule_interval
                        )
-        
-        globals()[self.dag_id] = self.dag
 
     def check_if_file_in_params(self, file):
         """
