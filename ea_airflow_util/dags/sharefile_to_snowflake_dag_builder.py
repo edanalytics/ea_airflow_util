@@ -73,7 +73,7 @@ class SharefileTransferToSnowflakeDagBuilder:
 
         
         # Construct the full path (e.g., "/tmp/sharefile/20250312/143500/file.csv" OR "s3://bucket/key/20250312/143500/file.csv")
-        structured_path = f"{base_path}{separator}{self.pull_date}{separator}{self.pull_timestamp}{separator}{file}"
+        structured_path = f"{base_path}{separator}{'ds_nodash'}{separator}{'ts_nodash'}{separator}{file}"
         
         return structured_path
 
@@ -112,15 +112,16 @@ class SharefileTransferToSnowflakeDagBuilder:
         Returns:
             SharefileToDiskOperator: The Airflow task to transfer the file from ShareFile to local disk.
         """
-        structured_local_path = self.build_structured_path(local_base_path, file)
+        # structured_local_path = self.build_structured_path(local_base_path, file)
 
-        os.makedirs(os.path.dirname(structured_local_path), exist_ok=True)
+        # os.makedirs(os.path.dirname(structured_local_path), exist_ok=True)
 
         return SharefileToDiskOperator(
             task_id=f"transfer_{file}_to_disk",
             sharefile_conn_id=sharefile_conn_id,
             sharefile_path=sharefile_path,
-            local_path=structured_local_path,
+            # local_path=structured_local_path,
+            local_path=os.path.join(local_base_path, '{{ds_nodash}}', '{{ts_nodash}}', file),
             delete_remote=delete_remote,
             dag=self.dag
         )
@@ -163,14 +164,14 @@ class SharefileTransferToSnowflakeDagBuilder:
         Returns:
             PythonOperator: The Airflow task to transfer the file from local disk to S3.
         """
-        structured_s3_key = self.build_structured_path(base_s3_destination_key, file, separator="/")
+        # structured_s3_key = self.build_structured_path(base_s3_destination_key, file, separator="/")
 
         return PythonOperator(
             task_id=f"transfer_{file}_to_s3",
             python_callable=s3.local_filepath_to_s3,
             op_kwargs={
                 'local_filepath': local_path,
-                's3_destination_key': structured_s3_key,
+                's3_destination_key': f"{base_s3_destination_key}/" + '{{ds_nodash}}' + "/" + '{{ts_nodash}}' + f"/{file}",
                 's3_conn_id': s3_conn_id
             },
             dag=self.dag
