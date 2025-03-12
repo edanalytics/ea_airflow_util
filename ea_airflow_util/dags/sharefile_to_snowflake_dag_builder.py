@@ -68,8 +68,8 @@ class SharefileTransferToSnowflakeDagBuilder:
             str: The fully structured path where the file will be stored.
         """
         # Get the execution date and time
-        execution_date = datetime.now().strftime('%Y%m%d')  # e.g., 20250312
-        execution_time = datetime.now().strftime('%H%M%S')  # e.g., 143500
+        execution_date = datetime.now().strftime('%Y%m%d') 
+        execution_time = datetime.now().strftime('%H%M%S') 
         
         # Construct the full path (e.g., "/tmp/sharefile/20250312/143500/file.csv" OR "s3://bucket/key/20250312/143500/file.csv")
         structured_path = f"{base_path}{separator}{execution_date}{separator}{execution_time}{separator}{file}"
@@ -97,7 +97,7 @@ class SharefileTransferToSnowflakeDagBuilder:
         )
 
     def transfer_sharefile_to_disk(self, file, sharefile_conn_id, 
-                                    sharefile_path, base_path, delete_remote):
+                                    sharefile_path, local_base_path, delete_remote):
         """
         Transfers a file from ShareFile to a local disk.
 
@@ -111,7 +111,7 @@ class SharefileTransferToSnowflakeDagBuilder:
         Returns:
             SharefileToDiskOperator: The Airflow task to transfer the file from ShareFile to local disk.
         """
-        structured_local_path = self.build_structured_path(base_path, file)
+        structured_local_path = self.build_structured_path(local_base_path, file)
 
         os.makedirs(os.path.dirname(structured_local_path), exist_ok=True)
 
