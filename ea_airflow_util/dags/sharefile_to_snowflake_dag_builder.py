@@ -1,4 +1,5 @@
 import os
+from datetime import datetime
 
 from airflow import DAG
 from airflow.models import Param
@@ -51,6 +52,29 @@ class SharefileTransferToSnowflakeDagBuilder:
                        default_args=self.airflow_default_args, 
                        schedule_interval=self.schedule_interval
                        )
+    
+    def build_structured_path(self, base_path, file, separator="/"):
+        """
+        Constructs a structured path using the current date and time.
+
+        Args:
+            base_path (str): The root directory or base key where files should be stored.
+            file (str): The filename.
+            separator (str, optional): The separator to use for the path. Defaults to '/' for directories
+                                       and can be set to an appropriate separator for other storage systems
+                                       (e.g., AWS S3 uses '/').
+        
+        Returns:
+            str: The fully structured path where the file will be stored.
+        """
+        # Get the execution date and time
+        execution_date = datetime.now().strftime('%Y%m%d')  # e.g., 20250312
+        execution_time = datetime.now().strftime('%H%M%S')  # e.g., 143500
+        
+        # Construct the full path (e.g., "/tmp/sharefile/20250312/143500/file.csv" OR "s3://bucket/key/20250312/143500/file.csv")
+        structured_path = f"{base_path}{separator}{execution_date}{separator}{execution_time}{separator}{file}"
+        
+        return structured_path
 
     def check_if_file_in_params(self, file):
         """
@@ -73,7 +97,7 @@ class SharefileTransferToSnowflakeDagBuilder:
         )
 
     def transfer_sharefile_to_disk(self, file, sharefile_conn_id, 
-                                    sharefile_path, local_path, delete_remote):
+                                    sharefile_path, base_path, delete_remote):
         """
         Transfers a file from ShareFile to a local disk.
 
@@ -81,17 +105,21 @@ class SharefileTransferToSnowflakeDagBuilder:
             file (str): The name of the file to transfer.
             sharefile_conn_id (str): The Airflow connection ID for ShareFile.
             sharefile_path (str): The file path in ShareFile from where the file will be fetched.
-            local_path (str): The local directory path where the file will be saved.
+            base_local_path (str): The root directory where files should be stored.
             delete_remote (bool): Flag indicating whether to delete the remote file after transfer.
 
         Returns:
             SharefileToDiskOperator: The Airflow task to transfer the file from ShareFile to local disk.
         """
+        structured_local_path = self.build_structured_path(base_path, file)
+
+        os.makedirs(os.path.dirname(structured_local_path), exist_ok=True)
+
         return SharefileToDiskOperator(
             task_id=f"transfer_{file}_to_disk",
             sharefile_conn_id=sharefile_conn_id,
             sharefile_path=sharefile_path,
-            local_path=local_path,
+            local_path=structured_local_path,
             delete_remote=delete_remote,
             dag=self.dag
         )
@@ -121,7 +149,7 @@ class SharefileTransferToSnowflakeDagBuilder:
             dag=self.dag
         )
 
-    def transfer_disk_to_s3(self, file, local_path, s3_conn_id
+    def transfer_disk_to_s3(self, file, local_path, base_s3_key, s3_conn_id
                             ) -> PythonOperator:
         """
         Transfers a file from local disk to Amazon S3.
@@ -134,12 +162,14 @@ class SharefileTransferToSnowflakeDagBuilder:
         Returns:
             PythonOperator: The Airflow task to transfer the file from local disk to S3.
         """
+        structured_s3_key = self.build_structured_path(base_s3_key, file, separator="/")
+
         return PythonOperator(
             task_id=f"transfer_{file}_to_s3",
             python_callable=s3.local_filepath_to_s3,
             op_kwargs={
                 'local_filepath': local_path,
-                's3_destination_key': f"ea_research/{file}",
+                's3_destination_key': structured_s3_key,
                 's3_conn_id': s3_conn_id
             },
             dag=self.dag
