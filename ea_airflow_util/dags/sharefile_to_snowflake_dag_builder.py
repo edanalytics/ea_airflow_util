@@ -52,10 +52,13 @@ class SharefileTransferToSnowflakeDagBuilder:
                        default_args=self.airflow_default_args, 
                        schedule_interval=self.schedule_interval
                        )
+        
+        self.pull_date = datetime.now().strftime('%Y%m%d') 
+        self.pull_timestamp = datetime.now().strftime('%Y%m%dT%H%M%S') 
     
     def build_structured_path(self, base_path, file, separator="/"):
         """
-        Constructs a structured path using the current date and time.
+        Constructs a structured path using the current date and timestamp.
 
         Args:
             base_path (str): The root directory or base key where files should be stored.
@@ -68,11 +71,10 @@ class SharefileTransferToSnowflakeDagBuilder:
             str: The fully structured path where the file will be stored.
         """
         # Get the execution date and time
-        execution_date = datetime.now().strftime('%Y%m%d') 
-        execution_time = datetime.now().strftime('%H%M%S') 
+
         
         # Construct the full path (e.g., "/tmp/sharefile/20250312/143500/file.csv" OR "s3://bucket/key/20250312/143500/file.csv")
-        structured_path = f"{base_path}{separator}{execution_date}{separator}{execution_time}{separator}{file}"
+        structured_path = f"{base_path}{separator}{self.pull_date}{separator}{self.pull_timestamp}{separator}{file}"
         
         return structured_path
 
