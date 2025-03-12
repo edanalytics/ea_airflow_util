@@ -149,7 +149,7 @@ class SharefileTransferToSnowflakeDagBuilder:
             dag=self.dag
         )
 
-    def transfer_disk_to_s3(self, file, local_path, base_s3_key, s3_conn_id
+    def transfer_disk_to_s3(self, file, local_path, base_s3_destination_key, s3_conn_id
                             ) -> PythonOperator:
         """
         Transfers a file from local disk to Amazon S3.
@@ -162,7 +162,7 @@ class SharefileTransferToSnowflakeDagBuilder:
         Returns:
             PythonOperator: The Airflow task to transfer the file from local disk to S3.
         """
-        structured_s3_key = self.build_structured_path(base_s3_key, file, separator="/")
+        structured_s3_key = self.build_structured_path(base_s3_destination_key, file, separator="/")
 
         return PythonOperator(
             task_id=f"transfer_{file}_to_s3",
@@ -176,7 +176,7 @@ class SharefileTransferToSnowflakeDagBuilder:
         )
 
     def transfer_s3_to_snowflake(self, file, snowflake_conn_id, database, 
-                                 schema, s3_destination_key, full_refresh):
+                                 schema, base_s3_destination_key, full_refresh):
         """
         Transfers a file from Amazon S3 to Snowflake.
 
@@ -196,7 +196,7 @@ class SharefileTransferToSnowflakeDagBuilder:
             database=database,
             schema=schema,
             table_name=file,
-            s3_destination_key=s3_destination_key,
+            s3_destination_key=base_s3_destination_key,
             full_refresh=full_refresh,
             dag=self.dag
         )
