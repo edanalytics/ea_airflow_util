@@ -55,27 +55,6 @@ class SharefileTransferToSnowflakeDagBuilder:
         
         self.pull_date = datetime.now().strftime('%Y%m%d') 
         self.pull_timestamp = datetime.now().strftime('%Y%m%dT%H%M%S') 
-    
-    def build_structured_path(self, base_path, file, separator="/"):
-        """
-        Constructs a structured path using the current date and timestamp.
-
-        Args:
-            base_path (str): The root directory or base key where files should be stored.
-            file (str): The filename.
-            separator (str, optional): The separator to use for the path. Defaults to '/' for directories
-                                       and can be set to an appropriate separator for other storage systems
-                                       (e.g., AWS S3 uses '/').
-        
-        Returns:
-            str: The fully structured path where the file will be stored.
-        """
-
-        
-        # Construct the full path (e.g., "/tmp/sharefile/20250312/143500/file.csv" OR "s3://bucket/key/20250312/143500/file.csv")
-        structured_path = f"{base_path}{separator}{'ds_nodash'}{separator}{'ts_nodash'}{separator}{file}"
-        
-        return structured_path
 
     def check_if_file_in_params(self, file):
         """
@@ -202,3 +181,5 @@ class SharefileTransferToSnowflakeDagBuilder:
             full_refresh=full_refresh,
             dag=self.dag
         )
+    
+    
