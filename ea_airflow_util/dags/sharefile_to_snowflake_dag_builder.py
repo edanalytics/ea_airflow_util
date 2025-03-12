@@ -53,8 +53,8 @@ class SharefileTransferToSnowflakeDagBuilder:
                        schedule_interval=self.schedule_interval
                        )
         
-        self.pull_date = "{{ ds_nodash }}"
-        self.pull_timestamp = "{{ ts_nodash }}"
+        self.pull_date = datetime.now().strftime('%Y%m%d') 
+        self.pull_timestamp = datetime.now().strftime('%Y%m%dT%H%M%S') 
     
     def build_structured_path(self, base_path, file, separator="/"):
         """
