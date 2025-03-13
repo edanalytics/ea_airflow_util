@@ -37,7 +37,7 @@ class SharefileTransferToSnowflakeDagBuilder:
                 local_base_path: str,
                 transform_csv_to_jsonl: bool = False, 
 
-                sharefile_path: str,
+                # sharefile_path: str,
                 sharefile_conn_id: str,
                 delete_remote: bool = False,
                 
@@ -50,8 +50,7 @@ class SharefileTransferToSnowflakeDagBuilder:
                 database: str,
                 schema: str,
                 full_refresh: bool,
-
-    ):
+                ):
         self.dag_id = dag_id
         self.airflow_default_args = airflow_default_args
         self.file_sources = file_sources
@@ -60,7 +59,7 @@ class SharefileTransferToSnowflakeDagBuilder:
         self.local_base_path = local_base_path
         self.transform_csv_to_jsonl = transform_csv_to_jsonl
 
-        self.sharefile_path = sharefile_path
+        # self.sharefile_path = sharefile_path
         self.sharefile_conn_id = sharefile_conn_id
         self.delete_remote = delete_remote
         
@@ -80,8 +79,8 @@ class SharefileTransferToSnowflakeDagBuilder:
                 examples=list(self.file_sources.keys()),
                 type="array",
                 description="Newline-separated list of file sources to pull from ShareFile",
-            ),
-        }
+                ),
+                }
 
         self.dag = EACustomDAG(dag_id=self.dag_id, 
                                default_args=self.airflow_default_args, 
@@ -92,7 +91,7 @@ class SharefileTransferToSnowflakeDagBuilder:
 
     def build_sharefile_to_snowflake_dag(self, **kwargs):
 
-        for file in self.file_sources.keys():
+        for file, details in self.file_sources.items():
 
             check_if_file_in_param = PythonOperator(
                 task_id=f"check_{file}",
@@ -107,7 +106,7 @@ class SharefileTransferToSnowflakeDagBuilder:
             transfer_sharefile_to_disk = SharefileToDiskOperator(
                 task_id=f"transfer_{file}_to_disk",
                 sharefile_conn_id=self.sharefile_conn_id,
-                sharefile_path=self.sharefile_path,
+                sharefile_path=details['sharefile_path'],
                 local_path=os.path.join(self.local_base_path, '{{ds_nodash}}', '{{ts_nodash}}', file),
                 delete_remote=self.delete_remote,
                 dag=self.dag
