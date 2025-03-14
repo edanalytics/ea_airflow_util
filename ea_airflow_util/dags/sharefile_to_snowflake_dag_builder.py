@@ -1,5 +1,6 @@
-import os
 from datetime import datetime
+import logging
+import os
 
 from airflow import DAG
 from airflow.models import Param
@@ -15,6 +16,10 @@ from ea_airflow_util.callables.airflow import xcom_pull_template
 from airflow.providers.amazon.aws.hooks.s3 import S3Hook
 from ea_airflow_util import EACustomDAG
 
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+)
 
 class SharefileTransferToSnowflakeDagBuilder:
     """
@@ -27,29 +32,22 @@ class SharefileTransferToSnowflakeDagBuilder:
         file_sources (list): List of file sources to be processed.
         schedule_interval (str or None): The schedule interval for the DAG.
     """
-
     def __init__(self,
                 dag_id: str,
                 airflow_default_args: dict,
                 file_sources: dict,
-                schedule_interval = None,
-
                 local_base_path: str,
-                transform_csv_to_jsonl: bool = False, 
-
-                # sharefile_path: str,
                 sharefile_conn_id: str,
-                delete_remote: bool = False,
-                
-                delete_local_csv: bool = False,
-
                 base_s3_destination_key: str,
                 s3_conn_id: str,
-
                 snowflake_conn_id: str,
                 database: str,
                 schema: str,
                 full_refresh: bool,
+                schedule_interval = None,
+                transform_csv_to_jsonl: bool = False, 
+                delete_remote: bool = False,
+                delete_local_csv: bool = False
                 ):
         self.dag_id = dag_id
         self.airflow_default_args = airflow_default_args
@@ -59,7 +57,6 @@ class SharefileTransferToSnowflakeDagBuilder:
         self.local_base_path = local_base_path
         self.transform_csv_to_jsonl = transform_csv_to_jsonl
 
-        # self.sharefile_path = sharefile_path
         self.sharefile_conn_id = sharefile_conn_id
         self.delete_remote = delete_remote
         
@@ -72,6 +69,8 @@ class SharefileTransferToSnowflakeDagBuilder:
         self.database = database
         self.schema = schema
         self.full_refresh = full_refresh
+
+        self.logger = logging.getLogger(self.__class__.__name__)
 
         self.params_dict = {
             "file_sources": Param(
