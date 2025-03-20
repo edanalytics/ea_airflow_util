@@ -164,8 +164,8 @@ class S3ToSnowflakeOperator(BaseOperator):
                 for alias, value in self.custom_metadata_columns.items()
             ) + ","
         else:
-            column_names_str = None
-            metadata_columns = None
+            column_names_str = ""
+            metadata_columns = ""
 
         ### Build the SQL queries to be passed into `Hook.run()`.
         qry_delete = f"""
