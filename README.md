@@ -655,7 +655,108 @@ Additional `EACustomDAG` arguments (e.g. `slack_conn_id`) can be passed as kwarg
 
 </details>
 
-This DAG ensures a seamless pipeline for moving data from ShareFile to Snowflake, supporting transformations and cleanup along the way.
+```yaml
+default_args:
+    owner: airflow
+    run_as_user: null
+    depends_on_past: False
+    start_date: '2020-05-17'
+    email:
+      - mberrien@edanalytics.org
+    email_on_failure: False
+    retries: 0
+    trigger_rule: all_success
+    retry_delay: !timedelta 300  # 5 minutes
+    execution_timeout: !timedelta 21600  # 6 hours
+    sla: !timedelta 86400  # 24 hours
+
+connections:
+  s3:
+    s3_conn_id: data_lake
+    s3_bucket : stadium-txexchange-airflow-dev-datalake
+    s3_region : us-east-2
+    base_s3_destination_key: ea_research
+  snowflake:
+    snowflake_conn_id: snowflake
+    snowflake_stage  : stadium-txexchange-airflow-dev-datalake
+    snowflake_db     : dev_raw
+    snowflake_schema : ea_research
+  sharefile:
+    sharefile_conn_id: sharefile
+    sharefile_base_path: /Texas Education Exchange/ea_research/
+
+variables:
+  tmp_dir: /efs/tmp_storage/sharefile/ea_research
+  local_path: sharefile
+  schedule_interval: None
+  delete_remote: False
+
+file_sources: 
+  prediction_linking_parameters:
+      sharefile_path: /Texas Education Exchange/ea_research/prediction_linking_parameters/
+      dest_table: ea_research.prediction_linking_parameters
+      truncate: True
+      colnames:
+          - state
+          - display_title
+          - display_subject
+          - assessed_grade_level
+          - interim_scale_score
+          - summative_scale_score
+          - summative_scale_score_rounded
+          - school_year
+          - assessment_identifier
+          - file_path
+          - update_timestamp
+
+  prediction_calibration_parameters:
+      sharefile_path: /Texas Education Exchange/ea_research/prediction_calibration_parameters/
+      dest_table: ea_research.prediction_calibration_parameters
+      truncate: True
+      colnames:
+          - model_abbrev
+          - variable
+          - coefficient
+          - file_path
+          - update_timestamp
+
+  prediction_models:
+      sharefile_path: /Texas Education Exchange/ea_research/prediction_models/
+      dest_table: ea_research.prediction_models
+      truncate: True
+      colnames:
+          - predicted_abbrev
+          - model_state
+          - model_abbrev
+          - predicted_test_name
+          - predicted_year
+          - predicted_subject
+          - predicted_grade
+          - predicted_season
+          - predicted_type
+          - associated_interim
+          - pretest_combo
+          - file_path
+          - update_timestamp
+
+  prediction_pretest_code_xwalk:
+      sharefile_path: /Texas Education Exchange/ea_research/prediction_pretest_code_xwalk/
+      dest_table: ea_research.prediction_pretest_code_xwalk
+      truncate: True
+      colnames:
+          - predicted_year
+          - predicted_season
+          - predicted_grade
+          - predicted_type
+          - pretest_code
+          - pretest_abbrev
+          - pretest_type
+          - pretest_grade
+          - pretest_year
+          - pretest_season
+          - file_path
+          - update_timestamp
+```
 
 
 # Providers
