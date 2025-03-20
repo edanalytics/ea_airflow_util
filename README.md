@@ -635,7 +635,7 @@ For example, `/ed-fi/apiClients/districts-2425-ds5/{tenant_code}/prod/Stadium` w
 |-------------------------|--------------------------------------------------------------------------|
 | dag_id                  | Unique identifier for the DAG                                            |
 | airflow_default_args    | Default Airflow arguments for the DAG                                    |
-| file_sources            | Dictionary of file sources and their ShareFile paths                     |
+| file_sources            | Dictionary of file sources and their ShareFile paths (more info in Example Yaml File section)                    |
 | local_base_path         | Base path for storing downloaded files locally                           |
 | sharefile_conn_id       | Airflow connection ID for ShareFile                                      |
 | base_s3_destination_key | S3 key prefix for storing uploaded files                                 |
@@ -655,109 +655,63 @@ Additional `EACustomDAG` arguments (e.g. `slack_conn_id`) can be passed as kwarg
 
 </details>
 
+<details>
+<summary>Example Yaml File:</summary>
+
 ```yaml
 default_args:
-    owner: airflow
-    run_as_user: null
-    depends_on_past: False
-    start_date: '2020-05-17'
+    owner: 
+    run_as_user: 
+    depends_on_past: 
+    start_date:
     email:
-      - mberrien@edanalytics.org
     email_on_failure: False
     retries: 0
-    trigger_rule: all_success
-    retry_delay: !timedelta 300  # 5 minutes
-    execution_timeout: !timedelta 21600  # 6 hours
-    sla: !timedelta 86400  # 24 hours
+    trigger_rule: 
+    retry_delay:
+    execution_timeout: 
+    sla: 
 
 connections:
   s3:
-    s3_conn_id: data_lake
-    s3_bucket : stadium-txexchange-airflow-dev-datalake
-    s3_region : us-east-2
-    base_s3_destination_key: ea_research
+    s3_conn_id:
+    s3_bucket : 
+    s3_region : 
+    base_s3_destination_key: 
   snowflake:
-    snowflake_conn_id: snowflake
-    snowflake_stage  : stadium-txexchange-airflow-dev-datalake
-    snowflake_db     : dev_raw
-    snowflake_schema : ea_research
+    snowflake_conn_id: 
+    snowflake_stage  : 
+    snowflake_db     : 
+    snowflake_schema : 
   sharefile:
-    sharefile_conn_id: sharefile
-    sharefile_base_path: /Texas Education Exchange/ea_research/
+    sharefile_conn_id: 
+    sharefile_base_path: 
 
 variables:
-  tmp_dir: /efs/tmp_storage/sharefile/ea_research
-  local_path: sharefile
-  schedule_interval: None
-  delete_remote: False
+  tmp_dir: 
+  local_path: 
+  schedule_interval:
+  delete_remote: 
 
 file_sources: 
-  prediction_linking_parameters:
-      sharefile_path: /Texas Education Exchange/ea_research/prediction_linking_parameters/
-      dest_table: ea_research.prediction_linking_parameters
+  filename1:
+      sharefile_path: /Path/to/document/folder/
+      dest_table: schema.table
       truncate: True
       colnames:
-          - state
-          - display_title
-          - display_subject
-          - assessed_grade_level
-          - interim_scale_score
-          - summative_scale_score
-          - summative_scale_score_rounded
-          - school_year
-          - assessment_identifier
-          - file_path
-          - update_timestamp
-
-  prediction_calibration_parameters:
-      sharefile_path: /Texas Education Exchange/ea_research/prediction_calibration_parameters/
-      dest_table: ea_research.prediction_calibration_parameters
+          - col1
+          - col2
+          - col3
+  filename2:
+      sharefile_path: /Path/to/document/folder/
+      dest_table: schema.table
       truncate: True
       colnames:
-          - model_abbrev
-          - variable
-          - coefficient
-          - file_path
-          - update_timestamp
-
-  prediction_models:
-      sharefile_path: /Texas Education Exchange/ea_research/prediction_models/
-      dest_table: ea_research.prediction_models
-      truncate: True
-      colnames:
-          - predicted_abbrev
-          - model_state
-          - model_abbrev
-          - predicted_test_name
-          - predicted_year
-          - predicted_subject
-          - predicted_grade
-          - predicted_season
-          - predicted_type
-          - associated_interim
-          - pretest_combo
-          - file_path
-          - update_timestamp
-
-  prediction_pretest_code_xwalk:
-      sharefile_path: /Texas Education Exchange/ea_research/prediction_pretest_code_xwalk/
-      dest_table: ea_research.prediction_pretest_code_xwalk
-      truncate: True
-      colnames:
-          - predicted_year
-          - predicted_season
-          - predicted_grade
-          - predicted_type
-          - pretest_code
-          - pretest_abbrev
-          - pretest_type
-          - pretest_grade
-          - pretest_year
-          - pretest_season
-          - file_path
-          - update_timestamp
+          - col1
+          - col2
+          - col3
 ```
-
+</details>
 
 # Providers
 Finally, this package contains a handful of custom DBT operators to be used as an alternative to PythonOperators.
