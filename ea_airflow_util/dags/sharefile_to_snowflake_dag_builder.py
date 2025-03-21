@@ -6,12 +6,14 @@ from airflow import DAG
 from airflow.models import Param
 from airflow.operators.python import PythonOperator
 
+from edu_edfi_airflow.callables import s3
+
 from ea_airflow_util.callables.airflow import skip_if_not_in_params_list
 from ea_airflow_util.callables import jsonl, snowflake
 from ea_airflow_util.providers.sharefile.transfers.sharefile_to_disk import SharefileToDiskOperator
-from edu_edfi_airflow.callables import s3
 from ea_airflow_util.providers.aws.operators.s3 import S3ToSnowflakeOperator
 from ea_airflow_util.callables.airflow import xcom_pull_template
+from ea_airflow_util.providers.sharefile.hooks.sharefile import SharefileHook
 
 from airflow.providers.amazon.aws.hooks.s3 import S3Hook
 from ea_airflow_util import EACustomDAG
@@ -47,7 +49,9 @@ class SharefileTransferToSnowflakeDagBuilder:
                 schedule_interval = None,
                 transform_csv_to_jsonl: bool = False, 
                 delete_remote: bool = False,
-                delete_local_csv: bool = False
+                delete_local_csv: bool = False,
+                transfer_s3_to_snowflake = None,
+                **kwargs
                 ):
         self.dag_id = dag_id
         self.airflow_default_args = airflow_default_args
@@ -69,6 +73,7 @@ class SharefileTransferToSnowflakeDagBuilder:
         self.database = database
         self.schema = schema
         self.full_refresh = full_refresh
+        self.transfer_s3_to_snowflake = transfer_s3_to_snowflake
 
         self.logger = logging.getLogger(self.__class__.__name__)
 
@@ -99,16 +104,35 @@ class SharefileTransferToSnowflakeDagBuilder:
                     'param_name': "file_sources", 
                     'value': file
                     },
-                dag=self.dag
+                dag=self.dag,
+                **kwargs
                 )
             
-            transfer_sharefile_to_disk = SharefileToDiskOperator(
-                task_id=f"transfer_{file}_to_disk",
-                sharefile_conn_id=self.sharefile_conn_id,
-                sharefile_path=details['sharefile_path'],
-                local_path=os.path.join(self.local_base_path, '{{ds_nodash}}', '{{ts_nodash}}', file),
-                delete_remote=self.delete_remote,
-                dag=self.dag
+            sharefile_path = details['sharefile_path']
+            sharefile_hook = SharefileHook(sharefile_conn_id=self.sharefile_conn_id)
+            folder_id = sharefile_hook.folder_id_from_path(sharefile_path)
+            
+            if folder_id: 
+                transfer_sharefile_to_disk = SharefileToDiskOperator(
+                    task_id=f"transfer_{file}_to_disk",
+                    sharefile_conn_id=self.sharefile_conn_id,
+                    sharefile_path=details['sharefile_path'],
+                    local_path=os.path.join(self.local_base_path, '{{ds_nodash}}', '{{ts_nodash}}', file),
+                    delete_remote=self.delete_remote,
+                    dag=self.dag,
+                    **kwargs
+                    )
+            else: 
+                def download_single_file(**context):
+                    file_id = sharefile_hook.get_path_id(sharefile_path)
+                    sharefile_hook.download_to_disk(file_id, os.path.join(self.local_base_path, '{{ds_nodash}}', '{{ts_nodash}}', file))
+
+                transfer_sharefile_to_disk = PythonOperator(
+                    task_id=f"download_{file}_to_disk",
+                    python_callable=download_single_file,
+                    provide_context=True,
+                    dag=self.dag,
+                    **kwargs
                 )
             
             transform_to_jsonl = PythonOperator(
@@ -120,7 +144,8 @@ class SharefileTransferToSnowflakeDagBuilder:
                     'delete_csv': self.delete_local_csv,
                     'metadata_dict': {'file_source': file},
                 },
-                dag=self.dag
+                dag=self.dag,
+                **kwargs
                 )
             
             transfer_disk_to_s3 = PythonOperator(
@@ -131,19 +156,24 @@ class SharefileTransferToSnowflakeDagBuilder:
                     's3_destination_key': f"{self.base_s3_destination_key}/" + '{{ds_nodash}}' + "/" + '{{ts_nodash}}' + f"/{file}",
                     's3_conn_id': self.s3_conn_id
                 },
-                dag=self.dag
+                dag=self.dag,
+                **kwargs
                 )
             
-            transfer_s3_to_snowflake = S3ToSnowflakeOperator(
-                task_id=f"{file}_s3_to_snowflake",
-                snowflake_conn_id=self.snowflake_conn_id,
-                database=self.database,
-                schema=self.schema,
-                table_name=file,
-                s3_destination_key=self.base_s3_destination_key,
-                full_refresh=self.full_refresh,
-                dag=self.dag
-                )
+            if not transfer_s3_to_snowflake:
+                transfer_s3_to_snowflake = S3ToSnowflakeOperator(
+                    task_id=f"{file}_s3_to_snowflake",
+                    snowflake_conn_id=self.snowflake_conn_id,
+                    database=self.database,
+                    schema=self.schema,
+                    table_name=file,
+                    s3_destination_key=self.base_s3_destination_key,
+                    full_refresh=self.full_refresh,
+                    dag=self.dag,
+                    **kwargs
+                    )
+            else: 
+                transfer_s3_to_snowflake = transfer_s3_to_snowflake
             
             if self.transform_csv_to_jsonl:
                 check_if_file_in_param >> transfer_sharefile_to_disk >> transform_to_jsonl >> transfer_disk_to_s3 >> transfer_s3_to_snowflake
