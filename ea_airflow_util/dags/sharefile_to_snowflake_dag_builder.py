@@ -105,6 +105,10 @@ class SharefileTransferToSnowflakeDagBuilder:
                                params=self.params_dict,
                                catchup=False
                                )
+    
+    def download_from_sharefile(**context):
+
+
 
     def build_sharefile_to_snowflake_dag(self, **kwargs):
         """
@@ -130,35 +134,15 @@ class SharefileTransferToSnowflakeDagBuilder:
                 dag=self.dag,
                 **kwargs
                 )
-            
-            sharefile_path = details['sharefile_path']
-            sf_hook = SharefileHook(sharefile_conn_id=self.sharefile_conn_id)
-            sf_hook.get_conn()
-            folder_id = sf_hook.folder_id_from_path(sharefile_path)
 
-            print(f"Folder ID: {folder_id}")
-            
-            if folder_id: 
-                transfer_sharefile_to_disk = SharefileToDiskOperator(
-                    task_id=f"transfer_{file}_to_disk",
-                    sharefile_conn_id=self.sharefile_conn_id,
-                    sharefile_path=details['sharefile_path'],
-                    local_path=os.path.join(self.local_base_path, '{{ds_nodash}}', '{{ts_nodash}}', file),
-                    delete_remote=self.delete_remote,
-                    dag=self.dag,
-                    **kwargs
-                    )
-            else: 
-                def download_single_file(**context):
-                    file_id = sf_hook.get_path_id(sharefile_path)
-                    sf_hook.download_to_disk(file_id, os.path.join(self.local_base_path, '{{ds_nodash}}', '{{ts_nodash}}', file))
-
-                transfer_sharefile_to_disk = PythonOperator(
-                    task_id=f"download_{file}_to_disk",
-                    python_callable=download_single_file,
-                    provide_context=True,
-                    dag=self.dag,
-                    **kwargs
+            transfer_sharefile_to_disk = SharefileToDiskOperator(
+                task_id=f"transfer_{file}_to_disk",
+                sharefile_conn_id=self.sharefile_conn_id,
+                sharefile_path=details['sharefile_path'],
+                local_path=os.path.join(self.local_base_path, '{{ds_nodash}}', '{{ts_nodash}}', file),
+                delete_remote=self.delete_remote,
+                dag=self.dag,
+                **kwargs
                 )
             
             transform_to_jsonl = PythonOperator(
