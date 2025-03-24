@@ -161,10 +161,10 @@ class SharefileHook(BaseHook):
         return results
 
     def find_folders(self, folder_id):
-        return self._find_items(folder_id, "Folder")
+        return list(self._find_items(folder_id, "Folder"))
 
     def find_files(self, folder_id):
-        return self._find_items(folder_id, "File")
+        return list(self._find_items(folder_id, "File"))
 
     ## this method started returning inconsistent results
     # specifically: the parentSemanticPath would sometimes be IDs rather than names
