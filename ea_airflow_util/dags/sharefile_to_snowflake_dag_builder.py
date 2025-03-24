@@ -106,10 +106,6 @@ class SharefileTransferToSnowflakeDagBuilder:
                                catchup=False
                                )
     
-    def download_from_sharefile(**context):
-
-
-
     def build_sharefile_to_snowflake_dag(self, **kwargs):
         """
         Builds the DAG with tasks for each file source, including:
