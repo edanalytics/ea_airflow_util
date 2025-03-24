@@ -135,6 +135,8 @@ class SharefileTransferToSnowflakeDagBuilder:
             sf_hook = SharefileHook(sharefile_conn_id=self.sharefile_conn_id)
             sf_hook.get_conn()
             folder_id = sf_hook.folder_id_from_path(sharefile_path)
+
+            print(f"Folder ID: {folder_id}")
             
             if folder_id: 
                 transfer_sharefile_to_disk = SharefileToDiskOperator(
