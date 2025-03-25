@@ -1,6 +1,7 @@
-from datetime import datetime
 import logging
 import os
+from datetime import datetime
+from typing import Callable, List, Optional, Union
 
 from airflow import DAG
 from airflow.models import Param
@@ -105,6 +106,29 @@ class SharefileTransferToSnowflakeDagBuilder:
                                params=self.params_dict,
                                catchup=False
                                )
+        
+    def build_python_operator(self,
+                              python_callable: Callable,
+                              **kwargs
+                              ) -> PythonOperator:
+        """
+        Optional Python preprocessing operator to run before Earthmover and Lightbeam.
+
+        :param python_callable:
+        :param kwargs:
+        :return:
+        """
+        callable_name = python_callable.__name__.strip('<>')  # Remove brackets around lambdas
+        task_id = f"{self.run_type}__preprocess_python_callable__{callable_name}"
+
+        return PythonOperator(
+            task_id=task_id,
+            python_callable=python_callable,
+            op_kwargs=kwargs,
+            provide_context=True,
+            pool=self.pool,
+            dag=self.dag
+        )
     
     def build_sharefile_to_snowflake_dag(self, **kwargs):
         """
@@ -179,7 +203,7 @@ class SharefileTransferToSnowflakeDagBuilder:
                     **kwargs
                     )
             else: 
-                transfer_s3_to_snowflake = transfer_s3_to_snowflake
+                transfer_s3_to_snowflake = self.build_python_operator(self.transfer_s3_to_snowflake)
             
             if self.transform_csv_to_jsonl:
                 check_if_file_in_param >> transfer_sharefile_to_disk >> transform_to_jsonl >> transfer_disk_to_s3 >> transfer_s3_to_snowflake
