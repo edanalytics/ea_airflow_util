@@ -50,92 +50,127 @@ class SharefileToDiskOperator(BaseOperator):
         sf_hook = SharefileHook(sharefile_conn_id=self.sharefile_conn_id)
         sf_hook.get_conn()
 
-        # get the item id of the remote path, find all files within that path (up to 1000)
-        base_path_id = sf_hook.get_path_id(self.sharefile_path)
-        remote_files = sf_hook.find_files(base_path_id)
+        # get the item ID of the privided path (either file or folder)
+        item_id = sf_hook.get_path_id(self.sharefile_path)
+        if not item_id:
+            raise AirflowException(f"Cound not find item ID for path: {self.sharefile_path}")
+        
+        try:
+            item_info = sf_hook.item_info(item_id)
+        except Exception as e:
+            raise AirflowException(f"Failed to retrieve metadata for item {item_id}: {e}")
+        
+        # Case 1: single file
+        if item_info["odata.type"] == "ShareFile.Api.Models.File":
+            file_name = item_info['FileName']
+            full_local_path = os.path.join(self.local_path, file_name)
 
-        # check whether we found anything
-        if len(remote_files) == 0:
-            self.log.info("No files on FTP")
-            raise AirflowSkipException
-
-        # extract relevant file details
-        files = []
-        for res in remote_files:
-            file_details = {
-                'file_name': res['FileName'],
-                'size': res['Size'],
-                'parent_id': res['ParentID'],
-                'file_path_no_base': res['ParentSemanticPath'].replace(self.sharefile_path, ''),
-                'file_path_ftp': res['ParentSemanticPath'],
-                'item_id': res['ItemID']
-            }
-
-
-            files.append(file_details)
-
-        if self.most_recent_file:
-            # of files found in directory, find the one with the most recent edit timestamp
-            max_timestamp = None
-            chosen_file = []
-            for res in files:
-                # seem to be cases where search is out of date and returns items that don't exist
-                try:
-                    item_info = sf_hook.item_info(res['item_id'])
-                except:
-                    # if the item fails to fetch item info, it probably doesn't exist, so can't be most recent
-                    continue
-                # grab last modified, compare to current max known
-                item_last_modified = item_info['ProgenyEditDate']
-                if max_timestamp is None or item_last_modified > max_timestamp:
-                    max_timestamp = item_last_modified
-                    chosen_file = [res]
-            # overwrite files list with singular chosen item
-            files = chosen_file
-
-
-        # for all files, move to local
-        num_successes = 0
-
-        for file in files:
-
-            remote_file = os.path.join(file['file_path_ftp'], file['file_name'])
-            self.log.info("Attempting to get file " + remote_file)
-
-            # lower filename and replace spaces with underscores
-            file['file_name'] = file['file_name'].lower().replace(' ', '_')
-
-            # check to see if there is other metadata needed in local path and if not, add filename to local path
-            if file['parent_id'] == base_path_id:
-                full_local_path = os.path.join(self.local_path, file['file_name'])
-            else:
-                full_local_path = os.path.join(self.local_path, file['file_path_no_base'], file['file_name'])
-
-            # create dir (works if there is a file name or not)
             os.makedirs(os.path.dirname(full_local_path), exist_ok=True)
 
-            # download the file
             try:
-                sf_hook.download_to_disk(item_id=file['item_id'], local_path=full_local_path)
-
+                sf_hook.download_to_disk(item_id=item_id, local_path=full_local_path)
                 if self.delete_remote:
-                    sf_hook.delete(file['item_id'])
-
-                num_successes += 1
-
+                    sf_hook.delete(item_id)
+                
+                return self.local_path
+            
             except Exception as err:
-                self.log.error(f'Failed to get file with message: {err}')
-
+                self.log.error(f"Failed to download file {self.sharefile_path}: {err}")
                 if slack_conn_id := context["dag"].user_defined_macros.get("slack_conn_id"):
                     slack.slack_alert_download_failure(
                         context=context, http_conn_id=slack_conn_id,
-                        remote_path=remote_file, local_path=full_local_path, error=err
+                        remote_path=self.sharefile_path, local_path=full_local_path, error=err
                     )
+                raise AirflowException("Single file transfer failed")
 
-                continue
+        else: 
 
-        if num_successes == 0:
-            raise AirflowException("Failed transfer from ShareFile to local: no files transferred successfully!")
+            # get the item id of the remote path, find all files within that path (up to 1000)
+            base_path_id = item_id
+            remote_files = sf_hook.find_files(base_path_id)
 
-        return self.local_path
+            # check whether we found anything
+            if len(remote_files) == 0:
+                self.log.info("No files on FTP")
+                raise AirflowSkipException
+
+            # extract relevant file details
+            files = []
+            for res in remote_files:
+                file_details = {
+                    'file_name': res['FileName'],
+                    'size': res['Size'],
+                    'parent_id': res['ParentID'],
+                    'file_path_no_base': res['ParentSemanticPath'].replace(self.sharefile_path, ''),
+                    'file_path_ftp': res['ParentSemanticPath'],
+                    'item_id': res['ItemID']
+                }
+
+
+                files.append(file_details)
+
+            if self.most_recent_file:
+                # of files found in directory, find the one with the most recent edit timestamp
+                max_timestamp = None
+                chosen_file = []
+                for res in files:
+                    # seem to be cases where search is out of date and returns items that don't exist
+                    try:
+                        item_info = sf_hook.item_info(res['item_id'])
+                    except:
+                        # if the item fails to fetch item info, it probably doesn't exist, so can't be most recent
+                        continue
+                    # grab last modified, compare to current max known
+                    item_last_modified = item_info['ProgenyEditDate']
+                    if max_timestamp is None or item_last_modified > max_timestamp:
+                        max_timestamp = item_last_modified
+                        chosen_file = [res]
+                # overwrite files list with singular chosen item
+                files = chosen_file
+
+
+            # for all files, move to local
+            num_successes = 0
+
+            for file in files:
+
+                remote_file = os.path.join(file['file_path_ftp'], file['file_name'])
+                self.log.info("Attempting to get file " + remote_file)
+
+                # lower filename and replace spaces with underscores
+                file['file_name'] = file['file_name'].lower().replace(' ', '_')
+
+                # check to see if there is other metadata needed in local path and if not, add filename to local path
+                if file['parent_id'] == base_path_id:
+                    full_local_path = os.path.join(self.local_path, file['file_name'])
+                else:
+                    full_local_path = os.path.join(self.local_path, file['file_path_no_base'], file['file_name'])
+
+                # create dir (works if there is a file name or not)
+                os.makedirs(os.path.dirname(full_local_path), exist_ok=True)
+
+                # download the file
+                try:
+                    sf_hook.download_to_disk(item_id=file['item_id'], local_path=full_local_path)
+
+                    if self.delete_remote:
+                        sf_hook.delete(file['item_id'])
+
+                    num_successes += 1
+
+                except Exception as err:
+                    self.log.error(f'Failed to get file with message: {err}')
+
+                    if slack_conn_id := context["dag"].user_defined_macros.get("slack_conn_id"):
+                        slack.slack_alert_download_failure(
+                            context=context, http_conn_id=slack_conn_id,
+                            remote_path=remote_file, local_path=full_local_path, error=err
+                        )
+
+                    continue
+
+            if num_successes == 0:
+                raise AirflowException("Failed transfer from ShareFile to local: no files transferred successfully!")
+
+            return self.local_path
 
