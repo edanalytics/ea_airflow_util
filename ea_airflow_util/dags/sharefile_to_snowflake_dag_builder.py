@@ -10,7 +10,7 @@ from airflow.operators.python import PythonOperator
 from edu_edfi_airflow.callables import s3
 
 from ea_airflow_util.callables.airflow import skip_if_not_in_params_list
-from ea_airflow_util.callables import jsonl, snowhttps://github.com/edanalytics/ea_airflow_util/actionsflake
+from ea_airflow_util.callables import jsonl, snowflake
 from ea_airflow_util.providers.sharefile.transfers.sharefile_to_disk import SharefileToDiskOperator
 from ea_airflow_util.providers.aws.operators.s3 import S3ToSnowflakeOperator
 from ea_airflow_util.callables.airflow import xcom_pull_template
