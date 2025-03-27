@@ -33,7 +33,7 @@ def sharefile_to_disk(
     ds_nodash: Optional[str] = None,  # Deprecated
     ts_nodash: Optional[str] = None,  # Deprecated
     delete_remote: bool = False,
-    recurse: bool = True,
+    recursive: bool = True,
     file_pattern: Optional[str] = None,
     **kwargs
 ):
@@ -61,7 +61,7 @@ def sharefile_to_disk(
         base_path_id = sf_hook.get_path_id(sharefile_path)
 
         # The default approach finds files in all subdirectories recursively.
-        if recurse:
+        if recursive:
             remote_files = sf_hook.find_files(base_path_id)
         
         # `get_children` returns only top-level items, but with a different payload schema.
