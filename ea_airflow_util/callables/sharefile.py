@@ -72,7 +72,7 @@ def sharefile_to_disk(
             for res in remote_children:
 
                 # Folders are returned alongside items and must be filtered.
-                if res['odata.type'].endswith('Folder')
+                if res['odata.type'].endswith('Folder'):
                     continue
 
                 res['ParentID'] = base_path_id
