@@ -77,7 +77,7 @@ def sharefile_to_disk(
 
                 res['ParentID'] = base_path_id
                 res['ParentSemanticPath'] = sharefile_path
-                res['ItemId'] = res['Id']
+                res['ItemID'] = res['Id']
                 remote_files.append(res)
 
     except requests.exceptions.HTTPError as err:
