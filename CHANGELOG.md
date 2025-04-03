@@ -1,3 +1,16 @@
+# ea_airflow_util v0.3.6
+## New Features
+- Add `recursive` flag to `sharefile_to_disk()` callable (default `True`). When set to `False`, only top-level files are copied using an alternative API method.
+
+## Under the hood
+- Add pagination to `SharefileHook._find_items()` and downstream-dependent methods.
+- Use `SharefileHook` helper method in `sharefile_to_disk()` callable to reduce API calls to map filepaths to internal API IDs.
+
+## Fixes
+- Fix bug where full-refresh DAG config is always set to true in `RunDbtDag`.
+- Fix bug in `S3ToSnowflakeOperator` where optional arguments being undefined resulted in malformed SQL statements.
+
+
 # ea_airflow_util v0.3.5
 ## New features
 - Add optional `most_recent_file` flag to `SharefileToDiskOperator` to extract the most recent version of a singleton file from a path.
