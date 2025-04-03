@@ -161,10 +161,10 @@ class SharefileHook(BaseHook):
         return results
 
     def find_folders(self, folder_id):
-        return self._find_items(folder_id, "Folder")
+        return list(self._find_items(folder_id, "Folder"))
 
     def find_files(self, folder_id):
-        return self._find_items(folder_id, "File")
+        return list(self._find_items(folder_id, "File"))
 
     ## this method started returning inconsistent results
     # specifically: the parentSemanticPath would sometimes be IDs rather than names
@@ -172,41 +172,51 @@ class SharefileHook(BaseHook):
     def _find_items(self, folder_id, item_type, unique=True):
         if not self.session:
             self.get_conn()
-        qry = {
-            "Query": {
-                "ItemType": item_type,
-                "ParentID": folder_id
-            },
-            "Paging": {
-                "Count": 1000,
-                "Skip": 0
-            },
-            "TimeoutInSeconds": 15
-        }
-
-        response = self.session.post(self.base_url + '/Items/AdvancedSimpleSearch', json=qry)
-
-        # do we need to check response.json()['TimedOut']?
-        if response.status_code != 200:
-            self.log.error('Search failed')
-            response.raise_for_status()
-
-        results = response.json()['Results']
 
         # it appears that, in the presense of file versioning, search will return
         # multiple items, though with the same ID and no mechanism to distinguish between 
         # versions via the api. Since this is useless, by default we will make the search 
         # results unique by item id.
-        if unique:
-            item_ids = set()
-            unique_items = []
-            for item in results:
-                if item['ItemID'] not in item_ids:
-                    item_ids.add(item['ItemID'])
-                    unique_items.append(item)
-            results = unique_items
+        item_ids = set()
 
-        return results
+        # Paginate until break is raised when no records are returned.
+        skip = 0
+
+        while True:
+
+            qry = {
+                "Query": {
+                    "ItemType": item_type,
+                    "ParentID": folder_id
+                },
+                "Paging": {
+                    "Count": 1000,
+                    "Skip": skip
+                },
+                "TimeoutInSeconds": 15
+            }
+
+            response = self.session.post(self.base_url + '/Items/AdvancedSimpleSearch', json=qry)
+
+            # do we need to check response.json()['TimedOut']?
+            if response.status_code != 200:
+                self.log.error('Search failed')
+                response.raise_for_status()
+
+            # End pagination if no items were retrieved.
+            if not (results := response.json()['Results']):
+                break
+
+            skip += len(results)  # Increment skip for next page call
+
+            for item in results:
+
+                if unique and item['ItemID'] in item_ids:
+                    continue
+
+                item_ids.add(item['ItemID'])
+                yield item
+
 
     def get_access_controls(self, item_id):
         # establish a session if we don't already have one
