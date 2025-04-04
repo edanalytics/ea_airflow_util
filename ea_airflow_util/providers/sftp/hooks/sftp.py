@@ -21,6 +21,9 @@ import pysftp
 import datetime
 import os
 import io
+import glob
+import fnmatch
+import itertools
 import paramiko
 from collections import defaultdict
 from airflow.providers.ssh.hooks.ssh import SSHHook
@@ -152,13 +155,46 @@ class SFTPHook(SSHHook):
     def list_directory(self, path):
         """
         Returns a list of files on the remote system.
+        This method supports wildcards. If multiple folders match the wildcard, files in each are listed.
 
         :param path: full path to the remote directory to list
         :type path: str
         """
         conn = self.get_conn()
-        files = conn.listdir(path)
-        return files
+        
+        # If the path has wildcards, a different approach is required.
+        if not glob.has_magic(path):
+            return conn.listdir(path)
+
+        # Split the folderpath into parts, and iterate subfolders with wildcards as needed.
+        # e.g., "/exports/sc-*/Current_Year" -> expand "/exports/sc-*", then list "CurrentYear" in each subfolder
+        dynamic_paths = ["/"]
+
+        for path_part in path.split("/"):
+            if glob.has_magic(path_part):
+                wildcard_matches = []
+
+                for incremental_path in dynamic_paths:
+
+                    wildcard_path = os.path.join(incremental_path, path_part)
+
+                    # List the subfolders at the level of the wildcard.
+                    for subdir in conn.listdir(incremental_path):
+                        potential_match = os.path.join(incremental_path, subdir)
+
+                        # Filter to only those that match the wildcard.
+                        if fnmatch.fnmatch(potential_match, wildcard_path):
+                            wildcard_matches.append(potential_match)
+
+                dynamic_paths = wildcard_matches 
+            
+            else:
+                dynamic_paths = [
+                    os.path.join(incremental_path, path_part)
+                    for incremental_path in dynamic_paths
+                ]
+
+        return list(itertools.chain(*map(conn.listdir, dynamic_paths)))
 
 
     def create_directory(self, path, mode=777):
