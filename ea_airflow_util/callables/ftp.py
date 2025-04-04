@@ -33,7 +33,7 @@ def download_all(
         files_to_download = [remote_dir]
     else:
         files_to_download = [
-            file for file in hook.list_directory(remote_dir)
+            file for file in hook.list_directory(remote_dir, full_path=True)
             if not endswith or file.endswith(endswith)
         ]
     logging.info(f"Found {len(files_to_download)} files to download from remote directory `{remote_dir}`.")
@@ -43,8 +43,8 @@ def download_all(
             remote_path = remote_dir
             local_path = os.path.join(local_dir, os.path.basename(file).lower().replace(' ', '_'))
         else:
-            remote_path = os.path.join(remote_dir, file)
-            local_path  = os.path.join(local_dir, file.lower().replace(' ', '_'))
+            remote_path = file
+            local_path  = os.path.join(local_dir, file.lower().replace(' ', '_').replace('/', '__'))
 
         try:
             hook.retrieve_large_file(remote_path, local_path)
