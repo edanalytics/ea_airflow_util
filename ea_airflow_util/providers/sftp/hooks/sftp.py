@@ -152,19 +152,25 @@ class SFTPHook(SSHHook):
         return files
 
 
-    def list_directory(self, path):
+    def list_directory(self, path, full_path: bool = False):
         """
         Returns a list of files on the remote system.
         This method supports wildcards. If multiple folders match the wildcard, files in each are listed.
 
         :param path: full path to the remote directory to list
+        :param full_path: set to True to return the entire remote filepath.
         :type path: str
         """
         conn = self.get_conn()
         
         # If the path has wildcards, a different approach is required.
         if not glob.has_magic(path):
-            return conn.listdir(path)
+            files = conn.listdir(path)
+            
+            if full_path:
+                return [os.path.join(path, file) for file in files]
+            else:
+                return files
 
         # Split the folderpath into parts, and iterate subfolders with wildcards as needed.
         # e.g., "/exports/sc-*/Current_Year" -> expand "/exports/sc-*", then list "CurrentYear" in each subfolder
@@ -194,7 +200,14 @@ class SFTPHook(SSHHook):
                     for incremental_path in dynamic_paths
                 ]
 
-        return list(itertools.chain(*map(conn.listdir, dynamic_paths)))
+        if full_path:
+            return [
+                os.path.join(dynamic_path, file)
+                for dynamic_path in dynamic_paths
+                for file in conn.listdir(dynamic_path)
+            ]
+        else:
+            return list(itertools.chain(*map(conn.listdir, dynamic_paths)))
 
 
     def create_directory(self, path, mode=777):
