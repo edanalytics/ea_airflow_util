@@ -11,6 +11,7 @@ def download_all(
     ftp_conn_id: str,
     remote_dir: str,
     local_dir: str,
+    startswith: Optional[Union[Tuple[str], str]] = (),
     endswith: Optional[Union[Tuple[str], str]] = (),
     **context
 ):
@@ -19,6 +20,11 @@ def download_all(
     """
     # Ensure local directory exists before downloading to it.
     os.makedirs(local_dir, exist_ok=True)
+
+    # `str.startswith()` requires a string or a tuple object; genericize all inputs to tuples.
+    if startswith and isinstance(startswith, str):
+        startswith = [startswith]
+    startswith = tuple(startswith)
 
     # `str.endswith()` requires a string or a tuple object; genericize all inputs to tuples.
     if endswith and isinstance(endswith, str):
@@ -34,7 +40,8 @@ def download_all(
     else:
         files_to_download = [
             file for file in hook.list_directory(remote_dir)
-            if not endswith or file.endswith(endswith)
+            if (not startswith or file.startswith(startswith))
+            and (not endswith or file.endswith(endswith))
         ]
     logging.info(f"Found {len(files_to_download)} files to download from remote directory `{remote_dir}`.")
 
