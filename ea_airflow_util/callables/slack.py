@@ -12,7 +12,7 @@ def _execute_slack_message(http_conn_id: str, message: str, **kwargs):
 
     Kwargs in init are passed to SlackWebhookOperator.
     """
-    return SlackWebhookHook(http_conn_id=http_conn_id, message=message, **kwargs).execute()
+    return SlackWebhookHook(slack_webhook_conn_id=http_conn_id, **kwargs).send(text=message)
 
 def slack_alert_failure(context: dict, http_conn_id: str, **kwargs):
     """  """
