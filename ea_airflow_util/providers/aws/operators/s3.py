@@ -5,7 +5,7 @@ import sys
 from typing import Any, List, Optional, Sequence, Union
 
 from airflow.exceptions import AirflowSkipException
-from airflow.models import BaseOperator
+from airflow.models import BaseOperator, Connection
 from airflow.providers.amazon.aws.operators.s3 import S3FileTransformOperator
 from airflow.providers.snowflake.hooks.snowflake import SnowflakeHook
 from airflow.utils.decorators import apply_defaults
@@ -109,9 +109,9 @@ class S3ToSnowflakeOperator(BaseOperator):
     def __init__(self,
         *,
         snowflake_conn_id: str,
-        database: str,
-        schema: str,
         table_name: str,
+        database: str = None,
+        schema: str = None,
         custom_metadata_columns: Optional[dict] = None,
 
         s3_destination_key: Optional[str] = None,
@@ -147,6 +147,12 @@ class S3ToSnowflakeOperator(BaseOperator):
         :return:
         """
         snowflake_hook = SnowflakeHook(snowflake_conn_id=self.snowflake_conn_id)
+
+        # Infer database and/or schema if not specified.
+        if not (self.database or self.schema):
+            snowflake_conn = Connection.get_connection_from_secrets(self.snowflake_conn_id)
+            self.database = self.database or snowflake_conn.extra_dejson['extra__snowflake__database']
+            self.schema = self.schema or snowflake_conn.schema
 
         ### Optionally set destination key by concatting separate args for dir and filename
         if not self.s3_destination_key:

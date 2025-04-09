@@ -7,6 +7,7 @@ import os
 from typing import List, Optional
 
 from airflow.exceptions import AirflowException, AirflowSkipException
+from airflow.models import Connection
 from airflow.providers.amazon.aws.hooks.s3 import S3Hook
 
 from ea_airflow_util.callables import slack
@@ -17,14 +18,19 @@ def disk_to_s3(
     s3_conn_id: str,
     local_path: str,
     base_dir: str,
-    bucket: str,
-    delete_local: bool,
+    bucket: str = None,
+    delete_local: bool = False,
     expected_col_names: Optional[List[str]] = None,
     extra_dir_to_local: Optional[str] = None,
     **context
 ):
     # use hook to make connection to s3
     s3_hook = S3Hook(s3_conn_id)
+
+    # Infer S3 bucket if not specified.
+    if not bucket:
+        s3_conn = Connection.get_connection_from_secrets(s3_conn_id)
+        bucket = s3_conn.schema
 
     # extra dir to local will be an additional path added on to local path
     if extra_dir_to_local is not None:
