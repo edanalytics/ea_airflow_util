@@ -1,3 +1,8 @@
+# ea_airflow_util v0.3.7
+## Fixes
+- Fix change in interface in `SlackWebhookHook` instantiation in Slack callables.
+
+
 # ea_airflow_util v0.3.6
 ## New Features
 - Add `recursive` flag to `sharefile_to_disk()` callable (default `True`). When set to `False`, only top-level files are copied using an alternative API method.
