@@ -29,7 +29,6 @@ class SFTPToSnowflakeDag:
 
         pool: str,
         do_delete_from_local: Optional[bool] = False,
-        slack_conn_id: Optional[str] = None,
 
         #These parameters can be passed on initialization or when calling the build_tenant_year_resource_taskgroup function, depending on where they are specified in the config
         domain: Optional[str] = None,

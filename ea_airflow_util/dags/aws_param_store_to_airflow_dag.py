@@ -78,7 +78,6 @@ class AWSParamStoreToAirflowDAG:
         self.tenant_mapping      = tenant_mapping or {}
 
         self.session = airflow.settings.Session()
-        self.slack_conn_id = slack_conn_id
         self.dag = self.build_dag(**kwargs)
 
 
