@@ -53,36 +53,36 @@ def _run_table_clear_query(
     snowflake_conn: Connection,
     dest_table: str,
     truncate: bool = False,
-    delete_source_orgs: Optional[set] = None,
+    delete_tenants: Optional[set] = None,
     delete_where_clause: Optional[set] = None
 ):
     """
     Isolated logic for truncating or deleting from a table.
     """
-    if sum([truncate or 0, delete_source_orgs or 0, delete_where_clause is not None]) > 1:
+    if sum([truncate or 0, delete_tenants or 0, delete_where_clause is not None]) > 1:
         raise ValueError(f'!!! Only specify one of (truncate, delete, delete_where_clause) during Snowflake import to `{dest_table}`!')
 
     # Truncate only
-    if truncate and not delete_source_orgs and delete_where_clause is None:
+    if truncate and not delete_tenants and delete_where_clause is None:
         logging.info(f'Truncating table `{dest_table}`')
         with snowflake_conn.cursor() as cur:
             cur.execute(f"truncate {dest_table};")
 
     # Delete source orgs only
-    elif delete_source_orgs and not truncate and delete_where_clause is None:
+    elif delete_tenants and not truncate and delete_where_clause is None:
         # create comma-separated string of source org set
-        delete_source_orgs = "('" + "','".join(delete_source_orgs) + "')"
-        logging.info(f'Deleting {delete_source_orgs} from `{dest_table}`')
+        delete_tenants = "('" + "','".join(delete_tenants) + "')"
+        logging.info(f'Deleting {delete_tenants} from `{dest_table}`')
 
         with snowflake_conn.cursor() as cur:
             delete_qry = f"""
                 delete from {dest_table} 
-                where source_org in {delete_source_orgs}
+                where tenant_code in {delete_tenants}
             """
             cur.execute(delete_qry)
     
     # Delete with where clause only
-    elif delete_where_clause is not None and not delete_source_orgs and not truncate:
+    elif delete_where_clause is not None and not delete_tenants and not truncate:
         logging.info(f'Deleting where {delete_where_clause} from `{dest_table}`')
 
         with snowflake_conn.cursor() as cur:
@@ -142,7 +142,7 @@ def _run_table_import_query(
 
     select_cols_str += ", " + (
         metadata
-            .replace('source_org', "split_part(metadata$filename, '/', -2) as source_org")
+            .replace('tenant_code', "split_part(metadata$filename, '/', -2) as tenant_code")
             .replace('file_path', 'metadata$filename as file_path')
     )
 
@@ -266,19 +266,19 @@ def import_s3_to_snowflake(
     if s3_subkeys[0].endswith('.jsonl'):
         file_format = 'json_default'
 
-    # Extract the source_org from the S3 folder structure, and apply to SQL queries if necessary.
+    # Extract the tenant from the S3 folder structure, and apply to SQL queries if necessary.
     if delete:
-        delete_source_orgs = set([pathlib.PurePath(key).parent.name for key in s3_subkeys])
-        logging.info(f'Deleting source_orgs = {delete_source_orgs}')
+        delete_tenants = set([pathlib.PurePath(key).parent.name for key in s3_subkeys])
+        logging.info(f'Deleting tenants = {delete_tenants}')
     else:
-        delete_source_orgs = None  # TODO: Rename "source_org" to "tenant_code" across everything ever!
+        delete_tenants = None
 
     # Apply table truncations or deletes if specified.
     _run_table_clear_query(
         snowflake_conn,
         dest_table,
         truncate=truncate,
-        delete_source_orgs=delete_source_orgs,
+        delete_tenants=delete_tenants,
         delete_where_clause=delete_where_clause
     )
 
