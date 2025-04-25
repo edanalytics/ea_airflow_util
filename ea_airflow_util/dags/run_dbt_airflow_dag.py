@@ -4,19 +4,18 @@ import warnings
 warnings.filterwarnings("ignore", module="airflow_dbt", category=DeprecationWarning)
 
 from datetime import datetime
-from functools import partial
 from typing import Optional
 
-from airflow import DAG
 from airflow.models.param import Param
 from airflow.operators.python import PythonOperator
+from airflow.operators.trigger_dagrun import TriggerDagRunOperator
 from airflow.utils.task_group import TaskGroup
 
 from airflow_dbt.operators.dbt_operator import DbtRunOperator, DbtSeedOperator, DbtTestOperator
 
-from ea_airflow_util.callables import slack
-from ea_airflow_util.providers.dbt.operators.dbt import DbtRunOperationOperator
+from ea_airflow_util.dags.ea_custom_dag import EACustomDAG
 from ea_airflow_util.callables.variable import check_variable, update_variable
+from ea_airflow_util.providers.dbt.operators.dbt import DbtRunOperationOperator
 
 
 class RunDbtDag:
@@ -57,9 +56,8 @@ class RunDbtDag:
         opt_swap_target: Optional[str] = None,
 
         upload_artifacts: bool = False,
-
-        slack_conn_id: Optional[str] = None,
         dbt_incrementer_var: str = None,
+        trigger_dags_on_run_success: Optional[list] = None,
 
         **kwargs
     ):
@@ -82,13 +80,16 @@ class RunDbtDag:
         # DBT Artifacts
         self.upload_artifacts = upload_artifacts
 
-        # Slack alerting
-        self.slack_conn_id = slack_conn_id
-
         # Dynamic runs via variables
         self.dbt_incrementer_var = dbt_incrementer_var
 
-        self.dag = self.initialize_dag(**kwargs)
+        self.dag = EACustomDAG(
+            params=self.params_dict,
+            user_defined_macros= {
+                'environment': self.environment,
+            },
+            **kwargs
+        )
 
         # Build operators to check the value of the DBT var at the start and reset it at the end.
         if self.dbt_incrementer_var:
@@ -118,34 +119,22 @@ class RunDbtDag:
             self.dbt_var_check_operator = None
             self.dbt_var_reset_operator = None
 
+        # Build optional operator to trigger downstream DAG when `dbt run` succeeds.
+        if trigger_dags_on_run_success:
+            self.external_dags = []
 
-    # create DAG 
-    def initialize_dag(self, dag_id, schedule_interval, default_args, **kwargs):
-        """
-        :param dag_id:
-        :param schedule_interval:
-        :param default_args:
-        """
-        # If a Slack connection has been defined, add the failure callback to the default_args.
-        if self.slack_conn_id:
-            slack_failure_callback = partial(slack.slack_alert_failure, http_conn_id=self.slack_conn_id)
-            default_args['on_failure_callback'] = slack_failure_callback
+            for external_dag_id in trigger_dags_on_run_success:
+                self.external_dags.append(
+                    TriggerDagRunOperator(
+                        task_id=f"trigger_{external_dag_id}",
+                        trigger_dag_id=external_dag_id,
+                        wait_for_completion=False,  # Keep running DBT DAG while downstream DAG runs.
+                        trigger_rule='all_success',
+                    ))
+        else:
+            self.external_dags = None
 
-        return DAG(
-            dag_id=dag_id,
-            schedule_interval=schedule_interval,
-            default_args=default_args,
-            catchup=False,
-            params=self.params_dict,
-            render_template_as_native_obj=True,
-            user_defined_macros= {
-                'environment': self.environment,
-                'slack_conn_id': self.slack_conn_id,
-            },
-            **kwargs
-        )
-
-
+    
     # build function for tasks
     def build_dbt_run(self, on_success_callback=None, **kwargs):
         """
@@ -159,7 +148,8 @@ class RunDbtDag:
         """
         # set a logic to force a full refresh 
         day = datetime.today().weekday()
-        if self.full_refresh_schedule == day or "{{ dag_run.conf['full_refresh'] }}":
+        dag_conf_full_refresh = kwargs.get('dag_run', {}).get('conf', {}).get('full_refresh') or False
+        if self.full_refresh_schedule == day or dag_conf_full_refresh:
            self.full_refresh = True
 
         with TaskGroup(
@@ -251,6 +241,10 @@ class RunDbtDag:
                 )
 
                 dbt_build_artifact_tables >> dbt_seed
+
+            # Trigger downstream DAG when `dbt run` succeeds
+            if self.external_dags:
+                dbt_run >> self.external_dags
 
         # Apply the DBT variable operators if defined.
         if self.dbt_incrementer_var:
