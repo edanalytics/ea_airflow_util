@@ -5,11 +5,11 @@ import re
 from typing import Iterator, Optional
 
 import airflow
-from airflow import DAG
 from airflow.decorators import task
 from airflow.exceptions import AirflowFailException
 from airflow.models import Connection
 
+from ea_airflow_util.dags.ea_custom_dag import EACustomDAG
 from ea_airflow_util.callables.ssm import SSMParameterStore
 
 
@@ -29,15 +29,18 @@ class ConnectionKwargs:
         elif key == 'url':
             self.__kwargs['host'] = value
         else:
-            self.__kwargs[key] = value
+            logging.debug(f"Ignoring unexpected parameter key: {key}")
 
     def to_conn(self, conn_id: str) -> dict:
         """
         Convert connection pieces into a JSON connection.
         """
-        if self.__kwargs.keys() < {"host", "login", "password"}:
+        conn_keys = {"host", "login", "password"}
+        param_keys = self.__kwargs.keys()
+
+        if param_keys < conn_keys:
             raise ValueError(
-                f"Connection is missing one or more required fields."
+                f"Connection is missing one or more required fields: {conn_keys.difference(param_keys)}"
             )
 
         return Connection(conn_id=conn_id, conn_type='http', **self.__kwargs)
@@ -65,9 +68,6 @@ class AWSParamStoreToAirflowDAG:
         tenant_mapping: Optional[str] = None,
 
         join_numbers: bool = True,
-
-        slack_conn_id: Optional[str] = None,
-
         **kwargs
     ):
         self.region_name = region_name
@@ -82,11 +82,7 @@ class AWSParamStoreToAirflowDAG:
         self.dag = self.build_dag(**kwargs)
 
 
-    def build_dag(self,
-        dag_id: str,
-        default_args: dict,
-        **kwargs
-    ):
+    def build_dag(self, **kwargs):
         """
 
         :param dag_id:
@@ -113,21 +109,13 @@ class AWSParamStoreToAirflowDAG:
             ):
                 try:
                     self.upload_connection_kwargs_to_airflow(conn_id, conn_kwargs)
+                except NameError:  # Internal-declared error
+                    logging.info(f"Skipping existing connection: `{conn_id}`")
                 except Exception as err:
-                    logging.warning(
-                        f"Failed to import `{conn_id}`: {err}"
-                    )
+                    logging.warning(f"Failed to import `{conn_id}`: {err}")
 
 
-        with DAG(
-            dag_id=dag_id,
-            default_args=default_args,
-            catchup=False,
-            user_defined_macros={
-                'slack_conn_id': self.slack_conn_id,
-            },
-            **kwargs
-        ) as dag:
+        with EACustomDAG(**kwargs) as dag:
             upload_connections_from_paramstore()
 
         return dag

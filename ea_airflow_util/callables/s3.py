@@ -8,7 +8,6 @@ from typing import List, Optional
 
 from airflow.exceptions import AirflowException, AirflowSkipException
 from airflow.providers.amazon.aws.hooks.s3 import S3Hook
-from airflow.providers.postgres.hooks.postgres import PostgresHook
 
 from ea_airflow_util.callables import slack
 
@@ -143,8 +142,7 @@ def disk_to_s3(
     return local_path.replace(base_dir + '/', '')
 
 
-### S3-to-Postgres
-def _list_s3_keys(
+def list_s3_keys(
     s3_hook: S3Hook,
     s3_bucket: str,
     s3_key: str,
@@ -158,124 +156,16 @@ def _list_s3_keys(
     # Remove directories and return.
     return [subkey for subkey in subkeys if not subkey.endswith("/")]
 
-def s3_to_postgres(
-    pg_conn_id: str,
+
+def delete_from_s3(
     s3_conn_id: str,
-    dest_table: str,
-    column_customization: Optional[str],
-    options: str,
-    s3_key: str,
-    s3_region: str,
-    truncate: bool = False,
-    delete_qry: Optional[str] = None,
-    metadata_qry: Optional[str] = None,
-    **context
+    s3_keys_to_delete: List[str]
 ):
-    if column_customization is None:
-        column_customization = ''
-    if options is None:
-        options = ''
-
-    if s3_key is None:
-        s3_key = context.get('templates_dict').get('s3_key')
-
-    hook = PostgresHook(pg_conn_id)
-    conn = hook.get_conn()
-
-    # temporary: pull and use creds until IAM role set up
-    s3_hook = S3Hook(s3_conn_id)
-    s3_creds = s3_hook.get_connection(s3_hook.aws_conn_id)
-    s3_bucket = s3_creds.schema
-
-    # make sure content is > 0 bytes, if not, skip this
-    if (s3_hook.get_key(key=s3_key, bucket_name=s3_bucket).get()['ContentLength']) == 0:
-        print("File at this s3 key is empty.")
-        raise AirflowSkipException
-
-    if truncate and not delete_qry:
-        with conn.cursor() as cur:
-            logging.info('Truncating table')
-            cur.execute(f'truncate table {dest_table};')
-    elif not truncate and delete_qry:
-        with conn.cursor() as cur:
-            logging.info('Deleting from table')
-            cur.execute(delete_qry)
-    elif truncate and delete_qry:
-        raise ValueError('Only specify one of truncate, delete_qry')
-
-    copy_qry = f"""
-        select aws_s3.table_import_from_s3(
-        '{dest_table}',
-        '{column_customization}',
-        '{options}',
-        aws_commons.create_s3_uri('{s3_bucket}', '{s3_key}', '{s3_region}'),
-        aws_commons.create_aws_credentials('{s3_creds.login}', '{s3_creds.password}', '')
-        );
     """
+    Delete a list of S3 objects
+    """
+    s3_hook = S3Hook(aws_conn_id=s3_conn_id)
 
-    logging.info('Beginning insert')
-    with conn.cursor() as cur:
-        cur.execute(copy_qry)
-        ret_value = cur.fetchone()
+    logging.info('Deleting file from source s3')
 
-    if metadata_qry:
-        with conn.cursor() as cur:
-            cur.execute(metadata_qry.format(s3_key=s3_key))
-    conn.commit()
-
-    logging.info(ret_value)
-
-
-def s3_dir_to_postgres(
-    pg_conn_id: str,
-    s3_conn_id: str,
-    dest_table: str,
-    column_customization: Optional[str],
-    options: str,
-    s3_key: str,
-    s3_region: str,
-    truncate: bool = False,
-    delete_s3_dir: bool = False,
-    metadata_qry: Optional[str] = None,
-    **context
-):
-    s3_hook = S3Hook(s3_conn_id)
-    s3_creds = s3_hook.get_connection(s3_hook.aws_conn_id)
-    s3_bucket = s3_creds.schema
-    s3_keys = _list_s3_keys(s3_hook, s3_bucket, s3_key)
-
-    if truncate:
-        conn = PostgresHook(pg_conn_id).get_conn()
-        with conn.cursor() as cur:
-            logging.info('Truncating table')
-            cur.execute(f'truncate table {dest_table};')
-            conn.commit()
-
-    failed_count = 0
-    for key in s3_keys:
-        logging.info(f'Loading key: {key}')
-        try:
-            s3_to_postgres(
-                pg_conn_id=pg_conn_id,
-                s3_conn_id=s3_conn_id,
-                dest_table=dest_table,
-                column_customization=column_customization,
-                options=options,
-                s3_key=key,
-                s3_region=s3_region,
-                truncate=False,
-                delete_qry=None,
-                metadata_qry=metadata_qry
-            )
-        except Exception as err:
-            logging.error(err)
-            failed_count += 1
-            continue
-
-    if failed_count == len(s3_keys):
-        raise AirflowException('All inserts failed')
-
-    logging.info(f'Loaded {len(s3_keys) - failed_count} of {len(s3_keys)} keys.')
-
-    if delete_s3_dir:
-        s3_hook.delete_objects(s3_bucket, s3_keys)
+    s3_hook.delete_objects(bucket=s3_hook.get_connection(s3_conn_id).schema, keys=s3_keys_to_delete)

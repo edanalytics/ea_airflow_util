@@ -2,14 +2,12 @@ import datetime
 import logging
 import subprocess
 
-from functools import partial
 from typing import Optional
 
 from airflow.models.param import Param
-from airflow.models import DAG
 from airflow.operators.python import PythonOperator
 
-from ea_airflow_util.callables import slack
+from ea_airflow_util.dags.ea_custom_dag import EACustomDAG
 
 
 class AirflowDBCleanDAG:
@@ -25,10 +23,9 @@ class AirflowDBCleanDAG:
         retention_days: int = 90,
         dry_run: bool = False,
         verbose: bool = False,
-        slack_conn_id: Optional[str] = None,
 
-        # Generic DAG arguments
-        *args, default_args: dict = {}, **kwargs
+        # Generic EACustomDAG arguments
+        *args, **kwargs
     ):
         params_dict = {
             "retention_days": Param(
@@ -48,17 +45,9 @@ class AirflowDBCleanDAG:
             ),
         }
 
-        # If a Slack connection has been defined, add the failure callback to the default_args.
-        if slack_conn_id:
-            slack_failure_callback = partial(slack.slack_alert_failure, http_conn_id=slack_conn_id)
-            default_args['on_failure_callback'] = slack_failure_callback
-
-        self.dag = DAG(
+        self.dag = EACustomDAG(
             *args,
             params=params_dict,
-            default_args=default_args,
-            catchup=False,
-            render_template_as_native_obj=True,
             **kwargs
         )
 
@@ -69,6 +58,7 @@ class AirflowDBCleanDAG:
             dag=self.dag
         )
 
+    
     def cli_airflow_db_clean(self, **context):
         """
         Use a wrapper Python method instead of BashOperator for additional logging and easier command construction.

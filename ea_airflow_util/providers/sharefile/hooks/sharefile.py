@@ -1,8 +1,9 @@
 import io
+from pathlib import Path
+
 import requests
 
 from airflow.hooks.base import BaseHook
-from airflow.exceptions import AirflowException
 
 
 # Note: consider making each file use its own session with context handler
@@ -45,7 +46,7 @@ class SharefileHook(BaseHook):
         response = requests.post(auth_url, data=params, headers=headers)
         if response.status_code != 200:
             self.log.error('Failed to authenticate with status {}'.format(response.status_code))
-            raise AirflowException
+            response.raise_for_status()
         token = response.json()['access_token']
 
         # create our request header and session
@@ -75,7 +76,49 @@ class SharefileHook(BaseHook):
                 f.write(dl_response.content)
         else:
             self.log.error('Item request failed with status code: {}'.format(dl_response.status_code))
-            raise AirflowException
+            dl_response.raise_for_status()
+
+    def upload_file(self, folder_id, local_file):
+        # establish a session if we don't already have one
+        if not self.session:
+            self.get_conn()
+
+        # referencing sharefile's upload logic here
+        # https://api.sharefile.com/samples/python
+        upload_config_uri = f"{self.base_url}/Items({folder_id})/Upload"
+        upload_config_resp = self.session.get(upload_config_uri)
+        upload_config = upload_config_resp.json()
+    
+        upload_uri = None
+        try:
+            upload_uri = upload_config["ChunkUri"]
+        except KeyError:
+            # most likely an invalid or nonexistent folder ID
+            raise AirflowException(f"Failed to get upload link for {local_file}; Reason: {upload_config['reason']}; Message: {upload_config['message']['value']}")
+
+        files = {Path(local_file).name: open(local_file, 'rb')}
+        resp = self.session.post(upload_uri, files=files)
+        resp.raise_for_status()
+
+
+    def folder_id_from_path(self, folder_path):
+        """Given a complete Sharefile folder path, returns the ID of the leaf folder. If the path is not found, returns `None`"""
+        # "allshared" is a Sharefile-specific "special ID." According to the docs, it is used to 
+        #    "Return parent Shared Folders item." Based on their examples and our own experimentation,
+        #    it appears to be a stand-in for "root." By searching for all folders underneath "allshared"
+        #    we should get a list of every folder in the hierarchy (including nested ones)
+        # ref: https://api.sharefile.com/docs/resource?name=Items
+        # ref: https://api.sharefile.com/samples/python
+        folders = self.find_folders("allshared")
+
+        for folder in folders:
+            # special handling for folders just under the root
+            test_path = f"{folder['ParentSemanticPath']}/{folder['DisplayName']}" if folder['ParentSemanticPath'] != '/' else f"/{folder['DisplayName']}"
+            if test_path == folder_path:
+                return folder["ItemID"]
+        else:
+            self.log.warning(f"No matching folder found for path: {folder_path}")
+            return None
 
     def delete(self, item_id):
         # establish a session if we don't already have one
@@ -87,7 +130,7 @@ class SharefileHook(BaseHook):
         response = self.session.delete(self.base_url + item_path)
         if response.status_code != 204:
             self.log.error('Delete failed with response code {}'.format(response.status_code))
-            raise AirflowException
+            response.raise_for_status()
 
     def get_path_id(self, path):
         if not self.session:
@@ -100,7 +143,7 @@ class SharefileHook(BaseHook):
             return response.json()['Id']
         else:
             self.log.error('Failed to get id for path {}'.format(path))
-            raise AirflowException
+            response.raise_for_status()
 
     def item_info(self, id):
         if not self.session:
@@ -111,41 +154,69 @@ class SharefileHook(BaseHook):
         # do we need to check response.json()['TimedOut']?
         if response.status_code != 200:
             self.log.error(f'Getting item info failed for id {id}')
-            raise AirflowException
+            response.raise_for_status()
 
         results = response.json()
 
         return results
 
+    def find_folders(self, folder_id):
+        return list(self._find_items(folder_id, "Folder"))
+
+    def find_files(self, folder_id):
+        return list(self._find_items(folder_id, "File"))
 
     ## this method started returning inconsistent results
     # specifically: the parentSemanticPath would sometimes be IDs rather than names
     # hence we switched to the below simplesearch method
-    def find_files(self, folder_id):
+    def _find_items(self, folder_id, item_type, unique=True):
         if not self.session:
             self.get_conn()
-        qry = {
-            "Query": {
-                "ItemType": "File",
-                "ParentID": folder_id
-            },
-            "Paging": {
-                "Count": 1000,
-                "Skip": 0
-            },
-            "TimeoutInSeconds": 15
-        }
 
-        response = self.session.post(self.base_url + '/Items/AdvancedSimpleSearch', json=qry)
+        # it appears that, in the presense of file versioning, search will return
+        # multiple items, though with the same ID and no mechanism to distinguish between 
+        # versions via the api. Since this is useless, by default we will make the search 
+        # results unique by item id.
+        item_ids = set()
 
-        # do we need to check response.json()['TimedOut']?
-        if response.status_code != 200:
-            self.log.error('Search failed')
-            raise AirflowException
+        # Paginate until break is raised when no records are returned.
+        skip = 0
 
-        results = response.json()['Results']
+        while True:
 
-        return results
+            qry = {
+                "Query": {
+                    "ItemType": item_type,
+                    "ParentID": folder_id
+                },
+                "Paging": {
+                    "Count": 1000,
+                    "Skip": skip
+                },
+                "TimeoutInSeconds": 15
+            }
+
+            response = self.session.post(self.base_url + '/Items/AdvancedSimpleSearch', json=qry)
+
+            # do we need to check response.json()['TimedOut']?
+            if response.status_code != 200:
+                self.log.error('Search failed')
+                response.raise_for_status()
+
+            # End pagination if no items were retrieved.
+            if not (results := response.json()['Results']):
+                break
+
+            skip += len(results)  # Increment skip for next page call
+
+            for item in results:
+
+                if unique and item['ItemID'] in item_ids:
+                    continue
+
+                item_ids.add(item['ItemID'])
+                yield item
+
 
     def get_access_controls(self, item_id):
         # establish a session if we don't already have one
@@ -165,7 +236,7 @@ class SharefileHook(BaseHook):
             return response.json()['value']
         else:
             self.log.error('Access controls request failed with status code: {}'.format(response.status_code))
-            raise AirflowException
+            response.raise_for_status()
 
     def get_user(self, user_id):
         # establish a session if we don't already have one
@@ -185,7 +256,7 @@ class SharefileHook(BaseHook):
             return response.json()
         else:
             self.log.error('Users request failed with status code: {}'.format(response.status_code))
-            raise AirflowException
+            response.raise_for_status()
 
     def get_children(self, item_id):
         # establish a session if we don't already have one
@@ -205,7 +276,7 @@ class SharefileHook(BaseHook):
             return response.json()['value']
         else:
             self.log.error('Get children request failed with status code: {}'.format(response.status_code))
-            raise AirflowException
+            response.raise_for_status()
 
     def file_to_memory(self, item_id):
         """
@@ -230,7 +301,7 @@ class SharefileHook(BaseHook):
             #     flo.write(dl_response.content)
         else:
             self.log.error('Item request failed with status code: {}'.format(dl_response.status_code))
-            raise AirflowException
+            dl_response.raise_for_status()
 
         return flo
 
