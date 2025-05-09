@@ -201,9 +201,9 @@ class AWSParamStoreToAirflowDAG:
         https://stackoverflow.com/questions/51863881
         """
         # Verify whether the connection already exists in Airflow, and continue if not overwriting.
-        if self.session.query(Connection).filter(Connection.conn_id == conn_id).first():
+        if existing_conn := self.session.query(Connection).filter(Connection.conn_id == conn_id).first():
             if overwrite:
-                self.session.delete(conn_id)
+                self.session.delete(existing_conn)
                 self.session.commit()
             else:
                 raise NameError("Connection already exists!")
