@@ -7,7 +7,7 @@ from typing import Iterator, Optional
 import airflow
 from airflow.decorators import task
 from airflow.exceptions import AirflowFailException
-from airflow.models import Connection
+from airflow.models import Connection, Param
 
 from ea_airflow_util.dags.ea_custom_dag import EACustomDAG
 from ea_airflow_util.callables.ssm import SSMParameterStore
@@ -59,6 +59,14 @@ class AWSParamStoreToAirflowDAG:
     Optional argument `tenant_mapping` provides tenant_code naming-fixes when they misalign in ParameterStore.
 
     """
+    params_dict = {
+        "force": Param(
+            default=False,
+            type="boolean",
+            description="If true, recreate connection if it already exists."
+        ),
+    }
+
     def __init__(self,
         region_name: str,
 
@@ -101,20 +109,22 @@ class AWSParamStoreToAirflowDAG:
                 raise AirflowFailException(
                     "Neither arguments `connection_mapping` nor `prefix_year_mapping` have been defined."
                 )
+            
+            overwrite: bool = context['params']['force']
 
             for conn_id, conn_kwargs in itertools.chain(
                 self.build_kwargs_from_connection_mapping(),
                 self.build_kwargs_from_prefix_year_mapping()
             ):
                 try:
-                    self.upload_connection_kwargs_to_airflow(conn_id, conn_kwargs)
+                    self.upload_connection_kwargs_to_airflow(conn_id, conn_kwargs, overwrite=overwrite)
                 except NameError:  # Internal-declared error
                     logging.info(f"Skipping existing connection: `{conn_id}`")
                 except Exception as err:
                     logging.warning(f"Failed to import `{conn_id}`: {err}")
 
 
-        with EACustomDAG(**kwargs) as dag:
+        with EACustomDAG(params=self.params_dict, **kwargs) as dag:
             upload_connections_from_paramstore()
 
         return dag
@@ -185,16 +195,18 @@ class AWSParamStoreToAirflowDAG:
                 yield conn_id, conn_kwargs
 
 
-    def upload_connection_kwargs_to_airflow(self, conn_id: str, conn_kwargs: ConnectionKwargs):
+    def upload_connection_kwargs_to_airflow(self, conn_id: str, conn_kwargs: ConnectionKwargs, overwrite: bool = False):
         """
         Attempt to upload connections to Airflow, warning if already present or incomplete.
         https://stackoverflow.com/questions/51863881
         """
         # Verify whether the connection already exists in Airflow, and continue if not overwriting.
         if self.session.query(Connection).filter(Connection.conn_id == conn_id).first():
-            raise NameError(
-                "Connection already exists!"
-            )
+            if overwrite:
+                self.session.delete(conn_id)
+                self.session.commit()
+            else:
+                raise NameError("Connection already exists!")
 
         # Try to convert the kwargs into a connection, erroring if missing a required field.
         conn = conn_kwargs.to_conn(conn_id)
