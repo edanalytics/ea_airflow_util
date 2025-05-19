@@ -43,6 +43,9 @@ class ConnectionKwargs:
                 f"Connection is missing one or more required fields: {conn_keys.difference(param_keys)}"
             )
 
+        # Remove extraneous whitespacing from values.
+        self.__kwargs = {key: val.strip() for key, val in self.__kwargs.items()}
+
         return Connection(conn_id=conn_id, conn_type='http', **self.__kwargs)
 
 
