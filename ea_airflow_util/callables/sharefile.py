@@ -234,3 +234,26 @@ def check_for_new_files(sharefile_conn_id: str, sharefile_path: str, num_expecte
     if new_file_count == 0:
         logging.info(f"No new files in '{sharefile_path}' since last run.")
         raise AirflowSkipException
+
+
+def sharefile_copy_file(sharefile_conn_id: str, sharefile_path: str, sharefile_dest_path: str, delete_source: bool = False):
+    """
+    TODO:
+    - Should sharefile_dest_path be a directory or the resulting filepath?
+    - How is the copied file named?
+    """
+    sf_hook = SharefileHook(sharefile_conn_id)
+
+    # Find internal IDs for source and destination paths.
+    if not (sharefile_source_id := sf_hook.get_path_id(sharefile_path)):
+        raise AirflowException(f"failed to find Sharefile source path {sharefile_path}")
+    
+    if not (sharefile_dest_id := sf_hook.get_path_id(sharefile_dest_path)):
+        raise AirflowException(f"failed to find Sharefile destination path {sharefile_dest_path}")
+    
+    sf_hook.copy_file(sharefile_source_id, sharefile_dest_id)
+
+    # Optionally delete the file in its original locations (i.e., a MOVE instead of a COPY).
+    if delete_source:
+        sf_hook.delete_file(sharefile_source_id)
+    

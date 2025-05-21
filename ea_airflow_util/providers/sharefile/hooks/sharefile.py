@@ -317,3 +317,37 @@ class SharefileHook(BaseHook):
             with open(local_path, 'wb') as f:
                 for chunk in r.iter_content(chunk_size=8192):
                     f.write(chunk)
+
+    def copy_file(self, item_id: str, item_dest_id: str):
+        """
+        
+        """
+        # establish a session if we don't already have one
+        if not self.session:
+            self.get_conn()
+
+        copy_url = self.base_url + f"/Items({item_id})/Copy"
+        copy_args = {
+            "targetId": item_dest_id,
+            "overwrite": True,
+        }
+        
+        response = self.session.post(copy_url, data=copy_args)
+        response.raise_for_status()
+
+    def delete_file(self, item_id: str):
+        """
+        
+        """
+        # establish a session if we don't already have one
+        if not self.session:
+            self.get_conn()
+
+        delete_url = self.base_url + f"/Items({item_id})"
+        delete_args = {
+            "singleversion": False,
+            "forceSync": False,
+        }
+
+        response = self.session.delete(delete_url, headers=delete_args)
+        response.raise_for_status()
