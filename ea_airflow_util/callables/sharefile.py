@@ -255,9 +255,9 @@ def sharefile_copy_file(
         raise AirflowException(f"Failed to find Sharefile destination directory `{sharefile_dest_dir}`!")
     
     # If a directory is passed, iterate all top-level files in the path.
-    if os.path.splitext(sharefile_path)[-1]:
+    if sf_hook.item_info(sharefile_source_id)['odata.type'].endswith('Folder'):
         filepath_ids = [
-            res['ItemID']
+            res['Id']
             for res in sf_hook.get_children(sharefile_source_id)
             if not res['odata.type'].endswith('Folder')  # Remove folders from the listing.
         ]
