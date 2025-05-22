@@ -344,10 +344,11 @@ class SharefileHook(BaseHook):
             self.get_conn()
 
         delete_url = self.base_url + f"/Items({item_id})"
-        delete_args = {
-            "singleversion": False,
-            "forceSync": False,
-        }
+        # Default delete query parameters
+        # delete_args = {
+        #     "singleversion": "false",
+        #     "forceSync": "false",
+        # }
 
-        response = self.session.delete(delete_url, headers=delete_args)
+        response = self.session.delete(delete_url)
         response.raise_for_status()
