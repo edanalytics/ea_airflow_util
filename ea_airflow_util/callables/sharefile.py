@@ -236,9 +236,14 @@ def check_for_new_files(sharefile_conn_id: str, sharefile_path: str, num_expecte
         raise AirflowSkipException
 
 
-def sharefile_copy_file(sharefile_conn_id: str, sharefile_path: str, sharefile_dest_dir: str, delete_source: bool = False):
+def sharefile_copy_file(
+    sharefile_conn_id: str,
+    sharefile_path: str,
+    sharefile_dest_dir: str,
+    delete_source: bool = False,
+):
     """
-    Copy a single filepath to a directory on ShareFile.
+    Copy a file or the top-level contents of a directory to another directory on ShareFile.
     """
     sf_hook = SharefileHook(sharefile_conn_id)
 
@@ -249,11 +254,25 @@ def sharefile_copy_file(sharefile_conn_id: str, sharefile_path: str, sharefile_d
     if not (sharefile_dest_id := sf_hook.get_path_id(sharefile_dest_dir)):
         raise AirflowException(f"Failed to find Sharefile destination directory `{sharefile_dest_dir}`!")
     
-    logging.info(f"Copying file `{sharefile_path}` to directory `{sharefile_dest_dir}`...")
-    sf_hook.copy_file(sharefile_source_id, sharefile_dest_id)
+    # If a directory is passed, iterate all top-level files in the path.
+    if os.path.splitext(sharefile_path)[-1]:
+        filepath_ids = [
+            res['ItemID']
+            for res in sf_hook.get_children(sharefile_source_id)
+            if not res['odata.type'].endswith('Folder')  # Remove folders from the listing.
+        ]
+    else:
+        filepath_ids = [sharefile_source_id]
 
-    # Optionally delete the file in its original locations (i.e., a MOVE instead of a COPY).
+    # Complete the copy for all files.
+    logging.info(f"Copying {len(filepath_ids)} file(s) from `{sharefile_path}` to directory `{sharefile_dest_dir}`...")
     if delete_source:
-        logging.info(f"Deleting file `{sharefile_path}`...")
-        sf_hook.delete_file(sharefile_source_id)
+        logging.info(f"Note: each file will be deleted from `{sharefile_path}` after successful copy.")
+
+    for filepath_id in filepath_ids:
+        sf_hook.copy_file(filepath_id, sharefile_dest_id)
+
+        # Optionally delete the file in its original locations (i.e., a MOVE instead of a COPY).
+        if delete_source:
+            sf_hook.delete_file(filepath_id)
     
