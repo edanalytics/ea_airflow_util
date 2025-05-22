@@ -236,24 +236,24 @@ def check_for_new_files(sharefile_conn_id: str, sharefile_path: str, num_expecte
         raise AirflowSkipException
 
 
-def sharefile_copy_file(sharefile_conn_id: str, sharefile_path: str, sharefile_dest_path: str, delete_source: bool = False):
+def sharefile_copy_file(sharefile_conn_id: str, sharefile_path: str, sharefile_dest_dir: str, delete_source: bool = False):
     """
-    TODO:
-    - Should sharefile_dest_path be a directory or the resulting filepath?
-    - How is the copied file named?
+    Copy a single filepath to a directory on ShareFile.
     """
     sf_hook = SharefileHook(sharefile_conn_id)
 
     # Find internal IDs for source and destination paths.
     if not (sharefile_source_id := sf_hook.get_path_id(sharefile_path)):
-        raise AirflowException(f"failed to find Sharefile source path {sharefile_path}")
+        raise AirflowException(f"Failed to find Sharefile source path `{sharefile_path}`!")
     
-    if not (sharefile_dest_id := sf_hook.get_path_id(sharefile_dest_path)):
-        raise AirflowException(f"failed to find Sharefile destination path {sharefile_dest_path}")
+    if not (sharefile_dest_id := sf_hook.get_path_id(sharefile_dest_dir)):
+        raise AirflowException(f"Failed to find Sharefile destination directory `{sharefile_dest_dir}`!")
     
+    logging.info(f"Copying file `{sharefile_path}` to directory `{sharefile_dest_dir}`...")
     sf_hook.copy_file(sharefile_source_id, sharefile_dest_id)
 
     # Optionally delete the file in its original locations (i.e., a MOVE instead of a COPY).
     if delete_source:
+        logging.info(f"Deleting file `{sharefile_path}`...")
         sf_hook.delete_file(sharefile_source_id)
     
