@@ -99,18 +99,22 @@ class SSMParameterStore:
         for page in pager:
             for p in page['Parameters']:
 
-                # If a wildcard is in the prefix string, extract and set the tenant code as the first path element.
-                # Replace "{tenant_code}" in the user-prefix with a Regex wildcard capture group and extract the dynamic value.
-                # Add the inferred tenant and everything that follows it to the path keys.
-                if self.TENANT_REPR in self._prefix:
-                    inferred_tenant = re.search(self._prefix.replace(self.TENANT_REPR, "(.*)"), p['Name']).group(1)
-                    inferred_prefix = self._prefix.replace(self.TENANT_REPR, inferred_tenant)
-                    paths = [inferred_tenant, *p['Name'][len(inferred_prefix):].split('/')]
+                # Escape uninvestigated error: AttributeError: 'NoneType' object has no attribute 'group'
+                try:
+                    # If a wildcard is in the prefix string, extract and set the tenant code as the first path element.
+                    # Replace "{tenant_code}" in the user-prefix with a Regex wildcard capture group and extract the dynamic value.
+                    # Add the inferred tenant and everything that follows it to the path keys.
+                    if self.TENANT_REPR in self._prefix:
+                        inferred_tenant = re.search(self._prefix.replace(self.TENANT_REPR, "(.*)"), p['Name']).group(1)
+                        inferred_prefix = self._prefix.replace(self.TENANT_REPR, inferred_tenant)
+                        paths = [inferred_tenant, *p['Name'][len(inferred_prefix):].split('/')]
 
-                else:
-                    paths = p['Name'][len(self._prefix):].split('/')
+                    else:
+                        paths = p['Name'][len(self._prefix):].split('/')
 
-                self._update_keys(self._keys, paths)
+                    self._update_keys(self._keys, paths)
+                except:
+                    continue
             
             time.sleep(1)
 
