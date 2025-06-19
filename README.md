@@ -522,13 +522,11 @@ Additional `EACustomDAG` arguments (e.g. `slack_conn_id`) can be passed as kwarg
 s3_to_snowflake_dags__default_args: &s3_to_snowflake_dags__default_args
   default_args: *default_task_args
   schedule_interval: null
-  start_date: '2022-08-01'
   database: raw
   schema: external
   s3_source_conn_id: 'external_s3'
   s3_dest_conn_id: 'data_lake'
   transform_script: '/home/airflow/airflow/dags/util/csv_to_json.py'
-  slack_conn_id: null
   snowflake_conn_id: 'snowflake'
   pool: 'external_pulls'
   s3_dest_file_extension: '.json'
@@ -545,15 +543,6 @@ s3_to_snowflake_dags:
       2021:
         resource_names:
           - cdip_matriculation
-          - concurrent_enrollment
-        <<: *s3_to_snowflake_dags__default_args  
-      2022:
-        resource_names:
-          - cdip_matriculation
-          - concurrent_enrollment
-        <<: *s3_to_snowflake_dags__default_args  
-      2023:
-        resource_names:
           - concurrent_enrollment
         <<: *s3_to_snowflake_dags__default_args        
 ```
@@ -635,7 +624,6 @@ sftp_to_snowflake_dags__default_args: &sftp_to_snowflake_dags__default_args
   schema: external
   s3_conn_id: 'data_lake'
   full_replace: True
-  slack_conn_id: null
   snowflake_conn_id: 'snowflake'
   pool: 'external_pulls'
   domain: 'ccr'
@@ -655,17 +643,7 @@ sftp_to_snowflake_dags:
     2025:
       xello_career_interests:
         file_pattern: '*StudentDataForHax*'
-        <<: *sftp_to_snowflake_dags__default_args
-  lone_star_sd:
-    2025:
-      xello_career_interests:
-        file_pattern: '*StudentDataForLone*'        
-        <<: *sftp_to_snowflake_dags__default_args
-  wiggins_sd:
-    2025:
-      xello_career_interests:
-        file_pattern: '*StudentDataForWiggins*'
-        <<: *sftp_to_snowflake_dags__default_args      
+        <<: *sftp_to_snowflake_dags__default_args   
 ```
 
 </details>
