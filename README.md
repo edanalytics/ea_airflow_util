@@ -623,7 +623,95 @@ For example, `/ed-fi/apiClients/districts-2425-ds5/{tenant_code}/prod/Stadium` w
 
 </details>
 
+## SharefileTransferToSnowflakeDagBuilder
+`SharefileTransferToSnowflakeDag` is an Airflow DAG that automates the process of transferring files from ShareFile to Snowflake. The DAG retrieves files from a specified ShareFile location, optionally transforms CSV files into JSONL format, uploads the files to an S3 bucket, and finally loads the data into a Snowflake database.
 
+<details>
+<summary>Arguments:</summary>
+
+-----
+
+| Argument                | Description                                                              |
+|-------------------------|--------------------------------------------------------------------------|
+| dag_id                  | Unique identifier for the DAG                                            |
+| airflow_default_args    | Default Airflow arguments for the DAG                                    |
+| file_sources            | Dictionary of file sources and their ShareFile paths (more info in Example Yaml File section)                    |
+| local_base_path         | Base path for storing downloaded files locally                           |
+| sharefile_conn_id       | Airflow connection ID for ShareFile                                      |
+| base_s3_destination_key | S3 key prefix for storing uploaded files                                 |
+| s3_conn_id              | Airflow connection ID for AWS S3                                         |
+| snowflake_conn_id       | Airflow connection ID for Snowflake                                      |
+| database                | Snowflake database where data will be loaded                             |
+| schema                  | Snowflake schema where data will be loaded                               |
+| full_refresh            | Boolean flag indicating whether to perform a full table refresh          |
+| schedule_interval       | DAG execution schedule (default is None)                                 |
+| transform_csv_to_jsonl  | Boolean flag to convert CSV files to JSONL before uploading to S3        |
+| delete_remote           | Boolean flag to delete the original file from ShareFile after transfer   |
+| delete_local_csv        | Boolean flag to delete the local CSV file after transformation           |
+
+Additional `EACustomDAG` arguments (e.g. `slack_conn_id`) can be passed as kwargs.
+
+-----
+
+</details>
+
+<details>
+<summary>Example Yaml File:</summary>
+
+```yaml
+default_args:
+    owner: 
+    run_as_user: 
+    depends_on_past: 
+    start_date:
+    email:
+    email_on_failure: False
+    retries: 0
+    trigger_rule: 
+    retry_delay:
+    execution_timeout: 
+    sla: 
+
+connections:
+  s3:
+    s3_conn_id:
+    s3_bucket : 
+    s3_region : 
+    base_s3_destination_key: 
+  snowflake:
+    snowflake_conn_id: 
+    snowflake_stage  : 
+    snowflake_db     : 
+    snowflake_schema : 
+  sharefile:
+    sharefile_conn_id: 
+    sharefile_base_path: 
+
+variables:
+  tmp_dir: 
+  local_path: 
+  schedule_interval:
+  delete_remote: 
+
+file_sources: 
+  filename1:
+      sharefile_path: /Path/to/document/folder/
+      dest_table: schema.table
+      truncate: True
+      colnames:
+          - col1
+          - col2
+          - col3
+  filename2:
+      sharefile_path: /Path/to/document/folder/
+      dest_table: schema.table
+      truncate: True
+      colnames:
+          - col1
+          - col2
+          - col3
+```
+</details>
 
 # Providers
 Finally, this package contains a handful of custom DBT operators to be used as an alternative to PythonOperators.
