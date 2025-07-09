@@ -163,7 +163,7 @@ Helpers when interfacing with Sharefile
 ### list_sharefile_objects(sharefile_conn_id, remote_dir)
 List object names in a specified Sharefile directory.
 
-### sharefile_to_disk(sharefile_conn_id, sharefile_path, local_path, ds_nodash, ts_nodash, delete_remote=False, file_pattern=None)
+### sharefile_to_disk(sharefile_conn_id, sharefile_path, local_path, ds_nodash, ts_nodash, delete_remote=False, file_pattern=None, recursive=True)
 Transfer all files from a ShareFile folder to a local date-stamped directory, optionally deleting the remote copy.
 
 ### disk_to_sharefile(sf_conn_id, sf_folder_path, local_path)

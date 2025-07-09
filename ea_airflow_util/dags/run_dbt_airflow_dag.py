@@ -51,6 +51,10 @@ class RunDbtDag:
         full_refresh: bool = False,
         full_refresh_schedule: Optional[str] = None,
 
+        seed_vars: Optional[dict] = None,
+        run_vars: Optional[dict] = None,
+        test_vars: Optional[dict] = None,
+
         opt_swap: bool = False,
         opt_dest_schema: Optional[str] = None,
         opt_swap_target: Optional[str] = None,
@@ -71,6 +75,11 @@ class RunDbtDag:
         # full refreshes schedules 
         self.full_refresh = full_refresh
         self.full_refresh_schedule = full_refresh_schedule
+
+        # run-time vars
+        self.seed_vars = seed_vars
+        self.run_vars = run_vars
+        self.test_vars = run_vars
 
         # bluegreen
         self.opt_swap        = opt_swap
@@ -166,6 +175,7 @@ class RunDbtDag:
                 dbt_bin= self.dbt_bin_path,
                 trigger_rule='all_success',
                 full_refresh=True,
+                vars=self.seed_vars,
                 dag=self.dag
             )
 
@@ -175,6 +185,7 @@ class RunDbtDag:
                 target = self.dbt_target_name,
                 dbt_bin= self.dbt_bin_path,
                 full_refresh=self.full_refresh,
+                vars=self.run_vars,
                 dag=self.dag
             )
 
@@ -183,6 +194,7 @@ class RunDbtDag:
                 dir    = self.dbt_repo_path,
                 target = self.dbt_target_name,
                 dbt_bin= self.dbt_bin_path,
+                vars=self.test_vars,
                 dag=self.dag
             )
 

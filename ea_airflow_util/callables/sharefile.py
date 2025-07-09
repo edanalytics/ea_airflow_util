@@ -33,6 +33,7 @@ def sharefile_to_disk(
     ds_nodash: Optional[str] = None,  # Deprecated
     ts_nodash: Optional[str] = None,  # Deprecated
     delete_remote: bool = False,
+    recursive: bool = True,
     file_pattern: Optional[str] = None,
     **kwargs
 ):
@@ -55,10 +56,30 @@ def sharefile_to_disk(
     sf_hook = SharefileHook(sharefile_conn_id)
     sf_hook.get_conn()
 
-    # get the item id of the remote path, find all files within that path (up to 1000)
+    # get the item id of the remote path, find all files within that path
     try:
         base_path_id = sf_hook.get_path_id(sharefile_path)
-        remote_files = sf_hook.find_files(base_path_id)
+
+        # The default approach finds files in all subdirectories recursively.
+        if recursive:
+            remote_files = sf_hook.find_files(base_path_id)
+        
+        # `get_children` returns only top-level items, but with a different payload schema.
+        else:
+            remote_children = sf_hook.get_children(base_path_id)
+            remote_files = []
+
+            for res in remote_children:
+
+                # Folders are returned alongside items and must be filtered.
+                if res['odata.type'].endswith('Folder'):
+                    continue
+
+                res['ParentID'] = base_path_id
+                res['ParentSemanticPath'] = sharefile_path
+                res['ItemID'] = res['Id']
+                remote_files.append(res)
+
     except requests.exceptions.HTTPError as err:
         raise AirflowSkipException(
             f"{err.response.status_code} {err.response.text}: {sharefile_path}"
@@ -127,7 +148,7 @@ def disk_to_sharefile(sf_conn_id: str, sf_folder_path: str, local_path: str):
     """Post a file or the contents of a directory to the specified Sharefile folder"""
     sf_hook = SharefileHook(sf_conn_id )
 
-    sf_folder_id = sf_hook.folder_id_from_path(sf_folder_path)
+    sf_folder_id = sf_hook.get_path_id(sf_folder_path)
     if sf_folder_id is None:
         raise AirflowException(f"failed to find Sharefile folder {sf_folder_path}")
 
@@ -213,3 +234,45 @@ def check_for_new_files(sharefile_conn_id: str, sharefile_path: str, num_expecte
     if new_file_count == 0:
         logging.info(f"No new files in '{sharefile_path}' since last run.")
         raise AirflowSkipException
+
+
+def sharefile_copy_file(
+    sharefile_conn_id: str,
+    sharefile_path: str,
+    sharefile_dest_dir: str,
+    delete_source: bool = False,
+):
+    """
+    Copy a file or the top-level contents of a directory to another directory on ShareFile.
+    """
+    sf_hook = SharefileHook(sharefile_conn_id)
+
+    # Find internal IDs for source and destination paths.
+    if not (sharefile_source_id := sf_hook.get_path_id(sharefile_path)):
+        raise AirflowException(f"Failed to find Sharefile source path `{sharefile_path}`!")
+    
+    if not (sharefile_dest_id := sf_hook.get_path_id(sharefile_dest_dir)):
+        raise AirflowException(f"Failed to find Sharefile destination directory `{sharefile_dest_dir}`!")
+    
+    # If a directory is passed, iterate all top-level files in the path.
+    if sf_hook.item_info(sharefile_source_id)['odata.type'].endswith('Folder'):
+        filepath_ids = [
+            res['Id']
+            for res in sf_hook.get_children(sharefile_source_id)
+            if not res['odata.type'].endswith('Folder')  # Remove folders from the listing.
+        ]
+    else:
+        filepath_ids = [sharefile_source_id]
+
+    # Complete the copy for all files.
+    logging.info(f"Copying {len(filepath_ids)} file(s) from `{sharefile_path}` to directory `{sharefile_dest_dir}`...")
+    if delete_source:
+        logging.info(f"Note: each file will be deleted from `{sharefile_path}` after successful copy.")
+
+    for filepath_id in filepath_ids:
+        sf_hook.copy_file(filepath_id, sharefile_dest_id)
+
+        # Optionally delete the file in its original locations (i.e., a MOVE instead of a COPY).
+        if delete_source:
+            sf_hook.delete_file(filepath_id)
+    
