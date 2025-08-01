@@ -1,42 +1,40 @@
-import logging
 import os
-from datetime import datetime
-from typing import Callable, List, Optional, Union
+import logging
 
-from airflow import DAG
-from airflow.models import Param
+from typing import Callable
+
+from airflow.models.param import Param
 from airflow.operators.python import PythonOperator
+from airflow.utils.task_group import TaskGroup
 
-from edu_edfi_airflow.callables import s3
-
+from ea_airflow_util.callables import jsonl, s3
 from ea_airflow_util.callables.airflow import skip_if_not_in_params_list
-from ea_airflow_util.callables import jsonl, snowflake
+from ea_airflow_util.callables.airflow import xcom_pull_template
 from ea_airflow_util.providers.sharefile.transfers.sharefile_to_disk import SharefileToDiskOperator
 from ea_airflow_util.providers.aws.operators.s3 import S3ToSnowflakeOperator
-from ea_airflow_util.callables.airflow import xcom_pull_template
-from ea_airflow_util.providers.sharefile.hooks.sharefile import SharefileHook
+from ea_airflow_util.dags.ea_custom_dag import EACustomDAG
 
-from airflow.providers.amazon.aws.hooks.s3 import S3Hook
-from ea_airflow_util import EACustomDAG
 
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
 
-class SharefileTransferToSnowflakeDagBuilder:
+class SharefileToSnowflakeDag:
     """
-    This class is responsible for creating an Apache Airflow DAG that automates the process of transferring
-    files from ShareFile to Snowflake. 
+    This class is responsible for creating an Apache Airflow DAG that automates
+    the process of transferring files from ShareFile to Snowflake. 
 
     Parameters:
         - dag_id (str): ID of the DAG to be created.
         - airflow_default_args (dict): Default arguments to pass to the DAG.
-        - file_sources (dict): A mapping of file source names to their ShareFile paths.
+        - file_sources (dict): A mapping of file source names to metadata
+            including their ShareFile paths and target Snowflake tables.
         - local_base_path (str): Base local path for downloading files.
         - sharefile_conn_id (str): Airflow connection ID for ShareFile.
-        - base_s3_destination_key (str): Base S3 key (path prefix) for uploads.
         - s3_conn_id (str): Airflow connection ID for AWS S3.
+        - s3_bucket (str): TODO
+        - s3_key (str): TODO
         - snowflake_conn_id (str): Airflow connection ID for Snowflake.
         - database (str): Snowflake database name.
         - schema (str): Snowflake schema name.
@@ -56,6 +54,7 @@ class SharefileTransferToSnowflakeDagBuilder:
                 sharefile_conn_id: str,
                 base_s3_destination_key: str,
                 s3_conn_id: str,
+                s3_bucket: str,
                 snowflake_conn_id: str,
                 database: str,
                 schema: str,
@@ -82,6 +81,7 @@ class SharefileTransferToSnowflakeDagBuilder:
 
         self.base_s3_destination_key = base_s3_destination_key
         self.s3_conn_id = s3_conn_id
+        self.s3_bucket = s3_bucket
 
         self.snowflake_conn_id = snowflake_conn_id
         self.database = database
@@ -97,8 +97,8 @@ class SharefileTransferToSnowflakeDagBuilder:
                 examples=list(self.file_sources.keys()),
                 type="array",
                 description="Newline-separated list of file sources to pull from ShareFile",
-                ),
-                }
+            ),
+        }
 
         self.dag = EACustomDAG(dag_id=self.dag_id, 
                                default_args=self.airflow_default_args, 
@@ -107,6 +107,7 @@ class SharefileTransferToSnowflakeDagBuilder:
                                catchup=False
                                )
     
+    # TODO: Can this be moved somewhere else?
     def build_python_operator(self,
                               python_callable: Callable,
                               **kwargs
@@ -142,72 +143,76 @@ class SharefileTransferToSnowflakeDagBuilder:
         Returns:
             airflow.DAG: The constructed Airflow DAG instance.
         """
-        for file, details in self.file_sources.items():
+        for file_source, details in self.file_sources.items():
+            
+            with TaskGroup(group_id=file_source, dag=self.dag) as task_group:
 
-            check_if_file_in_param = PythonOperator(
-                task_id=f"check_{file}",
-                python_callable=skip_if_not_in_params_list,
-                op_kwargs={
-                    'param_name': "file_sources", 
-                    'value': file
+                check_if_file_in_param = PythonOperator(
+                    task_id=f"check_{file_source}",
+                    python_callable=skip_if_not_in_params_list,
+                    op_kwargs={
+                        'param_name': "file_sources", 
+                        'value': file_source,
                     },
-                dag=self.dag,
-                **kwargs
+                    dag=self.dag,
+                    **kwargs
                 )
 
-            transfer_sharefile_to_disk = SharefileToDiskOperator(
-                task_id=f"transfer_{file}_to_disk",
-                sharefile_conn_id=self.sharefile_conn_id,
-                sharefile_path=details['sharefile_path'],
-                local_path=os.path.join(self.local_base_path, '{{ds_nodash}}', '{{ts_nodash}}', file),
-                delete_remote=self.delete_remote,
-                dag=self.dag,
-                **kwargs
+                sharefile_to_disk = SharefileToDiskOperator(
+                    task_id=f"transfer_{file_source}_to_disk",
+                    sharefile_conn_id=self.sharefile_conn_id,
+                    sharefile_path=details['sharefile_path'],
+                    local_path=os.path.join(self.local_base_path, '{{ds_nodash}}', '{{ts_nodash}}', file_source),
+                    delete_remote=self.delete_remote,
+                    dag=self.dag,
+                    **kwargs
                 )
-            
-            transform_to_jsonl = PythonOperator(
-                task_id=f"transform_{file}_to_jsonl",
-                python_callable=jsonl.translate_csv_file_to_jsonl,
-                op_kwargs={
-                    'local_path': xcom_pull_template(transfer_sharefile_to_disk),
-                    'output_path': None,
-                    'delete_csv': self.delete_local_csv,
-                    'metadata_dict': {'file_source': file},
-                },
-                dag=self.dag,
-                **kwargs
+                
+                transform_to_jsonl = PythonOperator(
+                    task_id=f"transform_{file_source}_to_jsonl",
+                    python_callable=jsonl.translate_csv_file_to_jsonl,
+                    op_kwargs={
+                        'local_path': xcom_pull_template(sharefile_to_disk),
+                        'output_path': None,
+                        'delete_csv': self.delete_local_csv,
+                        'metadata_dict': {'file_source': file_source},
+                    },
+                    dag=self.dag,
+                    **kwargs
                 )
-            
-            transfer_disk_to_s3 = PythonOperator(
-                task_id=f"transfer_{file}_to_s3",
-                python_callable=s3.local_filepath_to_s3,
-                op_kwargs={
-                    'local_filepath': xcom_pull_template(transfer_sharefile_to_disk),
-                    's3_destination_key': f"{self.base_s3_destination_key}/" + '{{ds_nodash}}' + "/" + '{{ts_nodash}}' + f"/{file}",
-                    's3_conn_id': self.s3_conn_id
-                },
-                dag=self.dag,
-                **kwargs
-                )
-            
-            if not self.transfer_s3_to_snowflake:
-                transfer_s3_to_snowflake = S3ToSnowflakeOperator(
-                    task_id=f"{file}_s3_to_snowflake",
-                    snowflake_conn_id=self.snowflake_conn_id,
-                    database=self.database,
-                    schema=self.schema,
-                    table_name=file,
-                    s3_destination_key=self.base_s3_destination_key,
-                    full_refresh=self.full_refresh,
+                
+                transfer_disk_to_s3 = PythonOperator(
+                    task_id=f"transfer_{file_source}_to_s3",
+                    python_callable=s3.disk_to_s3,
+                    op_kwargs={
+                        's3_conn_id': self.s3_conn_id,
+                        'bucket': self.s3_bucket,
+                        'base_dir': f"{self.base_s3_destination_key}/" + '{{ds_nodash}}' + "/" + '{{ts_nodash}}' + f"/{file_source}",
+                        'local_path': xcom_pull_template(sharefile_to_disk),
+                        'delete_local': False,
+                    },
                     dag=self.dag,
                     **kwargs
                     )
-            else: 
-                transfer_s3_to_snowflake = self.build_python_operator(self.transfer_s3_to_snowflake)
-            
-            if self.transform_csv_to_jsonl:
-                check_if_file_in_param >> transfer_sharefile_to_disk >> transform_to_jsonl >> transfer_disk_to_s3 >> transfer_s3_to_snowflake
-            else:
-                check_if_file_in_param >> transfer_sharefile_to_disk >> transfer_disk_to_s3 >> transfer_s3_to_snowflake
+                
+                if not self.transfer_s3_to_snowflake:
+                    transfer_s3_to_snowflake = S3ToSnowflakeOperator(
+                        task_id=f"{file_source}_s3_to_snowflake",
+                        snowflake_conn_id=self.snowflake_conn_id,
+                        database=self.database,
+                        schema=self.schema,
+                        table_name=details['snowflake_table'],
+                        s3_destination_key=self.base_s3_destination_key,
+                        full_refresh=self.full_refresh,
+                        dag=self.dag,
+                        **kwargs
+                        )
+                else: 
+                    transfer_s3_to_snowflake = self.build_python_operator(self.transfer_s3_to_snowflake)
+                
+                if self.transform_csv_to_jsonl:
+                    check_if_file_in_param >> sharefile_to_disk >> transform_to_jsonl >> transfer_disk_to_s3 >> transfer_s3_to_snowflake
+                else:
+                    check_if_file_in_param >> sharefile_to_disk >> transfer_disk_to_s3 >> transfer_s3_to_snowflake
 
         return self.dag
