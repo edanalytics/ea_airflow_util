@@ -37,6 +37,7 @@ class SharefileToSnowflakeDag:
             
             name (str): A name for the Sharefile file source.
             sharefile_path (str): A file or folder path in Sharefile.
+            local_path (str): A file path to stage the file in locally.
             snowflake_table (str): A Snowflake table name to load the Sharefile
                 source file(s) to.
             metadata_fields (dict, optional): A mapping of metadata field names
@@ -148,12 +149,7 @@ class SharefileToSnowflakeDag:
                     task_id=f"{file_source['name']}_to_disk",
                     sharefile_conn_id=self.sharefile_conn_id,
                     sharefile_path=file_source['sharefile_path'],
-                    local_path=os.path.join(
-                        self.local_base_path,
-                        '{{ ds_nodash }}',
-                        '{{ ts_nodash }}',
-                        file_source['name']
-                    ),
+                    local_path=file_source['local_path'],
                     delete_remote=self.delete_remote,
                     dag=self.dag
                 )
@@ -164,7 +160,7 @@ class SharefileToSnowflakeDag:
                     op_kwargs={
                         'local_path': xcom_pull_template(sharefile_to_disk),
                         'output_path': None,
-                        # Prevents loading duplicate csv and jsonl files TODO: Actually?
+                        # Subsequent tasks break if csv's are retained
                         'delete_csv': True,
                     },
                     dag=self.dag
