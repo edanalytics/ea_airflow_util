@@ -60,10 +60,11 @@ class SharefileToSnowflakeDag:
         self,
         group_id,
         sharefile_source_path,
-        sharefile_processed_path,
         local_rel_path,
         snowflake_table,
+        sharefile_processed_path=None,
         txt_delimiter=',',
+        txt_has_header=True,
         txt_columns=None,
         custom_metadata={},
         full_refresh=False,
@@ -81,7 +82,8 @@ class SharefileToSnowflakeDag:
         - group_id (str): A name for the Airflow task group.
         - sharefile_source_path (str): A Sharefile path to extract data from.
         - sharefile_processed_path (str): A Sharefile path to move files to
-            after they have been processed.
+            after they have been processed. If None, do not move processed
+            files. Default is None.
         - local_rel_path (str): A local relative path to stage data in with 
             respect to the class's local_base_path. This is also used to
             determine the staging S3 destination relative to the class's S3
@@ -89,9 +91,13 @@ class SharefileToSnowflakeDag:
         - snowflake_table (str): A Snowflake table name to write data to.
         - txt_delimiter (str): A text delimiter used in the txt files to load.
             Default is ','.
+        - txt_has_header (str): If True, uses the first row of the txt file as
+            a column header. If False, inserts a column header based on the txt
+            columns arg. Default is True.
         - txt_columns (str): An ordered list of column names in the txt files
-            to load. If 'None', then the first row of data is used as a column
-            header. Default is 'None'.
+            to load. If None and txt_has_header is False, then columns are
+            labeled using integers (i.e. 1, 2, 3, ..., n, where n is the number
+            of columns). Default is None.
         - custom_metadata (dict): A mapping of metadata field names to values
             to include in the target Snowflake table.
         - full_refresh (bool): If True, performs a full refresh load in
@@ -117,9 +123,11 @@ class SharefileToSnowflakeDag:
                     'path_in': xcom_pull_template(sharefile_to_disk),
                     'path_out': None,
                     'delimiter': txt_delimiter,
+                    'has_header': txt_has_header,
                     'column_names': txt_columns,
                     # S3 to Snowflake task breaks if non-jsonl file retained
-                    'delete_txt': True
+                    'delete_txt': True,
+                    'include_subdirs': False,
                 },
                 dag=self.dag
             )
@@ -173,14 +181,23 @@ class SharefileToSnowflakeDag:
                 },
                 dag=self.dag
             )
-
-            (
-                sharefile_to_disk
-                >> txt_to_csv
-                >> csv_to_jsonl
-                >> disk_to_s3
-                >> s3_to_snowflake
-                >> move_to_processed
-            )
+            
+            if sharefile_processed_path is not None:
+                (
+                    sharefile_to_disk
+                    >> txt_to_csv
+                    >> csv_to_jsonl
+                    >> disk_to_s3
+                    >> s3_to_snowflake
+                    >> move_to_processed
+                )
+            else:
+                (
+                    sharefile_to_disk
+                    >> txt_to_csv
+                    >> csv_to_jsonl
+                    >> disk_to_s3
+                    >> s3_to_snowflake
+                )
 
             self.sharefile_task_groups.append(task_group)
