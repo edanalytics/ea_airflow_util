@@ -168,21 +168,28 @@ class SharefileToSnowflakeDag:
                 full_refresh=full_refresh,
                 dag=self.dag
             )
-
-            # Move processed files to specific Sharefile location
-            move_to_processed = PythonOperator(
-                task_id=f'move_to_processed',
-                python_callable=sharefile_copy_file,
-                op_kwargs={
-                    'sharefile_conn_id': self.sharefile_conn_id,
-                    'sharefile_path': sharefile_source_path,
-                    'sharefile_dest_dir': sharefile_processed_path,
-                    'delete_source': True,
-                },
-                dag=self.dag
-            )
             
-            if sharefile_processed_path is not None:
+            if sharefile_processed_path is None:
+                (
+                    sharefile_to_disk
+                    >> txt_to_csv
+                    >> csv_to_jsonl
+                    >> disk_to_s3
+                    >> s3_to_snowflake
+                )
+            else:
+                # Move processed files to specific Sharefile location
+                move_to_processed = PythonOperator(
+                    task_id=f'move_to_processed',
+                    python_callable=sharefile_copy_file,
+                    op_kwargs={
+                        'sharefile_conn_id': self.sharefile_conn_id,
+                        'sharefile_path': sharefile_source_path,
+                        'sharefile_dest_dir': sharefile_processed_path,
+                        'delete_source': True,
+                    },
+                    dag=self.dag
+                )
                 (
                     sharefile_to_disk
                     >> txt_to_csv
@@ -190,14 +197,6 @@ class SharefileToSnowflakeDag:
                     >> disk_to_s3
                     >> s3_to_snowflake
                     >> move_to_processed
-                )
-            else:
-                (
-                    sharefile_to_disk
-                    >> txt_to_csv
-                    >> csv_to_jsonl
-                    >> disk_to_s3
-                    >> s3_to_snowflake
                 )
 
             self.sharefile_task_groups.append(task_group)
