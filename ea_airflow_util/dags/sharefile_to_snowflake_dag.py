@@ -116,6 +116,8 @@ class SharefileToSnowflakeDag:
                 dag=self.dag
             )
 
+            # TODO: Make this task a customizable preprocessing operator that
+            # gets passed to the build_task_group method
             txt_to_csv = PythonOperator(
                 task_id=f"txt_to_csv",
                 python_callable=ea_csv.txt_files_to_csv,
