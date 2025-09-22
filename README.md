@@ -738,6 +738,7 @@ level.
 | txt_columns              | An ordered list of column names in the txt files to load. If None and txt_has_header is False, then columns are labeled using integers (i.e. 1, 2, 3, ..., n, where n is the number of columns). Default is None. |
 | custom_metadata          | A mapping of metadata field names to values to include in the target Snowflake table.                                                                                                                             |
 | full_refresh             | If True, performs a full refresh load in Snowflake. Default is False.                                                                                                                                             |
+| csv_encoding             | Optional encoding to use for csv files. Default is 'utf-8'.                                                                                                                                                       |
 | **kwargs                 | Additional keyword arguments to pass to the task group.                                                                                                                                                           |
 
 -----

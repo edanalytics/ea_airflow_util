@@ -68,6 +68,7 @@ class SharefileToSnowflakeDag:
         txt_columns=None,
         custom_metadata={},
         full_refresh=False,
+        csv_encoding='utf-8',
         **kwargs
     ):
         """Builds a task group to load data from csv and txt files in a
@@ -102,6 +103,8 @@ class SharefileToSnowflakeDag:
             to include in the target Snowflake table.
         - full_refresh (bool): If True, performs a full refresh load in
             Snowflake. Default is False.
+        - csv_encoding (str): Optional encoding to use for csv files. Default is
+            'utf-8'.
         - **kwargs: Additional keyword arguments to pass to the task group.
         """
 
@@ -142,6 +145,7 @@ class SharefileToSnowflakeDag:
                     'output_path': None,
                     # S3 to Snowflake task breaks if non-jsonl file retained
                     'delete_csv': True,
+                    'csv_encoding': csv_encoding,
                 },
                 dag=self.dag
             )

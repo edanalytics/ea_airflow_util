@@ -60,6 +60,7 @@ def translate_csv_file_to_jsonl(
     delete_csv : bool = False,
     metadata_dict: Optional[dict] = None,
     to_snake_case: bool = False,
+    csv_encoding: str = 'utf-8',
     **kwargs
 ):
     """
@@ -95,7 +96,7 @@ def translate_csv_file_to_jsonl(
                 output_path_new = output_path
 
             try:
-                with open(full_local_path, 'r') as reader:
+                with open(full_local_path, 'r', encoding=csv_encoding) as reader:
                     json_records = csv.DictReader(reader)
                     serialize_json_records_to_disk(json_records, output_path_new, "w", metadata_dict, to_snake_case, **kwargs)
             except UnicodeDecodeError:
