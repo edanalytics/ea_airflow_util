@@ -58,6 +58,67 @@ Raise an error if a name-collision occurs after formatting.
 </details>
 
 
+## ea_csv
+Helpers for working with csv's.
+
+<details>
+<summary>See more:</summary>
+
+-----
+
+### txt_to_csv
+Convert a txt file to a csv.
+    
+Args:
+- file_in (str): A path to a txt file.
+- file_out (str): A path to a csv file. If 'None', then the input file path
+    is used.
+- delimiter (str): A txt file delimiter.
+- has_header (bool): If True, use the first row of the txt file as a column
+    header. If False, insert a column header using the column_names arg.
+    Default is True.
+- column_names (list[str]): An ordered list of column names to use in the
+    output csv. If 'None' and has_header is False, insert an ordered,
+    integer column header (e.g. 1, 2, ..., n where n is the number of
+    columns).
+- delete_txt (bool): If True, delete the input txt file.
+
+Returns:
+- file_out (str): A csv file path.
+
+### txt_files_to_csv
+Convert all txt files in a directory to csv files. Also works with a 
+single txt file path and can be optionally configured to process files in
+all subdirectories.
+
+Args:
+- path_in (str): A file or directory path containing zero or more txt files.
+- path_out (str): A file or directory path to write csv file(s) to. If
+    'None', then the input path is used. Note that a file will retain its
+    original names except with a .csv extension.
+- delimiter (str): A txt file delimiter. Note that this function assumes
+    that all txt files in an input directory use the same delimiter.
+- has_header (bool): If True, use the first row of the txt file(s) as a 
+    column header. If False, insert a column header using the column_names
+    arg. Default is True.
+- column_names (list[str]): An ordered list of column names to use in the
+    output csv(s). If 'None' and has_header is False, insert an ordered,
+    integer column header (e.g. 1, 2, ..., n where n is the number of
+    columns).
+- delete_txt (bool): If True, delete all of the input txt files.
+- include_subdirs (bool): If True, process all files in all subdirectories.
+    If False, only process files in the top level of the specified
+    directory. Default is False.
+
+Returns:
+- path_out (str): A file or directory path containing the output csv
+    file(s).
+
+-----
+
+</details>
+
+
 ## ftp
 FTP- and SFTP-utility helpers
 
@@ -623,7 +684,113 @@ For example, `/ed-fi/apiClients/districts-2425-ds5/{tenant_code}/prod/Stadium` w
 
 </details>
 
+## SharefileToSnowflakeDag
+`SharefileToSnowflakeDag` is an Airflow DAG that automates the process of 
+transferring files from ShareFile to Snowflake. The DAG retrieves txt and csv 
+files from a specified ShareFile location, transforms them into JSONL format,
+uploads the files to an S3 bucket, and finally loads the data into a Snowflake 
+database.
 
+<details>
+<summary>Arguments:</summary>
+
+-----
+
+| Argument                | Description                                                              |
+|-------------------------|--------------------------------------------------------------------------|
+| sharefile_conn_id       | A Sharefile connection ID.                                               |
+| local_base_path         | A base local path for downloading files.                                 |
+| s3_conn_id              | An Airflow connection ID for AWS S3.                                     |
+| s3_bucket               | An S3 bucket where to stage files.                                       |
+| snowflake_conn_id       | An Airflow connection ID for Snowflake.                                  |
+| snowflake_database      | A Snowflake database name.                                               |
+| snowflake_schema        | A Snowflake schema name.                                                 |
+| **kwargs                | Additional arguments to pass to the Airflow DAG.                         |
+
+-----
+
+</details>
+
+<details>
+<summary>Methods:</summary>
+
+-----
+
+**build_task_group()**
+
+Builds a task group to load data from csv and txt files in a
+Sharefile directory to a Snowflake table.
+
+Note that the arguments specified here are relative to the class
+arguments provided at instantiation. For example, the sharefile_path
+argument is relative to the sharefile_conn_id specified at the class
+level.
+
+| Argument                 | Description                                                                                                                                                                                                       |
+|--------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| group_id                 | A name for the Airflow task group.                                                                                                                                                                                |
+| sharefile_source_path    | A Sharefile path to extract data from.                                                                                                                                                                            |
+| sharefile_processed_path | A Sharefile path to move files to after they have been processed. If None, do not move processed files. Default is None.                                                                                          |
+| local_rel_path           | A local relative path to stage data in with  respect to the class's local_base_path. This is also used to determine the staging S3 destination relative to the class's S3 bucket.                                 |
+| snowflake_table          | A Snowflake table name to write data to.                                                                                                                                                                          |
+| txt_delimiter            | A text delimiter used in the txt files to load. Default is ','.                                                                                                                                                   |
+| txt_has_header           | If True, uses the first row of the txt file as a column header. If False, inserts a column header based on the txt columns arg. Default is True.                                                                  |
+| txt_columns              | An ordered list of column names in the txt files to load. If None and txt_has_header is False, then columns are labeled using integers (i.e. 1, 2, 3, ..., n, where n is the number of columns). Default is None. |
+| custom_metadata          | A mapping of metadata field names to values to include in the target Snowflake table.                                                                                                                             |
+| full_refresh             | If True, performs a full refresh load in Snowflake. Default is False.                                                                                                                                             |
+| csv_encoding             | Optional encoding to use for csv files. Default is 'utf-8'.                                                                                                                                                       |
+| **kwargs                 | Additional keyword arguments to pass to the task group.                                                                                                                                                           |
+
+-----
+
+</details>
+
+<details>
+<summary>Example Yaml File:</summary>
+
+```yaml
+default_args: &default_args
+  owner: 
+  run_as_user: 
+  depends_on_past: 
+  start_date:
+  email:
+  email_on_failure: False
+  retries: 0
+  trigger_rule: 
+  retry_delay:
+  execution_timeout: 
+  sla: 
+
+### Sharefile to Snowflake DAGs
+sharefile_to_snowflake_dags__default_args: &sharefile_to_snowflake_dags__default_args
+  sharefile_conn_id:
+  # Null here means processed files will not be moved in Sharefile
+  sharefile_processed_dir:
+ 
+  local_base_path:
+
+  s3_conn_id:
+  s3_bucket:
+
+  snowflake_conn_id:
+  snowflake_database:
+  snowflake_schema:
+
+  airflow_default_args: *default_task_args
+  schedule_interval: null
+
+sharefile_to_snowflake_dags:
+  resource_1:
+    <<: *sharefile_to_snowflake_dags__default_args
+    sharefile_base_path: path/to/folder
+    snowflake_table:
+  resource_2:
+    <<: *sharefile_to_snowflake_dags__default_args
+    sharefile_base_path: path/to/folder
+    snowflake_table:
+```
+</details>
 
 # Providers
 Finally, this package contains a handful of custom DBT operators to be used as an alternative to PythonOperators.
