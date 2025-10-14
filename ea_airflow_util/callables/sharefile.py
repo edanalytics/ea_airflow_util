@@ -275,4 +275,4 @@ def sharefile_copy_file(
         # Optionally delete the file in its original locations (i.e., a MOVE instead of a COPY).
         if delete_source:
             sf_hook.delete_file(filepath_id)
-
+    

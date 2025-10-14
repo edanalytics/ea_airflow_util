@@ -290,4 +290,4 @@ def delete_from_s3(
 
     logging.info('Deleting file from source s3')
 
-    s3_hook.delete_objects(bucket=s3_hook.get_connection(s3_conn_id).schema, keys=s3_keys_to_delete)sss
+    s3_hook.delete_objects(bucket=s3_hook.get_connection(s3_conn_id).schema, keys=s3_keys_to_delete)

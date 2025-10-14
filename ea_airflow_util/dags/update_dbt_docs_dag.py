@@ -53,7 +53,7 @@ class UpdateDbtDocsDag:
 
         self.dag = EACustomDAG(**kwargs)
 
-
+    
     def update_dbt_docs(self, on_success_callback=None, **kwargs):
 
         dbt_docs_generate_task = DbtDocsGenerateOperator(

@@ -4,6 +4,7 @@ from airflow.operators.python_operator import PythonOperator
 from airflow.providers.amazon.aws.operators.s3 import S3ListOperator
 from airflow.utils.helpers import chain
 
+
 from ea_airflow_util.dags.ea_custom_dag import EACustomDAG
 from ea_airflow_util.callables.airflow import xcom_pull_template
 from ea_airflow_util.callables import s3

@@ -4,6 +4,7 @@ from airflow_dbt.operators.dbt_operator import DbtSnapshotOperator
 
 from ea_airflow_util.dags.ea_custom_dag import EACustomDAG
 
+
 class DbtSnapshotDag:
     """
     :param dbt_repo_path:
@@ -23,6 +24,7 @@ class DbtSnapshotDag:
         self.dbt_target_name = dbt_target_name
         self.dbt_bin_path = dbt_bin_path
         self.dag = EACustomDAG(**kwargs)
+
 
     def dbt_snapshot_run(self, on_success_callback=None, **kwargs):
         dbt_snapshot_task = DbtSnapshotOperator(
