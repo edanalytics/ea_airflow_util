@@ -6,7 +6,7 @@ README = (HERE / "README.md").read_text()
 
 setuptools.setup(
       name='ea_airflow_util',
-      version='0.3.0',
+      version='0.3.7',
       description='EA Airflow tools',
       license_files=['LICENSE'],
       url='https://github.com/edanalytics/ea_airflow_util',

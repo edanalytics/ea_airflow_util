@@ -23,6 +23,8 @@ class SharefileToDiskOperator(BaseOperator):
     :type local_path: string
     :param delete_remote: Optionally delete original file on ShareFile
     :type delete_remote: bool
+    :param most_recent_file: If we expect a single file at a given path and want the most recent version of it
+    :type most_recent_file: bool
 
     """
 
@@ -33,6 +35,7 @@ class SharefileToDiskOperator(BaseOperator):
         sharefile_path: str,
         local_path: str,
         delete_remote: bool = False,
+        most_recent_file: bool = False,
         *args, **kwargs
     ):
         super(SharefileToDiskOperator, self).__init__(*args, **kwargs)
@@ -40,6 +43,7 @@ class SharefileToDiskOperator(BaseOperator):
         self.sharefile_path = sharefile_path
         self.local_path = local_path
         self.delete_remote = delete_remote
+        self.most_recent_file = most_recent_file
 
     def execute(self, **context):
         # use hook to make connection
@@ -61,29 +65,34 @@ class SharefileToDiskOperator(BaseOperator):
             file_details = {
                 'file_name': res['FileName'],
                 'size': res['Size'],
-                'hash': res['MD5'],
                 'parent_id': res['ParentID'],
                 'file_path_no_base': res['ParentSemanticPath'].replace(self.sharefile_path, ''),
-                'file_path_ftp': res['ParentSemanticPath'].replace('/Rally Analytics Platform', ''),
+                'file_path_ftp': res['ParentSemanticPath'],
                 'item_id': res['ItemID']
             }
 
-            # tmp workaround for item ids
-            # remove id version of core data system folder, if it exists
-            # file_details['file_path_ftp'] = file_details['file_path_ftp'].replace('/fo01ffd8-aab9-4f51-8e14-e50943209698', '')
-
-            # todo: not sure this is necessary, not sure exactly what the problem in CDW was that required this code
-            try:
-                path_elements = file_details['file_path_ftp'].split('/')[1:]
-                id_lookup = {id: sf_hook.item_info(id)['Name'] for id in path_elements if len(id) == 36}
-                for id, name in id_lookup.items():
-                    # replace ids with names
-                    file_details['file_path_ftp'] = file_details['file_path_ftp'].replace(id, name)
-            except AirflowException:
-                self.log.info(f'ID lookup failed for {file_details["file_name"]}. Is ShareFile fixed?')
-            # end tmp workaround
 
             files.append(file_details)
+
+        if self.most_recent_file:
+            # of files found in directory, find the one with the most recent edit timestamp
+            max_timestamp = None
+            chosen_file = []
+            for res in files:
+                # seem to be cases where search is out of date and returns items that don't exist
+                try:
+                    item_info = sf_hook.item_info(res['item_id'])
+                except:
+                    # if the item fails to fetch item info, it probably doesn't exist, so can't be most recent
+                    continue
+                # grab last modified, compare to current max known
+                item_last_modified = item_info['ProgenyEditDate']
+                if max_timestamp is None or item_last_modified > max_timestamp:
+                    max_timestamp = item_last_modified
+                    chosen_file = [res]
+            # overwrite files list with singular chosen item
+            files = chosen_file
+
 
         # for all files, move to local
         num_successes = 0
@@ -105,7 +114,7 @@ class SharefileToDiskOperator(BaseOperator):
             # create dir (works if there is a file name or not)
             os.makedirs(os.path.dirname(full_local_path), exist_ok=True)
 
-            # download the file and hash it
+            # download the file
             try:
                 sf_hook.download_to_disk(item_id=file['item_id'], local_path=full_local_path)
 
@@ -126,6 +135,7 @@ class SharefileToDiskOperator(BaseOperator):
                 continue
 
         if num_successes == 0:
-            raise AirflowException(f"Failed transfer from ShareFile to local: no files transferred successfully!")
+            raise AirflowException("Failed transfer from ShareFile to local: no files transferred successfully!")
 
         return self.local_path
+

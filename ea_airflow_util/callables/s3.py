@@ -143,8 +143,7 @@ def disk_to_s3(
     return local_path.replace(base_dir + '/', '')
 
 
-### S3-to-Postgres
-def _list_s3_keys(
+def list_s3_keys(
     s3_hook: S3Hook,
     s3_bucket: str,
     s3_key: str,
@@ -279,3 +278,16 @@ def s3_dir_to_postgres(
 
     if delete_s3_dir:
         s3_hook.delete_objects(s3_bucket, s3_keys)
+
+def delete_from_s3(
+    s3_conn_id: str,
+    s3_keys_to_delete: List[str]
+):
+    """
+    Delete a list of S3 objects
+    """
+    s3_hook = S3Hook(aws_conn_id=s3_conn_id)
+
+    logging.info('Deleting file from source s3')
+
+    s3_hook.delete_objects(bucket=s3_hook.get_connection(s3_conn_id).schema, keys=s3_keys_to_delete)sss

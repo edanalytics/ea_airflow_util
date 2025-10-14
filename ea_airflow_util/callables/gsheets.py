@@ -112,7 +112,7 @@ def get_google_spreadsheet_by_url(
 
 def parse_google_worksheet(
     worksheet   : gspread.Worksheet,
-    iter_records: bool,
+    iter_records: bool = True,
 )-> dict:
     """
     Parse a gspread worksheet and retrieve the relevant data.
