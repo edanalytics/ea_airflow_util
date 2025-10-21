@@ -10,9 +10,8 @@ class RotateLogsDAG:
     """
     A DAG for rotating Airflow logs.
 
-    Currently, this DAG only deletes empty directories in the Airflow logs
-    folder. It does not save off logs or delete logs at this time. See Jira item
-    https://edanalytics.atlassian.net/browse/STAD-198
+    Currently, this DAG only deletes empty log files and empty directories in
+    the Airflow logs folder. It does save logs or delete them.
 
     If located somewhere other than `$AIRFLOW_HOME/logs`, set the `logs_dir`
     parameter to the path to the Airflow logs root directory.
@@ -40,17 +39,40 @@ class RotateLogsDAG:
                 empty_dirs.append(root)
         return empty_dirs
 
+    def get_empty_files(self) -> list[str]:
+        empty_files = []
+        for root, _, files in os.walk(self.logs_dir):
+            for filename in files:
+                filepath = os.path.join(root, filename)
+                try:
+                    if os.path.getsize(filepath) == 0:
+                        empty_files.append(filepath)
+                except OSError:
+                    logging.warning(f"Could not access file: {filepath}")
+        return empty_files
+
     def build_dag(self, **kwargs):
         @task
-        def delete_empty_directories():
-            paths = self.get_empty_directories()
-            logging.info(f"Deleting {len(paths)} empty directories in {self.logs_dir}")
+        def delete_empty_files_and_directories():
+            # Some remote logging providers (CloudWatch) leave behind empty log
+            # files. First we delete those, then delete empty directories.
+            empty_files = self.get_empty_files()
 
-            for path in paths:
-                logging.info(f"Removing empty directory {path}")
-                os.rmdir(path)
+            logging.info(f"Deleting {len(empty_files)} empty files in {self.logs_dir}")
+            for file in empty_files:
+                logging.info(f"Removing empty file {file}")
+                os.remove(file)
+
+            # This is a loop to handle nested empty directories.
+            while empty_dirs := self.get_empty_directories():
+                logging.info(
+                    f"Deleting {len(empty_dirs)} empty directories in {self.logs_dir}"
+                )
+                for path in empty_dirs:
+                    logging.info(f"Removing empty directory {path}")
+                    os.rmdir(path)
 
         with EACustomDAG(**kwargs) as dag:
-            delete_empty_directories()
+            delete_empty_files_and_directories()
 
         return dag
