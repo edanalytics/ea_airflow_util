@@ -7,7 +7,7 @@ from typing import Iterator, Optional
 
 from airflow.exceptions import AirflowException, AirflowSkipException
 
-from ea_airflow_util.callables import snake_case
+from ea_airflow_util.callables import casing
 
 
 def serialize_json_records_to_disk(
@@ -40,7 +40,7 @@ def serialize_json_records_to_disk(
 
             # Force the fields to snake_case if specified.
             if to_snake_case:
-                json_record = snake_case.record_to_snake_case(json_record)
+                json_record = casing.record_to_snake_case(json_record)
 
             writer.write( json.dumps(json_record) + '\n' )
             total_records += 1

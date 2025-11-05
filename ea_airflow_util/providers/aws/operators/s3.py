@@ -2,11 +2,13 @@ import os
 import pathlib
 import sys
 
-from typing import List, Optional, Sequence, Union
+from typing import Any, List, Optional, Sequence, Union
 
 from airflow.exceptions import AirflowSkipException
 from airflow.models import BaseOperator
 from airflow.providers.amazon.aws.operators.s3 import S3FileTransformOperator
+from airflow.providers.snowflake.hooks.snowflake import SnowflakeHook
+from airflow.utils.decorators import apply_defaults
 
 
 class LoopS3FileTransformOperator(S3FileTransformOperator):
@@ -93,3 +95,114 @@ class LoopS3FileTransformOperator(S3FileTransformOperator):
             transferred_keys.append(self.dest_s3_key)
 
         return transferred_keys
+    
+
+class S3ToSnowflakeOperator(BaseOperator):
+    """
+    Copy JSON files saved to S3 to Snowflake raw tables.
+
+    The optional custom_metadata_columns param takes a dictionary in the format {alias: value}
+    """
+    template_fields = ('s3_destination_key', 's3_destination_dir', 's3_destination_filename',)
+
+    @apply_defaults
+    def __init__(self,
+        *,
+        snowflake_conn_id: str,
+        database: str,
+        schema: str,
+        table_name: str,
+        custom_metadata_columns: Optional[dict] = None,
+
+        s3_destination_key: Optional[str] = None,
+        s3_destination_dir: Optional[str] = None,
+        s3_destination_filename: Optional[str] = None,
+
+        full_refresh: bool = False,
+        delete_where: Optional[str] = None,
+        xcom_return: Optional[Any] = None,
+        **kwargs
+    ) -> None:
+        super(S3ToSnowflakeOperator, self).__init__(**kwargs)
+
+        self.snowflake_conn_id = snowflake_conn_id
+        self.database = database
+        self.schema = schema
+        self.table_name = table_name
+        self.custom_metadata_columns = custom_metadata_columns
+
+        self.s3_destination_key = s3_destination_key
+        self.s3_destination_dir = s3_destination_dir
+        self.s3_destination_filename = s3_destination_filename
+
+        self.full_refresh = full_refresh
+        self.delete_where = delete_where
+        self.xcom_return = xcom_return
+
+
+    def execute(self, context):
+        """
+
+        :param context:
+        :return:
+        """
+        snowflake_hook = SnowflakeHook(snowflake_conn_id=self.snowflake_conn_id)
+
+        ### Optionally set destination key by concatting separate args for dir and filename
+        if not self.s3_destination_key:
+            if not (self.s3_destination_dir and self.s3_destination_filename):
+                raise ValueError(
+                    f"Argument `s3_destination_key` has not been specified, and `s3_destination_dir` or `s3_destination_filename` is missing."
+                )
+            self.s3_destination_key = os.path.join(self.s3_destination_dir, self.s3_destination_filename)
+
+        ### Extract column name and select statement string from custom metadata dictionary
+        if self.custom_metadata_columns:
+            column_names_str = ", ".join(self.custom_metadata_columns.keys()) + ","
+            metadata_columns = ", ".join(
+                f"{value} as {alias}"
+                for alias, value in self.custom_metadata_columns.items()
+            ) + ","
+        else:
+            column_names_str = ""
+            metadata_columns = ""
+
+        ### Build the SQL queries to be passed into `Hook.run()`.
+        qry_delete = f"""
+            DELETE FROM {self.database}.{self.schema}.{self.table_name}
+            {self.delete_where}
+        """
+
+        # Brackets in regex conflict with string formatting.
+        date_regex = "\\\\d{8}"
+        ts_regex   = "\\\\d{8}T\\\\d{6}"
+
+        qry_copy_into = f"""
+            COPY INTO {self.database}.{self.schema}.{self.table_name}
+                (pull_date, pull_timestamp, file_row_number, filename, {column_names_str} v)
+            FROM (
+                SELECT
+                    TO_DATE(REGEXP_SUBSTR(metadata$filename, '{date_regex}'), 'YYYYMMDD') AS pull_date,
+                    TO_TIMESTAMP(REGEXP_SUBSTR(metadata$filename, '{ts_regex}'), 'YYYYMMDDTHH24MISS') AS pull_timestamp,
+                    metadata$file_row_number AS file_row_number,
+                    metadata$filename AS filename,
+                    {metadata_columns}
+                    t.$1 AS v
+                FROM @{self.database}.util.airflow_stage/{self.s3_destination_key}
+                (file_format => 'json_default') t
+            )
+            force = true;
+        """
+
+        ### Commit the update queries to Snowflake.
+        if self.full_refresh:
+            snowflake_hook.run(
+                sql=[qry_delete, qry_copy_into],
+                autocommit=False
+            )
+        else:
+            snowflake_hook.run(
+                sql=qry_copy_into
+            )
+
+        return self.xcom_return
