@@ -182,7 +182,6 @@ class RunDbtDag:
                 target = self.dbt_target_name,
                 dbt_bin= self.dbt_bin_path,
                 trigger_rule='all_success',
-                full_refresh=True,
                 vars=self.deps_vars,
                 upgrade=self.deps_upgrade,
                 dag=self.dag
