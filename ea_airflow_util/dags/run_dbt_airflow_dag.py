@@ -11,11 +11,11 @@ from airflow.operators.python import PythonOperator
 from airflow.operators.trigger_dagrun import TriggerDagRunOperator
 from airflow.utils.task_group import TaskGroup
 
-from airflow_dbt.operators.dbt_operator import DbtRunOperator, DbtSeedOperator, DbtTestOperator, DbtDepsOperator
+from airflow_dbt.operators.dbt_operator import DbtRunOperator, DbtSeedOperator, DbtTestOperator
 
 from ea_airflow_util.dags.ea_custom_dag import EACustomDAG
 from ea_airflow_util.callables.variable import check_variable, update_variable
-from ea_airflow_util.providers.dbt.operators.dbt import DbtRunOperationOperator
+from ea_airflow_util.providers.dbt.operators.dbt import DbtRunOperationOperator, DbtDepsUpgradeOperator
 
 
 class RunDbtDag:
@@ -56,6 +56,8 @@ class RunDbtDag:
         run_vars: Optional[dict] = None,
         test_vars: Optional[dict] = None,
 
+        deps_upgrade: bool = True,
+
         opt_swap: bool = False,
         opt_dest_schema: Optional[str] = None,
         opt_swap_target: Optional[str] = None,
@@ -82,6 +84,9 @@ class RunDbtDag:
         self.seed_vars = seed_vars
         self.run_vars = run_vars
         self.test_vars = run_vars
+
+        # whether to attach --upgrade when running dbt deps
+        self.deps_upgrade = deps_upgrade
 
         # bluegreen
         self.opt_swap        = opt_swap
@@ -171,7 +176,7 @@ class RunDbtDag:
             dag=self.dag
         ) as dbt_task_group:
 
-            dbt_deps = DbtDepsOperator(
+            dbt_deps = DbtDepsUpgradeOperator(
                 task_id= f'dbt_deps_{self.environment}',
                 dir    = self.dbt_repo_path,
                 target = self.dbt_target_name,
@@ -179,6 +184,7 @@ class RunDbtDag:
                 trigger_rule='all_success',
                 full_refresh=True,
                 vars=self.deps_vars,
+                upgrade=self.deps_upgrade,
                 dag=self.dag
 
             )
