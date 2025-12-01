@@ -63,9 +63,13 @@ class SharefileToSnowflakeDag:
         local_rel_path,
         snowflake_table,
         sharefile_processed_path=None,
+        preprocessor=None,
+        preprocessor_kwargs=None,
+
         txt_delimiter=',',
         txt_has_header=True,
         txt_columns=None,
+
         custom_metadata={},
         full_refresh=False,
         csv_encoding='utf-8',
@@ -90,6 +94,11 @@ class SharefileToSnowflakeDag:
             determine the staging S3 destination relative to the class's S3
             bucket.
         - snowflake_table (str): A Snowflake table name to write data to.
+        - preprocessor (callable): A function to preprocess the files before
+            loading them into Snowflake. Default is None.
+        - preprocessor_kwargs (dict): A dictionary of keyword arguments to pass
+            to the preprocessor function. Default is None.
+
         - txt_delimiter (str): A text delimiter used in the txt files to load.
             Default is ','.
         - txt_has_header (str): If True, uses the first row of the txt file as
@@ -119,29 +128,28 @@ class SharefileToSnowflakeDag:
                 dag=self.dag
             )
 
-            # TODO: Make this task a customizable preprocessing operator that
-            # gets passed to the build_task_group method
-            txt_to_csv = PythonOperator(
-                task_id=f"txt_to_csv",
-                python_callable=ea_csv.txt_files_to_csv,
-                op_kwargs={
-                    'path_in': xcom_pull_template(sharefile_to_disk),
-                    'path_out': None,
-                    'delimiter': txt_delimiter,
-                    'has_header': txt_has_header,
-                    'column_names': txt_columns,
-                    # S3 to Snowflake task breaks if non-jsonl file retained
-                    'delete_txt': True,
-                    'include_subdirs': False,
-                },
-                dag=self.dag
-            )
-    
+            if preprocessor is not None and preprocessor_kwargs is not None:
+                preprocess_files = PythonOperator(
+                    task_id=f"preprocess_files",
+                    python_callable=preprocessor,
+                    op_kwargs=preprocessor_kwargs,
+                    dag=self.dag
+                )
+            else:
+                # If no preprocessor is provided, use a dummy operator that
+                # just passes the files through
+                preprocess_files = PythonOperator(
+                    task_id=f"preprocess_files",
+                    python_callable=lambda x: x,
+                    op_kwargs={'x': xcom_pull_template(sharefile_to_disk)},
+                    dag=self.dag
+                )
+
             csv_to_jsonl = PythonOperator(
                 task_id=f"csv_to_jsonl",
                 python_callable=jsonl.translate_csv_file_to_jsonl,
                 op_kwargs={
-                    'local_path': xcom_pull_template(txt_to_csv),
+                    'local_path': xcom_pull_template(preprocess_files),
                     'output_path': None,
                     # S3 to Snowflake task breaks if non-jsonl file retained
                     'delete_csv': True,
@@ -178,7 +186,7 @@ class SharefileToSnowflakeDag:
             if sharefile_processed_path is None:
                 (
                     sharefile_to_disk
-                    >> txt_to_csv
+                    >> preprocess_files
                     >> csv_to_jsonl
                     >> disk_to_s3
                     >> s3_to_snowflake
@@ -198,7 +206,7 @@ class SharefileToSnowflakeDag:
                 )
                 (
                     sharefile_to_disk
-                    >> txt_to_csv
+                    >> preprocess_files
                     >> csv_to_jsonl
                     >> disk_to_s3
                     >> s3_to_snowflake
