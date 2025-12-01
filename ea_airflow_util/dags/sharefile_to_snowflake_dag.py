@@ -17,6 +17,8 @@ class SharefileToSnowflakeDag:
     Parameters:
     - sharefile_conn_id (str): A Sharefile connection ID.
     - local_base_path (str): A base local path for downloading files.
+    - delete_local (bool): If True, delete local files after processing.
+        Default is False.
     - s3_conn_id (str): An Airflow connection ID for AWS S3.
     - s3_bucket (str): An S3 bucket where to stage files.
     - snowflake_conn_id (str): An Airflow connection ID for Snowflake.
@@ -31,6 +33,7 @@ class SharefileToSnowflakeDag:
         sharefile_conn_id: str,
 
         local_base_path: str,
+        delete_local: bool = False,
 
         s3_conn_id: str,
         s3_bucket: str,
@@ -65,11 +68,6 @@ class SharefileToSnowflakeDag:
         sharefile_processed_path=None,
         preprocessor=None,
         preprocessor_kwargs=None,
-
-        txt_delimiter=',',
-        txt_has_header=True,
-        txt_columns=None,
-
         custom_metadata={},
         full_refresh=False,
         csv_encoding='utf-8',
@@ -98,16 +96,6 @@ class SharefileToSnowflakeDag:
             loading them into Snowflake. Default is None.
         - preprocessor_kwargs (dict): A dictionary of keyword arguments to pass
             to the preprocessor function. Default is None.
-
-        - txt_delimiter (str): A text delimiter used in the txt files to load.
-            Default is ','.
-        - txt_has_header (str): If True, uses the first row of the txt file as
-            a column header. If False, inserts a column header based on the txt
-            columns arg. Default is True.
-        - txt_columns (str): An ordered list of column names in the txt files
-            to load. If None and txt_has_header is False, then columns are
-            labeled using integers (i.e. 1, 2, 3, ..., n, where n is the number
-            of columns). Default is None.
         - custom_metadata (dict): A mapping of metadata field names to values
             to include in the target Snowflake table.
         - full_refresh (bool): If True, performs a full refresh load in
@@ -166,7 +154,7 @@ class SharefileToSnowflakeDag:
                     's3_conn_id': self.s3_conn_id,
                     'bucket': self.s3_bucket,
                     'base_dir': self.local_base_path,
-                    'delete_local': False,
+                    'delete_local': self.delete_local,
                 },
                 dag=self.dag
             )
