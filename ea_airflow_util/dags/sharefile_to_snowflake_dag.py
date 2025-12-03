@@ -8,6 +8,8 @@ from ea_airflow_util.providers.sharefile.transfers.sharefile_to_disk import Shar
 from ea_airflow_util.providers.aws.operators.s3 import S3ToSnowflakeOperator
 from ea_airflow_util.dags.ea_custom_dag import EACustomDAG
 
+from airflow.exceptions import AirflowException
+
 
 class SharefileToSnowflakeDag:
     """
@@ -17,8 +19,6 @@ class SharefileToSnowflakeDag:
     Parameters:
     - sharefile_conn_id (str): A Sharefile connection ID.
     - local_base_path (str): A base local path for downloading files.
-    - delete_local (bool): If True, delete local files after processing.
-        Default is False.
     - s3_conn_id (str): An Airflow connection ID for AWS S3.
     - s3_bucket (str): An S3 bucket where to stage files.
     - snowflake_conn_id (str): An Airflow connection ID for Snowflake.
@@ -33,7 +33,6 @@ class SharefileToSnowflakeDag:
         sharefile_conn_id: str,
 
         local_base_path: str,
-        delete_local: bool = False,
 
         s3_conn_id: str,
         s3_bucket: str,
@@ -58,6 +57,10 @@ class SharefileToSnowflakeDag:
         self.dag = EACustomDAG(**kwargs)
 
         self.sharefile_task_groups = []
+
+        # Only preprocessors that produce csv files are supported since the 
+        # csv_to_jsonl operator expects csv files.
+        self.valid_preprocessors = {name: obj for name, obj in vars(ea_csv).items() if callable(obj)}
     
     def build_task_group(
         self,
@@ -117,10 +120,19 @@ class SharefileToSnowflakeDag:
             )
 
             if preprocessor is not None and preprocessor_kwargs is not None:
+                
+                if preprocessor not in self.valid_preprocessors:
+                    raise AirflowException(f"Invalid file preprocessor '{preprocessor}' provided. Valid preprocessors are: {list(self.valid_preprocessors.keys())}")
+
+                # Create a copy of preprocessor_kwargs to avoid mutating the original dict
+                # and ensure proper template rendering in op_kwargs
+                op_kwargs = preprocessor_kwargs.copy()
+                op_kwargs['path_in'] = xcom_pull_template(sharefile_to_disk)
+
                 preprocess_files = PythonOperator(
                     task_id=f"preprocess_files",
-                    python_callable=preprocessor,
-                    op_kwargs=preprocessor_kwargs,
+                    python_callable=self.valid_preprocessors[preprocessor],
+                    op_kwargs=op_kwargs,
                     dag=self.dag
                 )
             else:
@@ -154,7 +166,7 @@ class SharefileToSnowflakeDag:
                     's3_conn_id': self.s3_conn_id,
                     'bucket': self.s3_bucket,
                     'base_dir': self.local_base_path,
-                    'delete_local': self.delete_local,
+                    'delete_local': False,
                 },
                 dag=self.dag
             )
