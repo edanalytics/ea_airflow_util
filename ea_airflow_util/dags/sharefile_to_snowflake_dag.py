@@ -1,7 +1,7 @@
 from airflow.operators.python import PythonOperator
 from airflow.utils.task_group import TaskGroup
 
-from ea_airflow_util.callables import jsonl, s3, ea_csv
+from ea_airflow_util.callables import jsonl, s3, ea_csv, disk
 from ea_airflow_util.callables.airflow import xcom_pull_template
 from ea_airflow_util.callables.sharefile import sharefile_copy_file
 from ea_airflow_util.providers.sharefile.transfers.sharefile_to_disk import SharefileToDiskOperator
@@ -24,6 +24,7 @@ class SharefileToSnowflakeDag:
     - snowflake_conn_id (str): An Airflow connection ID for Snowflake.
     - snowflake_database (str): A Snowflake database name.
     - snowflake_schema (str): A Snowflake schema name.
+    - delete_local (bool): If True, delete the local files after processing. Default is False.
     - **kwargs: Additional arguments to pass to the Airflow DAG.
     """
 
@@ -41,6 +42,8 @@ class SharefileToSnowflakeDag:
         snowflake_database: str,
         snowflake_schema: str,
 
+        delete_local: bool = False,
+
         **kwargs
     ) -> None:
         self.sharefile_conn_id = sharefile_conn_id
@@ -57,6 +60,8 @@ class SharefileToSnowflakeDag:
         self.dag = EACustomDAG(**kwargs)
 
         self.sharefile_task_groups = []
+
+        self.delete_local = delete_local
 
         # Only preprocessors that produce csv files are supported since the 
         # csv_to_jsonl operator expects csv files.
@@ -107,6 +112,9 @@ class SharefileToSnowflakeDag:
             'utf-8'.
         - **kwargs: Additional keyword arguments to pass to the task group.
         """
+        # Define delete_local at the task group level to ensure that the
+        # delete_from_disk task is only included if delete_local is True.
+        delete_local = self.delete_local
 
         with TaskGroup(group_id=group_id, dag=self.dag, **kwargs) as task_group:
 
@@ -170,7 +178,20 @@ class SharefileToSnowflakeDag:
                 },
                 dag=self.dag
             )
-            
+
+            # Only define delete_from_disk task if delete_local is True.
+            # Otherwise, it will always be included as an Airflow task, even if
+            # delete_local is False.
+            if delete_local == True:
+                delete_from_disk = PythonOperator(
+                    task_id=f"delete_from_disk",
+                    python_callable=disk.delete_from_disk,
+                    op_kwargs={
+                        'local_path': xcom_pull_template(csv_to_jsonl),
+                    },
+                    dag=self.dag
+                )
+
             s3_to_snowflake = S3ToSnowflakeOperator(
                 task_id=f"s3_to_snowflake",
                 snowflake_conn_id=self.snowflake_conn_id,
@@ -182,16 +203,8 @@ class SharefileToSnowflakeDag:
                 full_refresh=full_refresh,
                 dag=self.dag
             )
-            
-            if sharefile_processed_path is None:
-                (
-                    sharefile_to_disk
-                    >> preprocess_files
-                    >> csv_to_jsonl
-                    >> disk_to_s3
-                    >> s3_to_snowflake
-                )
-            else:
+
+            if sharefile_processed_path is not None:
                 # Move processed files to specific Sharefile location
                 move_to_processed = PythonOperator(
                     task_id=f'move_to_processed',
@@ -204,12 +217,39 @@ class SharefileToSnowflakeDag:
                     },
                     dag=self.dag
                 )
+            
+            if sharefile_processed_path is None and self.delete_local == False:
                 (
                     sharefile_to_disk
                     >> preprocess_files
                     >> csv_to_jsonl
                     >> disk_to_s3
                     >> s3_to_snowflake
+                )
+            elif sharefile_processed_path is None and self.delete_local == True:
+                (
+                    sharefile_to_disk
+                    >> preprocess_files
+                    >> csv_to_jsonl
+                    >> disk_to_s3
+                    >> [s3_to_snowflake, delete_from_disk]
+                )
+            elif sharefile_processed_path is not None and self.delete_local == False:
+                (
+                    sharefile_to_disk
+                    >> preprocess_files
+                    >> csv_to_jsonl
+                    >> disk_to_s3
+                    >> s3_to_snowflake
+                    >> move_to_processed
+                )
+            elif sharefile_processed_path is not None and self.delete_local == True:
+                (
+                    sharefile_to_disk
+                    >> preprocess_files
+                    >> csv_to_jsonl
+                    >> disk_to_s3
+                    >> [s3_to_snowflake, delete_from_disk]
                     >> move_to_processed
                 )
 
