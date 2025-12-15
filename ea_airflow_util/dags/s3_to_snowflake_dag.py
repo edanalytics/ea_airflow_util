@@ -36,7 +36,7 @@ class S3ToSnowflakeDag:
         is_manual_upload: bool = False,
 
         pool: str,
-        full_replace: bool = False,  #TODO once on latest version of airflow, use dagrun parameter to allow full_replace runs even if not set here at dag level
+        full_replace: bool = False, 
 
         do_delete_from_source: bool = True,
         **kwargs
