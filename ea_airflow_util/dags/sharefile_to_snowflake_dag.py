@@ -7,6 +7,7 @@ from ea_airflow_util.callables.sharefile import sharefile_copy_file
 from ea_airflow_util.providers.sharefile.transfers.sharefile_to_disk import SharefileToDiskOperator
 from ea_airflow_util.providers.aws.operators.s3 import S3ToSnowflakeOperator
 from ea_airflow_util.dags.ea_custom_dag import EACustomDAG
+from airflow.utils.helpers import chain
 
 from airflow.exceptions import AirflowException
 
@@ -218,39 +219,17 @@ class SharefileToSnowflakeDag:
                     dag=self.dag
                 )
             
-            if sharefile_processed_path is None and self.delete_local == False:
-                (
-                    sharefile_to_disk
-                    >> preprocess_files
-                    >> csv_to_jsonl
-                    >> disk_to_s3
-                    >> s3_to_snowflake
-                )
-            elif sharefile_processed_path is None and self.delete_local == True:
-                (
-                    sharefile_to_disk
-                    >> preprocess_files
-                    >> csv_to_jsonl
-                    >> disk_to_s3
-                    >> [s3_to_snowflake, delete_from_disk]
-                )
-            elif sharefile_processed_path is not None and self.delete_local == False:
-                (
-                    sharefile_to_disk
-                    >> preprocess_files
-                    >> csv_to_jsonl
-                    >> disk_to_s3
-                    >> s3_to_snowflake
-                    >> move_to_processed
-                )
-            elif sharefile_processed_path is not None and self.delete_local == True:
-                (
-                    sharefile_to_disk
-                    >> preprocess_files
-                    >> csv_to_jsonl
-                    >> disk_to_s3
-                    >> [s3_to_snowflake, delete_from_disk]
-                    >> move_to_processed
-                )
+            task_list = []
+            task_list.append(sharefile_to_disk)
+            task_list.append(preprocess_files)
+            task_list.append(csv_to_jsonl)
+            task_list.append(disk_to_s3)
+            if self.delete_local == True:
+                task_list.append([s3_to_snowflake, delete_from_disk])
+            else:
+                task_list.append(s3_to_snowflake)
+            if sharefile_processed_path is not None:
+                task_list.append(move_to_processed)
 
-            self.sharefile_task_groups.append(task_group)
+            chain(*task_list)
+            

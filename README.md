@@ -686,10 +686,12 @@ For example, `/ed-fi/apiClients/districts-2425-ds5/{tenant_code}/prod/Stadium` w
 
 ## SharefileToSnowflakeDag
 `SharefileToSnowflakeDag` is an Airflow DAG that automates the process of 
-transferring files from ShareFile to Snowflake. The DAG retrieves txt and csv 
-files from a specified ShareFile location, transforms them into JSONL format,
-uploads the files to an S3 bucket, and finally loads the data into a Snowflake 
-database.
+transferring files from ShareFile to Snowflake. The DAG downloads files from a 
+specified ShareFile location, applies an optional preprocessing operator (such
+as converting txt files to csv), converts local csv's into JSONL format, uploads
+the files to an S3 bucket, loads the data into a Snowflake database, and then 
+optionally deletes local files and/or moves processed files in Sharefile to a
+configured location.
 
 <details>
 <summary>Arguments:</summary>
@@ -705,6 +707,7 @@ database.
 | snowflake_conn_id       | An Airflow connection ID for Snowflake.                                  |
 | snowflake_database      | A Snowflake database name.                                               |
 | snowflake_schema        | A Snowflake schema name.                                                 |
+| delete_local            | If True, delete local files after processing.                            |
 | **kwargs                | Additional arguments to pass to the Airflow DAG.                         |
 
 -----
@@ -718,8 +721,8 @@ database.
 
 **build_task_group()**
 
-Builds a task group to load data from csv and txt files in a
-Sharefile directory to a Snowflake table.
+Builds a task group to load data from files in a Sharefile directory to a 
+Snowflake table.
 
 Note that the arguments specified here are relative to the class
 arguments provided at instantiation. For example, the sharefile_path
@@ -733,9 +736,8 @@ level.
 | sharefile_processed_path | A Sharefile path to move files to after they have been processed. If None, do not move processed files. Default is None.                                                                                          |
 | local_rel_path           | A local relative path to stage data in with  respect to the class's local_base_path. This is also used to determine the staging S3 destination relative to the class's S3 bucket.                                 |
 | snowflake_table          | A Snowflake table name to write data to.                                                                                                                                                                          |
-| txt_delimiter            | A text delimiter used in the txt files to load. Default is ','.                                                                                                                                                   |
-| txt_has_header           | If True, uses the first row of the txt file as a column header. If False, inserts a column header based on the txt columns arg. Default is True.                                                                  |
-| txt_columns              | An ordered list of column names in the txt files to load. If None and txt_has_header is False, then columns are labeled using integers (i.e. 1, 2, 3, ..., n, where n is the number of columns). Default is None. |
+| preprocessor             | A function to preprocess the files before loading them into Snowflake. Default is None.                                                                                                                           |
+| preprocessor_kwargs      | A dictionary of keyword arguments to pass to the preprocessor function. Default is None.                                                                                                                          |
 | custom_metadata          | A mapping of metadata field names to values to include in the target Snowflake table.                                                                                                                             |
 | full_refresh             | If True, performs a full refresh load in Snowflake. Default is False.                                                                                                                                             |
 | csv_encoding             | Optional encoding to use for csv files. Default is 'utf-8'.                                                                                                                                                       |
@@ -746,9 +748,10 @@ level.
 </details>
 
 <details>
-<summary>Example Yaml File:</summary>
+<summary>Example Yaml Files:</summary>
 
 ```yaml
+# airflow_config.yml
 default_args: &default_args
   owner: 
   run_as_user: 
@@ -766,9 +769,10 @@ default_args: &default_args
 sharefile_to_snowflake_dags__default_args: &sharefile_to_snowflake_dags__default_args
   sharefile_conn_id:
   # Null here means processed files will not be moved in Sharefile
-  sharefile_processed_dir:
+  sharefile_processed_dir: ~
  
   local_base_path:
+  delete_local:
 
   s3_conn_id:
   s3_bucket:
@@ -784,11 +788,40 @@ sharefile_to_snowflake_dags:
   resource_1:
     <<: *sharefile_to_snowflake_dags__default_args
     sharefile_base_path: path/to/folder
-    snowflake_table:
   resource_2:
     <<: *sharefile_to_snowflake_dags__default_args
     sharefile_base_path: path/to/folder
-    snowflake_table:
+
+
+# sharefile_resources.yml
+# Default args for txt_to_csv preprocessor
+txt_to_csv__defaults: &txt_to_csv__defaults
+  'path_out': None
+  'delimiter': ^
+  'has_header': False
+  'column_names': None
+  # S3 to Snowflake task breaks if non-jsonl file retained
+  'delete_txt': True
+  'include_subdirs': False
+
+# Default args for each file type task group
+resource__defaults: &resource__defaults
+  csv_encoding: utf-8
+  preprocessor: txt_files_to_csv
+  preprocessor_kwargs:
+    <<: *txt_to_csv__defaults
+  
+
+resources:
+  # The resource group name determines the Snowflake table to load data to
+  resource_group_1:
+    resource_1:
+      <<: *resource__defaults
+      
+  resource_group_2:
+    resource_2:
+      <<: *resource__defaults
+      csv_encoding: utf-8-sig
 ```
 </details>
 
