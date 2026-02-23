@@ -8,7 +8,6 @@ from airflow.exceptions import AirflowSkipException
 from airflow.models import BaseOperator
 from airflow.providers.amazon.aws.operators.s3 import S3FileTransformOperator
 from airflow.providers.snowflake.hooks.snowflake import SnowflakeHook
-from airflow.utils.decorators import apply_defaults
 
 
 class LoopS3FileTransformOperator(S3FileTransformOperator):
@@ -105,7 +104,6 @@ class S3ToSnowflakeOperator(BaseOperator):
     """
     template_fields = ('s3_destination_key', 's3_destination_dir', 's3_destination_filename',)
 
-    @apply_defaults
     def __init__(self,
         *,
         snowflake_conn_id: str,
