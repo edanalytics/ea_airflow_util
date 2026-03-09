@@ -10,11 +10,10 @@ from ea_airflow_util.callables import snowflake_keypair
 
 class SnowflakeKeypairRotationDag:
     """
-    
     """
     def __init__(self,
         *,
-        admin_conn_id: str,
+        key_rotator_conn_id: str,
 
         key_names: List[str],  # e.g. ["key_rotator", "loader","transformer"]
         snowflake_users: Dict[str, str],  # e.g. {"loader": "loader_prod", ...}
@@ -24,7 +23,7 @@ class SnowflakeKeypairRotationDag:
         do_test: bool = True,
         **kwargs
     ) -> None:
-        self.admin_conn_id = admin_conn_id
+        self.key_rotator_conn_id = key_rotator_conn_id
 
         self.key_names = key_names
         self.snowflake_users = snowflake_users
@@ -49,7 +48,7 @@ class SnowflakeKeypairRotationDag:
                     task_id="rotate_keypair_" + key_name,
                     python_callable=snowflake_keypair.rotate_keypair,
                     op_kwargs={
-                        "admin_conn_id": self.admin_conn_id,
+                        "key_rotator_conn_id": self.key_rotator_conn_id,
                         "snowflake_user": snowflake_user,
                         "key_name": key_name,
                         "output_dir": self.key_dir,
