@@ -9,7 +9,7 @@ from airflow.providers.snowflake.hooks.snowflake import SnowflakeHook
 
 def generate_keypair_with_openssl(
     output_dir: str,
-    key_name: str,
+    snowflake_user: str,
     **kwargs
 ) -> Tuple[str, str, str]:
     """
@@ -17,8 +17,8 @@ def generate_keypair_with_openssl(
     """
     os.makedirs(output_dir, exist_ok=True)
 
-    private_path = os.path.join(output_dir, f"{key_name}.p8")
-    public_path  = os.path.join(output_dir, f"{key_name}.pub")
+    private_path = os.path.join(output_dir, f"{snowflake_user}.p8")
+    public_path  = os.path.join(output_dir, f"{snowflake_user}.pub")
 
     # https://docs.snowflake.com/en/user-guide/key-pair-auth
     subprocess.run(
@@ -49,7 +49,7 @@ def generate_keypair_with_openssl(
         .strip()
     )
 
-    logging.info(f"Generated keypair for `{key_name}` in `{output_dir}`.")
+    logging.info(f"Generated keypair for `{snowflake_user}` in `{output_dir}`.")
 
     return private_pem, public_pem, public_body
 
@@ -137,7 +137,6 @@ def test_current_user(
 def rotate_keypair(
     key_rotator_conn_id: str,
     snowflake_user: str,
-    key_name: str,
     output_dir: str,
     test_conn_id: Optional[str] = None,
     do_test: bool = True,
@@ -155,7 +154,7 @@ def rotate_keypair(
     # pull public key from generated keypair
     _, _, public_body = generate_keypair_with_openssl(
         output_dir=output_dir,
-        key_name=key_name,
+        snowflake_user=snowflake_user,
     )
 
     slots = set_user_public_key(
@@ -180,26 +179,22 @@ def rotate_keypair(
         "snowflake_user": snowflake_user,
         "new_slot": slots.get("new_slot", ""),
         "old_slot_unset": slots.get("old_slot", ""),
-        "key_file_path": os.path.join(output_dir, f"{key_name}.p8"),
-        "public_key_path": os.path.join(output_dir, f"{key_name}.pub"),
+        "key_file_path": os.path.join(output_dir, f"{snowflake_user}.p8"),
+        "public_key_path": os.path.join(output_dir, f"{snowflake_user}.pub"),
     }
 
 
 def initial_keypair(
-    key_name: str,
     snowflake_user: str,
     output_dir: str,
     **kwargs 
 ) -> Dict[str, str]:
     """
     Generate the initial keypair for a Snowflake user.
-
-    This helper will generates the key files
-    and returns the ALTER USER statement to run manually in Snowflake.
     """
     _, _, public_body = generate_keypair_with_openssl(
         output_dir=output_dir,
-        key_name=key_name,
+        snowflake_user=snowflake_user,
     )
 
     logging.info(f"Generated initial keypair for Snowflake user `{snowflake_user}`.")
@@ -207,6 +202,6 @@ def initial_keypair(
     return {
         "snowflake_user": snowflake_user,
         "alter_user_sql": f"ALTER USER {snowflake_user} SET RSA_PUBLIC_KEY='{public_body}';",
-        "key_file_path": os.path.join(output_dir, f"{key_name}.p8"),
-        "public_key_path": os.path.join(output_dir, f"{key_name}.pub"),
+        "key_file_path": os.path.join(output_dir, f"{snowflake_user}.p8"),
+        "public_key_path": os.path.join(output_dir, f"{snowflake_user}.pub"),
     }
