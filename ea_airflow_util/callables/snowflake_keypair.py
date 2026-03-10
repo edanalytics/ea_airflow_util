@@ -20,6 +20,7 @@ def generate_keypair_with_openssl(
     private_path = os.path.join(output_dir, f"{key_name}.p8")
     public_path  = os.path.join(output_dir, f"{key_name}.pub")
 
+    # https://docs.snowflake.com/en/user-guide/key-pair-auth
     subprocess.run(
         f"openssl genrsa 2048 | openssl pkcs8 -topk8 -inform PEM -out {private_path} -nocrypt",
         shell=True,
@@ -74,7 +75,7 @@ def pick_rotation_slots(desc_user_rows: list[tuple]) -> Tuple[str, Optional[str]
 
 
 def set_user_public_key(
-    admin_conn_id: str,
+    key_rotator_conn_id: str,
     snowflake_user: str,
     public_key_body: str,
     **kwargs 
@@ -82,7 +83,7 @@ def set_user_public_key(
     """
     Set the next available public key on a Snowflake user.
     """
-    hook = SnowflakeHook(snowflake_conn_id=admin_conn_id)
+    hook = SnowflakeHook(snowflake_conn_id=key_rotator_conn_id)
 
     desc = hook.get_records(f"DESC USER {snowflake_user}")
     new_slot, old_slot = pick_rotation_slots(desc)
@@ -98,7 +99,7 @@ def set_user_public_key(
 
 
 def unset_old_public_key(
-    admin_conn_id: str,
+    key_rotator_conn_id: str,
     snowflake_user: str,
     old_slot: Optional[str],
     **kwargs 
@@ -110,7 +111,7 @@ def unset_old_public_key(
         logging.info(f"No old key slot to unset for `{snowflake_user}`.")
         return
 
-    hook = SnowflakeHook(snowflake_conn_id=admin_conn_id)
+    hook = SnowflakeHook(snowflake_conn_id=key_rotator_conn_id)
     hook.run(f"ALTER USER {snowflake_user} UNSET {old_slot}")
 
     logging.info(f"Unset `{old_slot}` for Snowflake user `{snowflake_user}`.")
@@ -134,7 +135,7 @@ def test_current_user(
 
 
 def rotate_keypair(
-    admin_conn_id: str,
+    key_rotator_conn_id: str,
     snowflake_user: str,
     key_name: str,
     output_dir: str,
@@ -158,7 +159,7 @@ def rotate_keypair(
     )
 
     slots = set_user_public_key(
-        admin_conn_id=admin_conn_id,
+        key_rotator_conn_id=key_rotator_conn_id,
         snowflake_user=snowflake_user,
         public_key_body=public_body,
     )
@@ -170,7 +171,7 @@ def rotate_keypair(
         )
 
     unset_old_public_key(
-        admin_conn_id=admin_conn_id,
+        key_rotator_conn_id=key_rotator_conn_id,
         snowflake_user=snowflake_user,
         old_slot=slots.get("old_slot") or None,
     )
