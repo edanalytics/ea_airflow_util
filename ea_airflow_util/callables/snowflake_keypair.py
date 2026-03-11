@@ -62,15 +62,19 @@ def pick_rotation_slots(desc_user_rows: list[tuple]) -> Tuple[str, Optional[str]
     key_1 = user_att.get("RSA_PUBLIC_KEY")
     key_2 = user_att.get("RSA_PUBLIC_KEY_2")
 
-    if key_1 and key_2:
+    # If both key slots are set, rotation is not allowed
+    if key_1 not in (None, "", "null") and key_2 not in (None, "", "null"): #TODO: is there a better way to do this?
         raise RuntimeError("Both RSA_PUBLIC_KEY and RSA_PUBLIC_KEY_2 are set; refusing rotation.")
 
-    if (not key_1) and (not key_2):
+    # If neither key slot is set, use RSA_PUBLIC_KEY for initial set
+    if key_1 in (None, "", "null") and key_2 in (None, "", "null"):
         return "RSA_PUBLIC_KEY", None
 
-    if key_1 and (not key_2):
+    # If only RSA_PUBLIC_KEY is set, rotate to RSA_PUBLIC_KEY_2
+    if key_1 not in (None, "", "null"):
         return "RSA_PUBLIC_KEY_2", "RSA_PUBLIC_KEY"
 
+    # If only RSA_PUBLIC_KEY_2 is set, rotate to RSA_PUBLIC_KEY
     return "RSA_PUBLIC_KEY", "RSA_PUBLIC_KEY_2"
 
 
@@ -82,12 +86,15 @@ def set_user_public_key(
 ) -> Dict[str, str]:
     """
     Set the next available public key on a Snowflake user.
+
+    https://docs.snowflake.com/en/user-guide/key-pair-auth#configuring-key-pair-rotation
     """
     hook = SnowflakeHook(snowflake_conn_id=key_rotator_conn_id)
 
     desc = hook.get_records(f"DESC USER {snowflake_user}")
     new_slot, old_slot = pick_rotation_slots(desc)
 
+    # Set the new public key in the slot
     hook.run(f"ALTER USER {snowflake_user} SET {new_slot}='{public_key_body}'")
 
     logging.info(f"Set `{new_slot}` for Snowflake user `{snowflake_user}`.")
