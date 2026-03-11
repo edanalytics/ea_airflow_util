@@ -89,7 +89,7 @@ def set_user_public_key(
 
     https://docs.snowflake.com/en/user-guide/key-pair-auth#configuring-key-pair-rotation
     """
-    hook = SnowflakeHook(snowflake_conn_id=key_rotator_conn_id)
+    hook = SnowflakeHook(snowflake_conn_id=key_rotator_conn_id, log_sql=False)
 
     desc = hook.get_records(f"DESC USER {snowflake_user}")
     new_slot, old_slot = pick_rotation_slots(desc)
