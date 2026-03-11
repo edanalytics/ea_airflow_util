@@ -124,29 +124,10 @@ def unset_old_public_key(
     logging.info(f"Unset `{old_slot}` for Snowflake user `{snowflake_user}`.")
 
 
-def test_current_user(
-    conn_id: str,
-    expected_user: str,
-    **kwargs 
-) -> None:
-    """
-    Test that a Snowflake connection authenticates as the expected user.
-    """
-    hook = SnowflakeHook(snowflake_conn_id=conn_id)
-    actual_user = hook.get_first("SELECT CURRENT_USER()")[0]
-
-    if actual_user.upper() != expected_user.upper():
-        raise RuntimeError(f"Test failed: expected `{expected_user}`, got `{actual_user}`.")
-
-    logging.info(f"Connection `{conn_id}` authenticated successfully as `{actual_user}`.")
-
-
 def rotate_keypair(
     key_rotator_conn_id: str,
     snowflake_user: str,
     output_dir: str,
-    test_conn_id: Optional[str] = None,
-    do_test: bool = True,
     **kwargs 
 ) -> Dict[str, str]:
     """
@@ -169,12 +150,6 @@ def rotate_keypair(
         snowflake_user=snowflake_user,
         public_key_body=public_body,
     )
-
-    if do_test and test_conn_id:
-        test_current_user(
-            conn_id=test_conn_id,
-            expected_user=snowflake_user,
-        )
 
     unset_old_public_key(
         key_rotator_conn_id=key_rotator_conn_id,
