@@ -1,5 +1,3 @@
-# ea_airflow_util/dags/snowflake_keypair_rotation_dag.py
-
 from typing import List, Optional
 
 from airflow.operators.python import PythonOperator
