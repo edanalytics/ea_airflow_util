@@ -183,9 +183,10 @@ def rotate_keypair(
 
         return result
 
-    # If something fails after setting the new key but before the old one is unset,
-    # the user could end up with both key slots filled. Try to clean up by removing
-    # the newly added key so the next rotation can run normally.
+    # If something fails after setting the new key but before unsetting the old slot,
+    # both key slots can end up filled, which blocks future rotations (e.g. if the DAG
+    # or server fails mid run). To recover, we unset the old slot so retries can proceed
+    # using the newly set key and free up a slot.
     except Exception:
         if new_key_set and old_slot:
             logging.exception(f"Rotation failed after setting new slot `{new_slot}` for `{snowflake_user}`. Attempting cleanup.")
