@@ -1,3 +1,11 @@
+# ea_airflow_util v0.3.8
+## New Features
+- Add `dbt deps` step to `RunDbtDag` before `dbt seed` to ensure dbt packages are installed before execution.
+
+## Fixes
+- Fix bug in `RunDbtDag` where `test_vars` was incorrectly assigned `run_vars` instead of the user-provided `test_vars`.
+
+
 # ea_airflow_util v0.3.7
 ## Fixes
 - Fix change in interface in `SlackWebhookHook` instantiation in Slack callables.
