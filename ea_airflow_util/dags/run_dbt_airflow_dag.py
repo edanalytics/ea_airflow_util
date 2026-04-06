@@ -147,9 +147,10 @@ class RunDbtDag:
     # build function for tasks
     def build_dbt_run(self, on_success_callback=None, **kwargs):
         """
-        four tasks defined here: 
+        tasks defined here:
 
-        dbt seed: 
+        dbt deps:
+        dbt seed:
         dbt run:
         dbt test:
         dbt swap: bluegreen step, not required
@@ -260,7 +261,7 @@ class RunDbtDag:
                     dag=self.dag
                 )
 
-                dbt_build_artifact_tables >> dbt_deps
+                dbt_deps >> dbt_build_artifact_tables >> dbt_seed
 
             # Trigger downstream DAG when `dbt run` succeeds
             if self.external_dags:
