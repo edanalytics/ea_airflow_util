@@ -1,3 +1,11 @@
+# ea_airflow_util v0.4.0
+## New Features
+- 
+
+## Under the hood
+- Add support for Airflow 2.11.
+
+
 # ea_airflow_util v0.3.7
 ## Fixes
 - Fix change in interface in `SlackWebhookHook` instantiation in Slack callables.
