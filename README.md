@@ -275,6 +275,51 @@ This will be investigated further and patched in a future update.
 
 </details>
 
+## snowflake_keypair
+Helpers for generating Snowflake key-pair files and rotating Snowflake user public keys
+
+<details>
+<summary>See more:</summary>
+
+-----
+
+### generate_keypair_with_openssl(output_dir, snowflake_user)
+Generate a Snowflake RSA keypair on disk.
+
+Creates:
+
+- `<output_dir>/<snowflake_user>.p8`
+- `<output_dir>/<snowflake_user>.pub`
+
+Returns the private key, public key, and formatted public key body for Snowflake.
+
+### pick_rotation_slots(desc_user_rows)
+Determine which Snowflake public key slot should be used for rotation.
+
+Returns the new slot to write to and the old slot to unset.
+Raises an error if both key slots are already populated.
+
+### set_user_public_key(hook, snowflake_user, new_slot, public_key_body, **kwargs)
+Set the new public key in the selected Snowflake key slot.
+
+### unset_public_key_slot(hook, snowflake_user, slot, **kwargs)
+Unset a specific public key slot on a Snowflake user.
+
+### rotate_keypair(key_rotator_conn_id, snowflake_user, output_dir, **kwargs)
+Rotate a Snowflake user's keypair.
+
+Generates a new keypair, sets the new public key in Snowflake, and unsets the old key slot.
+If rotation fails after the new key is set, cleanup is attempted so the user is not left with both key slots populated.
+
+### initial_keypair(snowflake_user, output_dir, **kwargs)
+Generate an initial keypair for a Snowflake user when no keys exist yet.
+
+Returns the generated key file paths and the `ALTER USER` SQL needed to manually set the initial public key.
+
+-----
+
+</details>
+
 
 ## snowflake
 Helpers for getting data out of and into Snowflake
@@ -623,7 +668,26 @@ For example, `/ed-fi/apiClients/districts-2425-ds5/{tenant_code}/prod/Stadium` w
 
 </details>
 
+## SnowflakeKeypairRotationDag
+This dag is for rotating Snowflake key-pairs for one or more Snowflake users.
 
+A separate task is created for each user in `snowflake_users`.
+Each task calls `snowflake_keypair.rotate_keypair`, which generates a new keypair, sets the new public key in Snowflake, and unsets the old key slot.
+
+<details>
+<summary>Arguments:</summary>
+
+-----
+
+| Argument            | Description                                                                 |
+|---------------------|-----------------------------------------------------------------------------|
+| key_rotator_conn_id | Snowflake Airflow connection ID used to run `DESC USER` and `ALTER USER`    |
+| snowflake_users     | list of Snowflake users whose keypairs should be rotated                    |
+| key_dir             | directory where `.p8` and `.pub` key files are written (default `/efs/snowflake_keys`) |
+
+-----
+
+</details>
 
 # Providers
 Finally, this package contains a handful of custom DBT operators to be used as an alternative to PythonOperators.
