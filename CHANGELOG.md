@@ -1,9 +1,12 @@
 # ea_airflow_util v0.4.0
-## New Features
-- 
+## New features
+- Add `snowflake_keypair` callable for generating Snowflake RSA keypairs and rotating Snowflake user public keys.
+- Add `SnowflakeKeypairRotationDag` for automating Snowflake keypair rotation.
 
 ## Under the hood
 - Add support for Airflow 2.11.
+- Implement OpenSSL based key generation for Snowflake keypair authentication.
+- Rotate Snowflake user public keys using the slots `RSA_PUBLIC_KEY` and `RSA_PUBLIC_KEY_2` .
 
 
 # ea_airflow_util v0.3.7
