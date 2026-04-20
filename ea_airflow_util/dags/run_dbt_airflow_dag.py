@@ -15,7 +15,7 @@ from airflow_dbt.operators.dbt_operator import DbtRunOperator, DbtSeedOperator, 
 
 from ea_airflow_util.dags.ea_custom_dag import EACustomDAG
 from ea_airflow_util.callables.variable import check_variable, update_variable
-from ea_airflow_util.providers.dbt.operators.dbt import DbtRunOperationOperator
+from ea_airflow_util.providers.dbt.operators.dbt import DbtRunOperationOperator, DbtDepsUpgradeOperator
 
 
 class RunDbtDag:
@@ -51,9 +51,12 @@ class RunDbtDag:
         full_refresh: bool = False,
         full_refresh_schedule: Optional[str] = None,
 
+        deps_vars: Optional[dict] = None,
         seed_vars: Optional[dict] = None,
         run_vars: Optional[dict] = None,
         test_vars: Optional[dict] = None,
+
+        deps_upgrade: bool = True,
 
         opt_swap: bool = False,
         opt_dest_schema: Optional[str] = None,
@@ -77,9 +80,13 @@ class RunDbtDag:
         self.full_refresh_schedule = full_refresh_schedule
 
         # run-time vars
+        self.deps_vars = deps_vars
         self.seed_vars = seed_vars
         self.run_vars = run_vars
         self.test_vars = run_vars
+
+        # whether to attach --upgrade when running dbt deps
+        self.deps_upgrade = deps_upgrade
 
         # bluegreen
         self.opt_swap        = opt_swap
@@ -147,8 +154,9 @@ class RunDbtDag:
     # build function for tasks
     def build_dbt_run(self, on_success_callback=None, **kwargs):
         """
-        four tasks defined here: 
+        five tasks defined here: 
 
+        dbt deps:
         dbt seed: 
         dbt run:
         dbt test:
@@ -168,6 +176,18 @@ class RunDbtDag:
             dag=self.dag
         ) as dbt_task_group:
 
+            dbt_deps = DbtDepsUpgradeOperator(
+                task_id= f'dbt_deps_{self.environment}',
+                dir    = self.dbt_repo_path,
+                target = self.dbt_target_name,
+                dbt_bin= self.dbt_bin_path,
+                trigger_rule='all_success',
+                vars=self.deps_vars,
+                upgrade=self.deps_upgrade,
+                dag=self.dag
+
+            )
+            
             dbt_seed = DbtSeedOperator(
                 task_id= f'dbt_seed_{self.environment}',
                 dir    = self.dbt_repo_path,
@@ -198,7 +218,7 @@ class RunDbtDag:
                 dag=self.dag
             )
 
-            dbt_seed >> dbt_run >> dbt_test
+            dbt_deps >> dbt_seed >> dbt_run >> dbt_test
 
 
             # bluegreen operator
@@ -252,7 +272,7 @@ class RunDbtDag:
                     dag=self.dag
                 )
 
-                dbt_build_artifact_tables >> dbt_seed
+                dbt_build_artifact_tables >> dbt_deps
 
             # Trigger downstream DAG when `dbt run` succeeds
             if self.external_dags:
