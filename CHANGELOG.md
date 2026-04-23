@@ -1,3 +1,8 @@
+# ea_airflow_util v0.4.1
+## Fixes
+- Explicitly pass `bucket_name` into all method calls to `S3Hook`.
+
+
 # ea_airflow_util v0.4.0
 ## New features
 - Add `snowflake_keypair` callable for generating Snowflake RSA keypairs and rotating Snowflake user public keys.
