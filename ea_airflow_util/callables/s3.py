@@ -25,6 +25,7 @@ def disk_to_s3(
 ):
     # use hook to make connection to s3
     s3_hook = S3Hook(s3_conn_id)
+    s3_bucket = s3_hook.get_connection(s3_conn_id).schema
 
     # extra dir to local will be an additional path added on to local path
     if extra_dir_to_local is not None:
@@ -98,7 +99,7 @@ def disk_to_s3(
             if os.path.basename(full_local_path).endswith('.gz'):
                 try:
                     s3_hook.load_file(
-                        full_local_path, bucket, key,
+                        full_local_path, bucket, key, bucket_name=s3_bucket,
                         ExtraArgs={'ServerSideEncryption': 'AES256', 'ContentEncoding': 'gzip'}
                     )
                 except Exception as error:
@@ -115,7 +116,7 @@ def disk_to_s3(
                         failed_count += 1
             else:
                 try:
-                    s3_hook.load_file(full_local_path, key, bucket, replace=True, encrypt=True)
+                    s3_hook.load_file(full_local_path, key, bucket, bucket_name=s3_bucket, replace=True, encrypt=True)
                 except Exception as error:
                     logging.error(error)
 
