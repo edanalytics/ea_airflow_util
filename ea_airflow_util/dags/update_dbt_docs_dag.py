@@ -16,7 +16,8 @@ def upload_to_s3(conn_id: str, filename: str, key: str) -> None: # , bucket_name
     if ".css" in filename: content_type = "text/css"
     if ".svg" in filename: content_type = "image/svg+xml"
     hook = S3Hook(conn_id, extra_args={"ContentType":content_type})
-    hook.load_file(filename=filename, key=key, replace=True) # , bucket_name=bucket_name)
+    s3_bucket = hook.get_connection(conn_id).schema
+    hook.load_file(filename=filename, key=key, replace=True, bucket_name=s3_bucket)
 
 
 class UpdateDbtDocsDag:
