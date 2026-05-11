@@ -16,11 +16,13 @@ class LoopS3FileTransformOperator(S3FileTransformOperator):
     In addition, the new `dest_s3_file_extension` argument provides greater transparency in output type.
     """
 
-    template_fields = ('source_s3_keys', 'dest_s3_prefix', 'transform_script')
+    template_fields = ('source_s3_keys', 'source_s3_bucket', 'dest_s3_prefix', 'dest_s3_bucket', 'transform_script')
 
     def __init__(self,
         source_s3_keys: Optional[List[str]] = None,
+        source_s3_bucket: Optional[str] = None,
         dest_s3_prefix: Optional[str] = None,
+        dest_s3_bucket: Optional[str] = None,
         dest_s3_file_extension: Optional[str] = None,
 
         *,
@@ -43,10 +45,12 @@ class LoopS3FileTransformOperator(S3FileTransformOperator):
 
         self.source_aws_conn_id = source_aws_conn_id
         self.source_s3_keys = source_s3_keys
+        self.source_s3_bucket = source_s3_bucket
         self.source_verify = source_verify
 
         self.dest_aws_conn_id = dest_aws_conn_id
         self.dest_s3_prefix = dest_s3_prefix or ''
+        self.dest_s3_bucket = dest_s3_bucket
         self.dest_s3_file_extension = dest_s3_file_extension
         self.dest_verify = dest_verify
 

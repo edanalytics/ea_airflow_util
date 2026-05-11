@@ -103,7 +103,9 @@ class S3ToSnowflakeDag:
                 transfer_s3_to_s3 = LoopS3FileTransformOperator(
                     task_id=f'transfer_s3_to_s3_{resource_name}',
                     source_s3_keys=xcom_pull_template(list_s3_objects.task_id),
+                    source_s3_bucket='{{ conn.%s.schema }}' % self.s3_source_conn_id,
                     dest_s3_prefix=datalake_prefix,
+                    dest_s3_bucket='{{ conn.%s.schema }}' % self.s3_dest_conn_id,
                     transform_script=self.transform_script,
                     source_aws_conn_id=self.s3_source_conn_id,
                     dest_aws_conn_id=self.s3_dest_conn_id,
