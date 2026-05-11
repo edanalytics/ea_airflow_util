@@ -66,33 +66,31 @@ class LoopS3FileTransformOperator(S3FileTransformOperator):
         """
         Loop over source and destination keys, using the S3FileTransformOperator's execute for each.
 
-        Technically, monkey-patching class attributes in execute is a coding faux pas, but it allows us to utilize
-        S3FileTransformOperator's execute as is without rebuilding it here from scratch.
+        Keys are prefixed with s3://bucket/ so that the @unify_bucket_name_and_key decorator on S3Hook
+        methods can split them correctly. This is needed because newer provider versions removed the
+        @provide_bucket_name fallback that previously read bucket_name from the http connection schema.
         """
-        # Remove directories from the listing (must be done here to give XComs time to parse.
-        self.source_s3_keys = list(filter(lambda key: not key.endswith('/'), self.source_s3_keys))  # Remove directories
+        # Remove directories from the listing (must be done here to give XComs time to parse).
+        self.source_s3_keys = list(filter(lambda key: not key.endswith('/'), self.source_s3_keys))
 
-        # Skip prematurely if no work to be done.
         if not self.source_s3_keys:
-            raise AirflowSkipException(
-                "No files found in source S3 bucket to transfer"
-            )
+            raise AirflowSkipException("No files found in source S3 bucket to transfer")
 
         transferred_keys = []
 
         for source_s3_key in self.source_s3_keys:
 
-            # Monkey-patch the missing `source_s3_key` and `dest_s3_key` arguments used in super's execute.
-            self.source_s3_key = source_s3_key
-
-            source_file_extension = pathlib.Path(self.source_s3_key).suffix
+            source_file_extension = pathlib.Path(source_s3_key).suffix
             if not self.dest_s3_file_extension:
                 self.dest_s3_file_extension = source_file_extension
 
-            self.dest_s3_key = os.path.join(
+            dest_s3_key = os.path.join(
                 self.dest_s3_prefix,
                 source_s3_key.replace(source_file_extension, self.dest_s3_file_extension).split('/')[-1]
             )
+
+            self.source_s3_key = f's3://{self.source_s3_bucket}/{source_s3_key}'
+            self.dest_s3_key = f's3://{self.dest_s3_bucket}/{dest_s3_key}'
 
             super().execute(context)
             transferred_keys.append(self.dest_s3_key)
