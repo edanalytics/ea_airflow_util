@@ -96,13 +96,17 @@ def s3_to_postgres(
     elif truncate and delete_qry:
         raise ValueError('Only specify one of truncate, delete_qry')
 
+    aws_credentials = ''
+    if s3_creds.login or s3_creds.password:
+        aws_credentials = f""",
+        aws_commons.create_aws_credentials('{s3_creds.login}', '{s3_creds.password}', '')"""
+
     copy_qry = f"""
         select aws_s3.table_import_from_s3(
         '{dest_table}',
         '{column_customization}',
         '{options}',
-        aws_commons.create_s3_uri('{s3_bucket}', '{s3_key}', '{s3_region}'),
-        aws_commons.create_aws_credentials('{s3_creds.login}', '{s3_creds.password}', '')
+        aws_commons.create_s3_uri('{s3_bucket}', '{s3_key}', '{s3_region}'){aws_credentials}
         );
     """
 
