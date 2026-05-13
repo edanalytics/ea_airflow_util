@@ -1,7 +1,10 @@
+# Unreleased changes
+## Fixes
+- Allow `sql.s3_to_postgres()` to rely on an IAM role by omitting `aws_commons.create_aws_credentials()` when the S3 connection has no login or password.
+
 # ea_airflow_util v0.4.1
 ## Fixes
 - Explicitly pass `bucket_name` into all method calls to `S3Hook`.
-
 
 # ea_airflow_util v0.4.0
 ## New features
