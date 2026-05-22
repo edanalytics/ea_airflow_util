@@ -1,6 +1,7 @@
 # ea_airflow_util v0.4.1
 ## Fixes
 - Explicitly pass `bucket_name` into all method calls to `S3Hook`.
+- Resolve S3 bucket from `extras.service_config.s3.bucket_name` with fallback to connection schema in `S3ToSnowflakeDag`, `delete_from_s3`, and related callables.
 
 
 # ea_airflow_util v0.4.0

@@ -8,6 +8,7 @@ from airflow.utils.helpers import chain
 from ea_airflow_util.dags.ea_custom_dag import EACustomDAG
 from ea_airflow_util.callables.airflow import xcom_pull_template
 from ea_airflow_util.callables import s3
+from ea_airflow_util.callables.s3 import s3_conn_bucket_template
 from ea_airflow_util.providers.aws.operators.s3 import LoopS3FileTransformOperator, S3ToSnowflakeOperator
 
 
@@ -91,7 +92,7 @@ class S3ToSnowflakeDag:
             ## List the s3 files from the source bucket
             list_s3_objects = S3ListOperator(
                 task_id=f'list_s3_objects_{resource_name}',
-                bucket='{{ conn.%s.schema }}' % self.s3_source_conn_id,  # Pass bucket as Jinja template to avoid Hook during DAG-init
+                bucket=s3_conn_bucket_template(self.s3_source_conn_id),
                 prefix=s3_source_prefix,
                 delimiter='',
                 aws_conn_id=self.s3_source_conn_id,
@@ -103,9 +104,9 @@ class S3ToSnowflakeDag:
                 transfer_s3_to_s3 = LoopS3FileTransformOperator(
                     task_id=f'transfer_s3_to_s3_{resource_name}',
                     source_s3_keys=xcom_pull_template(list_s3_objects.task_id),
-                    source_s3_bucket='{{ conn.%s.schema }}' % self.s3_source_conn_id,
+                    source_s3_bucket=s3_conn_bucket_template(self.s3_source_conn_id),
                     dest_s3_prefix=datalake_prefix,
-                    dest_s3_bucket='{{ conn.%s.schema }}' % self.s3_dest_conn_id,
+                    dest_s3_bucket=s3_conn_bucket_template(self.s3_dest_conn_id),
                     transform_script=self.transform_script,
                     source_aws_conn_id=self.s3_source_conn_id,
                     dest_aws_conn_id=self.s3_dest_conn_id,

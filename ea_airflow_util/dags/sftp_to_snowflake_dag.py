@@ -11,6 +11,7 @@ from airflow.operators.python import PythonOperator
 from airflow.providers.sftp.hooks.sftp import SFTPHook
 from airflow.utils.task_group import TaskGroup
 
+from ea_airflow_util.callables import s3
 from ea_airflow_util.dags.ea_custom_dag import EACustomDAG
 from ea_airflow_util.providers.aws.operators.s3 import S3ToSnowflakeOperator
 
@@ -243,7 +244,7 @@ class SFTPToSnowflakeDag:
         :return:
         """ 
         s3_hook = S3Hook(aws_conn_id=self.s3_conn_id)
-        s3_bucket = s3_hook.get_connection(self.s3_conn_id).schema
+        s3_bucket = s3.get_s3_bucket_name(self.s3_conn_id)
 
         # If a directory, upload all files to S3.
         if os.path.isdir(local_filepath):

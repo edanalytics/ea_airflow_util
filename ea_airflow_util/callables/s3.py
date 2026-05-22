@@ -12,6 +12,39 @@ from airflow.providers.amazon.aws.hooks.s3 import S3Hook
 from ea_airflow_util.callables import slack
 
 
+def get_s3_bucket_name(s3_conn_id: str) -> str:
+    """
+    Resolve the S3 bucket for an Airflow AWS connection.
+
+    Prefers extras.service_config.s3.bucket_name (aws conn_type), then connection schema.
+    """
+    conn = S3Hook(aws_conn_id=s3_conn_id).get_connection(s3_conn_id)
+    bucket = (
+        conn.extra_dejson.get("service_config", {}).get("s3", {}).get("bucket_name")
+        or conn.schema
+    )
+    if not bucket:
+        raise AirflowException(
+            f"No S3 bucket configured on connection {s3_conn_id!r}. "
+            "Set extras.service_config.s3.bucket_name or connection schema."
+        )
+    return bucket
+
+
+def s3_conn_bucket_template(conn_id: str) -> str:
+    """
+    Jinja template (with delimiters) for the S3 bucket on an Airflow AWS connection.
+
+    Prefers extras.service_config.s3.bucket_name, then connection schema.
+    """
+    safe_id = conn_id.replace("'", "\\'")
+    inner = (
+        "conn.get('%s').extra_dejson.get('service_config', {})"
+        ".get('s3', {}).get('bucket_name') or conn.get('%s').schema"
+    ) % (safe_id, safe_id)
+    return "{{ " + inner + " }}"
+
+
 ### Disk-to-S3
 def disk_to_s3(
     s3_conn_id: str,
@@ -25,7 +58,7 @@ def disk_to_s3(
 ):
     # use hook to make connection to s3
     s3_hook = S3Hook(s3_conn_id)
-    s3_bucket = s3_hook.get_connection(s3_conn_id).schema
+    s3_bucket = get_s3_bucket_name(s3_conn_id)
 
     # extra dir to local will be an additional path added on to local path
     if extra_dir_to_local is not None:
@@ -169,4 +202,4 @@ def delete_from_s3(
 
     logging.info('Deleting file from source s3')
 
-    s3_hook.delete_objects(bucket=s3_hook.get_connection(s3_conn_id).schema, keys=s3_keys_to_delete)
+    s3_hook.delete_objects(bucket=get_s3_bucket_name(s3_conn_id), keys=s3_keys_to_delete)
