@@ -93,7 +93,7 @@ class LoopS3FileTransformOperator(S3FileTransformOperator):
             self.dest_s3_key = f's3://{self.dest_s3_bucket}/{dest_s3_key}'
 
             super().execute(context)
-            transferred_keys.append(self.dest_s3_key)
+            transferred_keys.append(dest_s3_key)
 
         return transferred_keys
     
