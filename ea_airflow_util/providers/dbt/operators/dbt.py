@@ -7,7 +7,7 @@ import json
 
 from typing import Optional
 
-from airflow_dbt.operators.dbt_operator import DbtBaseOperator
+from airflow_dbt.operators.dbt_operator import DbtBaseOperator, DbtDepsOperator
 
 
 class DbtRunOperationOperator(DbtBaseOperator):
@@ -29,3 +29,17 @@ class DbtRunOperationOperator(DbtBaseOperator):
             cmd_pieces.extend(["--args", f'{json.dumps(self.arguments)}'])
 
         self.create_hook().run_cli(*cmd_pieces)
+
+class DbtDepsUpgradeOperator(DbtDepsOperator):
+    """
+    Without forking the hook code, we don't have a way to pass the --upgrade flag to deps.
+    """
+    def __init__(self, upgrade=False, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.upgrade = upgrade
+    
+    def execute(self, context):
+        if self.upgrade:
+            self.create_hook().run_cli('deps', '--upgrade')
+        else:
+            self.create_hook().run_cli('deps')
