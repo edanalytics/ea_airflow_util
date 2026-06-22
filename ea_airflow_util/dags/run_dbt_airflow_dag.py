@@ -242,6 +242,8 @@ class RunDbtDag:
                         'dbt_repo_path': self.dbt_repo_path,
                         'environment'  : self.environment,
                     },
+                    # one of the two dbt_run tasks will always be skipped by the branch operator.
+                    trigger_rule='one_success',
                     dag=self.dag,
                 )
 
