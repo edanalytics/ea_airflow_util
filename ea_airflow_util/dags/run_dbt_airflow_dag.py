@@ -247,7 +247,7 @@ class RunDbtDag:
 
                 # dbt_test uses none_failed_min_one_success so it runs even though one of the
                 # two dbt_run tasks will always be skipped by the branch operator.
-                dbt_seed >> pkg_lock_check >> [dbt_run, dbt_run_full_refresh] >> dbt_test >> pkg_lock_update
+                dbt_seed >> pkg_lock_check >> [dbt_run, dbt_run_full_refresh] >> pkg_lock_update >> dbt_test
 
                 dbt_run_operators = [dbt_run, dbt_run_full_refresh]
 
