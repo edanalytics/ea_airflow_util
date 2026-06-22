@@ -7,13 +7,14 @@ from datetime import datetime
 from typing import Optional
 
 from airflow.models.param import Param
-from airflow.operators.python import PythonOperator
+from airflow.operators.python import BranchPythonOperator, PythonOperator
 from airflow.operators.trigger_dagrun import TriggerDagRunOperator
 from airflow.utils.task_group import TaskGroup
 
 from airflow_dbt.operators.dbt_operator import DbtRunOperator, DbtSeedOperator, DbtTestOperator
 
 from ea_airflow_util.dags.ea_custom_dag import EACustomDAG
+from ea_airflow_util.callables.dbt import check_package_lock_hash, update_package_lock_hash
 from ea_airflow_util.callables.variable import check_variable, update_variable
 from ea_airflow_util.providers.dbt.operators.dbt import DbtRunOperationOperator
 
@@ -50,6 +51,7 @@ class RunDbtDag:
         # default to optional
         full_refresh: bool = False,
         full_refresh_schedule: Optional[str] = None,
+        track_package_lock: bool = False,
 
         seed_vars: Optional[dict] = None,
         run_vars: Optional[dict] = None,
@@ -72,9 +74,10 @@ class RunDbtDag:
         self.dbt_target_name = dbt_target_name
         self.dbt_bin_path = dbt_bin_path
 
-        # full refreshes schedules 
+        # full refreshes schedules
         self.full_refresh = full_refresh
         self.full_refresh_schedule = full_refresh_schedule
+        self.track_package_lock = track_package_lock
 
         # run-time vars
         self.seed_vars = seed_vars
@@ -179,26 +182,89 @@ class RunDbtDag:
                 dag=self.dag
             )
 
-            dbt_run = DbtRunOperator(
-                task_id= f'dbt_run_{self.environment}',
-                dir    = self.dbt_repo_path,
-                target = self.dbt_target_name,
-                dbt_bin= self.dbt_bin_path,
-                full_refresh=self.full_refresh,
-                vars=self.run_vars,
-                dag=self.dag
-            )
-
             dbt_test = DbtTestOperator(
                 task_id= f'dbt_test_{self.environment}',
                 dir    = self.dbt_repo_path,
                 target = self.dbt_target_name,
                 dbt_bin= self.dbt_bin_path,
+                trigger_rule='none_failed_min_one_success' if self.track_package_lock else 'all_success',
                 vars=self.test_vars,
                 dag=self.dag
             )
 
-            dbt_seed >> dbt_run >> dbt_test
+            if self.track_package_lock:
+                full_refresh_task_id = f'dbt_run_full_refresh_{self.environment}'
+                incremental_task_id  = f'dbt_run_{self.environment}'
+
+                # BranchPythonOperator returns one of the two task IDs below.
+                # Airflow runs that task and skips the other, so exactly one dbt run executes.
+                pkg_lock_check = BranchPythonOperator(
+                    task_id=f'check_pkg_lock_{self.environment}',
+                    python_callable=check_package_lock_hash,
+                    op_kwargs={
+                        'dbt_repo_path'        : self.dbt_repo_path,
+                        'environment'          : self.environment,
+                        'full_refresh_task_id' : full_refresh_task_id,
+                        'incremental_task_id'  : incremental_task_id,
+                        # Passes through any config-based full_refresh flag.
+                        'force_full_refresh'   : self.full_refresh,
+                        # Checked at task runtime so the day is evaluated when the DAG actually runs.
+                        'full_refresh_schedule': self.full_refresh_schedule,
+                    },
+                    dag=self.dag,
+                )
+
+                dbt_run = DbtRunOperator(
+                    task_id= incremental_task_id,
+                    dir    = self.dbt_repo_path,
+                    target = self.dbt_target_name,
+                    dbt_bin= self.dbt_bin_path,
+                    full_refresh=False,
+                    vars=self.run_vars,
+                    dag=self.dag,
+                )
+
+                dbt_run_full_refresh = DbtRunOperator(
+                    task_id= full_refresh_task_id,
+                    dir    = self.dbt_repo_path,
+                    target = self.dbt_target_name,
+                    dbt_bin= self.dbt_bin_path,
+                    full_refresh=True,
+                    vars=self.run_vars,
+                    dag=self.dag,
+                )
+
+                # Stores the hash after a successful run so the next run can compare against it.
+                pkg_lock_update = PythonOperator(
+                    task_id=f'update_pkg_lock_{self.environment}',
+                    python_callable=update_package_lock_hash,
+                    op_kwargs={
+                        'dbt_repo_path': self.dbt_repo_path,
+                        'environment'  : self.environment,
+                    },
+                    dag=self.dag,
+                )
+
+                # dbt_test uses none_failed_min_one_success so it runs even though one of the
+                # two dbt_run tasks will always be skipped by the branch operator.
+                dbt_seed >> pkg_lock_check >> [dbt_run, dbt_run_full_refresh] >> dbt_test >> pkg_lock_update
+
+                dbt_run_operators = [dbt_run, dbt_run_full_refresh]
+
+            else:
+                dbt_run = DbtRunOperator(
+                    task_id= f'dbt_run_{self.environment}',
+                    dir    = self.dbt_repo_path,
+                    target = self.dbt_target_name,
+                    dbt_bin= self.dbt_bin_path,
+                    full_refresh=self.full_refresh,
+                    vars=self.run_vars,
+                    dag=self.dag
+                )
+
+                dbt_seed >> dbt_run >> dbt_test
+
+                dbt_run_operators = [dbt_run]
 
 
             # bluegreen operator
@@ -256,7 +322,7 @@ class RunDbtDag:
 
             # Trigger downstream DAG when `dbt run` succeeds
             if self.external_dags:
-                dbt_run >> self.external_dags
+                dbt_run_operators >> self.external_dags
 
         # Apply the DBT variable operators if defined.
         if self.dbt_incrementer_var:
