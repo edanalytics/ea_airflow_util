@@ -22,6 +22,7 @@ def slack_alert_failure(context: dict, http_conn_id: str, **kwargs):
         *Dag*: { context['ti'].dag_id }
         *Execution Time*: { context['dag_run'].logical_date }
         *Log Url*: { context['ti'].log_url }
+        *Exception*: { context['exception'] }
     """)
     return _execute_slack_message(http_conn_id=http_conn_id, message=message, **kwargs)
 
