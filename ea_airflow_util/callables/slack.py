@@ -19,12 +19,11 @@ def slack_alert_failure(context: dict, http_conn_id: str, **kwargs):
     map_index = context.get('map_index_template')
 
     message = textwrap.dedent(f"""
-        :red_circle: Task Failed. 
+        :red_circle: Task Failed. [*Log Url*]({ context['ti'].log_url })
         *Dag*: { context['ti'].dag_id }
         *Task*: { context['ti'].task_id }
         {("*Map Index*: " + map_index) if map_index else ""}
         *Execution Time*: { context['dag_run'].logical_date }
-        *Log Url*: { context['ti'].log_url }
         *Exception*: { context['exception'] }
     """)
     return _execute_slack_message(http_conn_id=http_conn_id, message=message, **kwargs)
