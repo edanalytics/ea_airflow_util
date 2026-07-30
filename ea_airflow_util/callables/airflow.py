@@ -2,7 +2,7 @@ import logging
 
 from typing import Union
 
-from airflow.models.baseoperator import BaseOperator
+from airflow.sdk import BaseOperator
 from airflow.exceptions import AirflowSkipException
 
 

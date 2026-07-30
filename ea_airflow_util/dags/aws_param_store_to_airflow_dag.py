@@ -5,9 +5,9 @@ import re
 from typing import Iterator, Optional
 
 import airflow
-from airflow.decorators import task
+from airflow.sdk import task
 from airflow.exceptions import AirflowFailException
-from airflow.models import Connection, Param
+from airflow.sdk import Connection, Param
 
 from ea_airflow_util.dags.ea_custom_dag import EACustomDAG
 from ea_airflow_util.callables.ssm import SSMParameterStore

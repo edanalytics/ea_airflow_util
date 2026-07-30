@@ -1,4 +1,4 @@
-from airflow.models import Connection
+from airflow.sdk import Connection
 from airflow import settings
 
 def create_conn(conn_id, login, password, conn_type='http', host=None):

@@ -1,6 +1,6 @@
 import os
 
-from airflow.models import BaseOperator
+from airflow.sdk import BaseOperator
 from airflow.exceptions import AirflowSkipException
 from airflow.exceptions import AirflowException
 

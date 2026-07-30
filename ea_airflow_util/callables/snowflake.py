@@ -4,7 +4,7 @@ import pathlib
 
 from typing import Optional
 
-from airflow.models.connection import Connection
+from airflow.sdk import Connection
 from airflow.providers.amazon.aws.hooks.s3 import S3Hook
 from airflow.providers.snowflake.hooks.snowflake import SnowflakeHook
 from snowflake.connector import DictCursor

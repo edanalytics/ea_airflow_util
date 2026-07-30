@@ -1,7 +1,7 @@
 import os
 from typing import List
 
-from airflow.utils.task_group import TaskGroup
+from airflow.sdk.task_group import TaskGroup
 from airflow.operators.python import PythonOperator
 from airflow.operators.trigger_dagrun import TriggerDagRunOperator
 from airflow_dbt.operators.dbt_operator import DbtRunOperator
