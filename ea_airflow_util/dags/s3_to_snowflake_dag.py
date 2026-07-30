@@ -2,13 +2,13 @@ import os
 
 from airflow.operators.python import PythonOperator
 from airflow.providers.amazon.aws.operators.s3 import S3ListOperator
-from airflow.utils.helpers import chain
 
 
 from ea_airflow_util.dags.ea_custom_dag import EACustomDAG
 from ea_airflow_util.callables.airflow import xcom_pull_template
 from ea_airflow_util.callables import s3
 from ea_airflow_util.providers.aws.operators.s3 import LoopS3FileTransformOperator, S3ToSnowflakeOperator
+from airflow.sdk import chain
 
 
 class S3ToSnowflakeDag:
