@@ -5,7 +5,7 @@ import subprocess
 from typing import Optional
 
 from airflow.sdk import Param
-from airflow.operators.python import PythonOperator
+from airflow.providers.standard.operators.python import PythonOperator
 
 from ea_airflow_util.dags.ea_custom_dag import EACustomDAG
 

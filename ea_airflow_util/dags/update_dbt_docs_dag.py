@@ -2,7 +2,7 @@ import os
 from typing import Optional
 
 from airflow_dbt.operators.dbt_operator import DbtDocsGenerateOperator
-from airflow.operators.python import PythonOperator
+from airflow.providers.standard.operators.python import PythonOperator
 from airflow.providers.amazon.aws.hooks.s3 import S3Hook
 
 from ea_airflow_util.dags.ea_custom_dag import EACustomDAG

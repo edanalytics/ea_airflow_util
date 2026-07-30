@@ -1,6 +1,6 @@
 import os
 
-from airflow.operators.python import PythonOperator
+from airflow.providers.standard.operators.python import PythonOperator
 from airflow.providers.amazon.aws.operators.s3 import S3ListOperator
 
 

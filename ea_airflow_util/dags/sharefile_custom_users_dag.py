@@ -2,8 +2,8 @@ import os
 from typing import List
 
 from airflow.sdk.task_group import TaskGroup
-from airflow.operators.python import PythonOperator
-from airflow.operators.trigger_dagrun import TriggerDagRunOperator
+from airflow.providers.standard.operators.python import PythonOperator
+from airflow.providers.standard.operators.trigger_dagrun import TriggerDagRunOperator
 from airflow_dbt.operators.dbt_operator import DbtRunOperator
 
 from ea_airflow_util.callables.airflow import xcom_pull_template
