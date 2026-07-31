@@ -16,9 +16,7 @@ def _execute_slack_message(http_conn_id: str, message: str, **kwargs):
 
 def slack_alert_failure(context: dict, http_conn_id: str, **kwargs):
     """  """
-    map_index = context.get('map_index')
-    if map_index == -1:  # Override non-dynamic tasks.
-        map_index = None
+    map_index = context['ti'].rendered_map_index
 
     message = textwrap.dedent(f"""
         :red_circle: Task Failed.   *(<{ context['ti'].log_url }|Log URL>)*
