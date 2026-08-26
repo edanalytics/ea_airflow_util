@@ -1,20 +1,23 @@
 import itertools
 import logging
 import re
+from collections.abc import Generator
+from typing import Any
 
-from typing import Iterator, Optional
-
-import airflow
-from airflow.sdk import task
 from airflow.exceptions import AirflowFailException
-from airflow.sdk import Connection, Param
+from airflow.sdk import Connection, Param, task
+from airflow_client.client.exceptions import ApiException
 
-from ea_airflow_util.dags.ea_custom_dag import EACustomDAG
+from ea_airflow_util.callables import airflow_connection
 from ea_airflow_util.callables.ssm import SSMParameterStore
+from ea_airflow_util.dags.ea_custom_dag import EACustomDAG
+
+logger = logging.getLogger(__name__)
 
 
 class ConnectionKwargs:
-    """ Class for storing connection pieces from ParamStore """
+    """Class for storing connection pieces from ParamStore"""
+
     def __init__(self):
         self.__kwargs = {}  # Keep kwargs hidden from logging
 
@@ -22,16 +25,16 @@ class ConnectionKwargs:
         """
         Add key to connection kwargs, translating as necessary.
         """
-        if key == 'key':
-            self.__kwargs['login'] = value
-        elif key == 'secret':
-            self.__kwargs['password'] = value
-        elif key == 'url':
-            self.__kwargs['host'] = value
+        if key == "key":
+            self.__kwargs["login"] = value
+        elif key == "secret":
+            self.__kwargs["password"] = value
+        elif key == "url":
+            self.__kwargs["host"] = value
         else:
-            logging.debug(f"Ignoring unexpected parameter key: {key}")
+            logger.debug(f"Ignoring unexpected parameter key: {key}")
 
-    def to_conn(self, conn_id: str) -> dict:
+    def to_conn(self, conn_id: str) -> Connection:
         """
         Convert connection pieces into a JSON connection.
         """
@@ -46,7 +49,7 @@ class ConnectionKwargs:
         # Remove extraneous whitespacing from values.
         self.__kwargs = {key: val.strip() for key, val in self.__kwargs.items()}
 
-        return Connection(conn_id=conn_id, conn_type='http', **self.__kwargs)
+        return Connection(conn_id=conn_id, conn_type="http", **self.__kwargs)
 
 
 class AWSParamStoreToAirflowDAG:
@@ -62,35 +65,33 @@ class AWSParamStoreToAirflowDAG:
     Optional argument `tenant_mapping` provides tenant_code naming-fixes when they misalign in ParameterStore.
 
     """
+
     params_dict = {
         "force": Param(
             default=False,
             type="boolean",
-            description="If true, recreate connection if it already exists."
+            description="If true, recreate connection if it already exists.",
         ),
     }
 
-    def __init__(self,
+    def __init__(
+        self,
         region_name: str,
-
         *,
-        connection_mapping: Optional[dict] = None,
-        prefix_year_mapping: Optional[dict] = None,
-        tenant_mapping: Optional[str] = None,
-
+        connection_mapping: dict | None = None,
+        prefix_year_mapping: dict | None = None,
+        tenant_mapping: str | None = None,
         join_numbers: bool = True,
-        **kwargs
+        **kwargs,
     ):
         self.region_name = region_name
         self.join_numbers = join_numbers
 
-        self.connection_mapping  = connection_mapping or {}
+        self.connection_mapping = connection_mapping or {}
         self.prefix_year_mapping = prefix_year_mapping or {}
-        self.tenant_mapping      = tenant_mapping or {}
+        self.tenant_mapping = tenant_mapping or {}
 
-        self.session = airflow.settings.Session()
         self.dag = self.build_dag(**kwargs)
-
 
     def build_dag(self, **kwargs):
         """
@@ -99,6 +100,7 @@ class AWSParamStoreToAirflowDAG:
         :param default_args:
         :return:
         """
+
         @task
         def upload_connections_from_paramstore(**context):
             """
@@ -112,26 +114,26 @@ class AWSParamStoreToAirflowDAG:
                 raise AirflowFailException(
                     "Neither arguments `connection_mapping` nor `prefix_year_mapping` have been defined."
                 )
-            
-            overwrite: bool = context['params']['force']
+
+            overwrite: bool = context["params"]["force"]
 
             for conn_id, conn_kwargs in itertools.chain(
                 self.build_kwargs_from_connection_mapping(),
-                self.build_kwargs_from_prefix_year_mapping()
+                self.build_kwargs_from_prefix_year_mapping(),
             ):
                 try:
-                    self.upload_connection_kwargs_to_airflow(conn_id, conn_kwargs, overwrite=overwrite)
+                    self.upload_connection_kwargs_to_airflow(
+                        conn_id, conn_kwargs, overwrite=overwrite
+                    )
                 except NameError:  # Internal-declared error
-                    logging.info(f"Skipping existing connection: `{conn_id}`")
+                    logger.info(f"Skipping existing connection: `{conn_id}`")
                 except Exception as err:
-                    logging.warning(f"Failed to import `{conn_id}`: {err}")
-
+                    logger.warning(f"Failed to import `{conn_id}`: {err}")
 
         with EACustomDAG(params=self.params_dict, **kwargs) as dag:
             upload_connections_from_paramstore()
 
         return dag
-
 
     def build_kwargs_from_connection_mapping(self):
         """
@@ -140,43 +142,48 @@ class AWSParamStoreToAirflowDAG:
         """
         ### Iterate prefixes and associated params to collect connection kwargs, then yield.
         for ssm_prefix, conn_id in self.connection_mapping.items():
-            param_store = SSMParameterStore(prefix=ssm_prefix, region_name=self.region_name)
+            param_store = SSMParameterStore(
+                prefix=ssm_prefix, region_name=self.region_name
+            )
 
             try:
                 conn_kwargs = ConnectionKwargs()
 
-                for param_type in param_store.keys():
+                for param_type in param_store:
                     param_value = param_store[param_type]
                     conn_kwargs.add_kwarg(param_type, param_value)
 
             except ValueError:
-                logging.warning(
+                logger.warning(
                     f"Parameters for prefix {ssm_prefix} do not match expected shape and will be skipped."
                 )
                 continue
 
             yield conn_id, conn_kwargs
 
-
-    def build_kwargs_from_prefix_year_mapping(self) -> Iterator[ConnectionKwargs]:
+    def build_kwargs_from_prefix_year_mapping(
+        self,
+    ) -> Generator[tuple[str, ConnectionKwargs], Any, Any]:
         """
         Populate the connection_kwargs via prefix_year- and tenant-mappings.
         # {ssm_prefix}/{tenant_code}/{param_type}
         """
         for ssm_prefix, api_year in self.prefix_year_mapping.items():
-            param_store = SSMParameterStore(prefix=ssm_prefix, region_name=self.region_name)
+            param_store = SSMParameterStore(
+                prefix=ssm_prefix, region_name=self.region_name
+            )
 
             ### Iterate tenant codes and associated params to collect connection kwargs, then yield.
-            for tenant_code in param_store.keys():
+            for tenant_code in param_store:
                 try:
                     conn_kwargs = ConnectionKwargs()
 
-                    for param_type in param_store[tenant_code].keys():
+                    for param_type in param_store[tenant_code]:
                         param_value = param_store[tenant_code][param_type]
                         conn_kwargs.add_kwarg(param_type, param_value)
 
                 except ValueError:
-                    logging.warning(
+                    logger.warning(
                         f"Parameters for prefix `{ssm_prefix}/{tenant_code}` do not match expected shape and will be skipped."
                     )
                     continue
@@ -188,7 +195,7 @@ class AWSParamStoreToAirflowDAG:
                     tenant_code = self.tenant_mapping[tenant_code]
                 else:
                     # Replace dashes and spaces with underscores.
-                    tenant_code = tenant_code.replace('-', '_').replace(' ', '_')
+                    tenant_code = tenant_code.replace("-", "_").replace(" ", "_")
 
                     # Remove underscores between district name and number, if specified.
                     if self.join_numbers:
@@ -197,25 +204,30 @@ class AWSParamStoreToAirflowDAG:
                 conn_id = f"edfi_{tenant_code}_{api_year}"
                 yield conn_id, conn_kwargs
 
-
-    def upload_connection_kwargs_to_airflow(self, conn_id: str, conn_kwargs: ConnectionKwargs, overwrite: bool = False):
+    def upload_connection_kwargs_to_airflow(
+        self, conn_id: str, conn_kwargs: ConnectionKwargs, overwrite: bool = False
+    ):
         """
         Attempt to upload connections to Airflow, warning if already present or incomplete.
-        https://stackoverflow.com/questions/51863881
         """
-        # Verify whether the connection already exists in Airflow, and continue if not overwriting.
-        if existing_conn := self.session.query(Connection).filter(Connection.conn_id == conn_id).first():
-            if overwrite:
-                self.session.delete(existing_conn)
-                self.session.commit()
-            else:
-                raise NameError("Connection already exists!")
 
-        # Try to convert the kwargs into a connection, erroring if missing a required field.
         conn = conn_kwargs.to_conn(conn_id)
-        self.session.add(conn)
-        self.session.commit()
+        conn_fields = {
+            "conn_id": conn_id,
+            "conn_type": conn.conn_type,
+            "login": conn.login,
+            "password": conn.password,
+            "host": conn.host,
+        }
 
-        logging.info(
-            f"Successful import: Connection `{conn_id}` added to Airflow."
-        )
+        if overwrite:
+            airflow_connection.upsert_conn(**conn_fields)
+        else:
+            try:
+                airflow_connection.create_conn(**conn_fields)
+            except ApiException as exc:
+                if exc.status == 409:
+                    raise NameError("Connection already exists!")
+                raise
+
+        logger.info(f"Successful import: Connection `{conn_id}` added to Airflow.")
