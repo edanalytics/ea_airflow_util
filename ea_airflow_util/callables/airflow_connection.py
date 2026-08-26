@@ -6,6 +6,8 @@ from airflow_client.client import ApiClient, Configuration, ConnectionApi
 from airflow_client.client.exceptions import ApiException
 from airflow_client.client.models.connection_body import ConnectionBody
 
+_PAGE_SIZE = 100
+
 
 # TODO: Probably never localhost, and we should probably just settle to use
 # AIRFLOW__WEBSERVER__BASE_URL, unless there's a new env var for free in v3.
@@ -132,10 +134,18 @@ def list_conn(pattern="%"):
         else:
             list_kwargs["connection_id_pattern"] = pattern
 
-    with _connection_api() as api:
-        response = api.get_connections(**list_kwargs)
+    conn_ids = []
+    offset = 0
 
-        return [conn.connection_id for conn in response.connections]
+    with _connection_api() as api:
+        while True:
+            response = api.get_connections(limit=_PAGE_SIZE, offset=offset, **list_kwargs)
+            conn_ids.extend(conn.connection_id for conn in response.connections)
+            offset += _PAGE_SIZE
+            if offset >= response.total_entries:
+                break
+
+    return conn_ids
 
 
 def update_conn(
