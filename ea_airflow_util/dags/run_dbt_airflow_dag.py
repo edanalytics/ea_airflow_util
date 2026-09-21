@@ -9,7 +9,7 @@ from typing import Optional
 from airflow.sdk import Param
 from airflow.providers.standard.operators.python import PythonOperator
 from airflow.providers.standard.operators.trigger_dagrun import TriggerDagRunOperator
-from airflow.sdk.task_group import TaskGroup
+from airflow.sdk import TaskGroup
 
 from airflow_dbt.operators.dbt_operator import DbtRunOperator, DbtSeedOperator, DbtTestOperator
 

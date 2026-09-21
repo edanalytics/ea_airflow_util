@@ -9,7 +9,7 @@ from airflow.providers.amazon.aws.hooks.s3 import S3Hook
 from airflow.providers.standard.operators.bash import BashOperator
 from airflow.providers.standard.operators.python import PythonOperator
 from airflow.providers.sftp.hooks.sftp import SFTPHook
-from airflow.sdk.task_group import TaskGroup
+from airflow.sdk import TaskGroup
 
 from ea_airflow_util.dags.ea_custom_dag import EACustomDAG
 from ea_airflow_util.providers.aws.operators.s3 import S3ToSnowflakeOperator
