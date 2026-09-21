@@ -2,7 +2,7 @@ import copy
 import datetime
 import inspect
 
-from airflow import DAG
+from airflow.sdk import DAG
 from functools import partial
 from typing import Optional
 
