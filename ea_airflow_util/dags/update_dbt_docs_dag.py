@@ -1,7 +1,7 @@
 import os
 from typing import Optional
 
-from airflow_dbt.operators.dbt_operator import DbtDocsGenerateOperator
+from airflow_dbt_python.operators.dbt import DbtDocsGenerateOperator
 from airflow.providers.standard.operators.python import PythonOperator
 from airflow.providers.amazon.aws.hooks.s3 import S3Hook
 
@@ -43,7 +43,7 @@ class UpdateDbtDocsDag:
     ):
         # self.environment = environment
         self.dbt_docs_s3_conn_id = dbt_docs_s3_conn_id
-        
+
         # dbt paths
         self.dbt_repo_path = dbt_repo_path
         self.dbt_target_name = dbt_target_name
@@ -54,29 +54,28 @@ class UpdateDbtDocsDag:
 
         self.dag = EACustomDAG(**kwargs)
 
-    
     def update_dbt_docs(self, on_success_callback=None, **kwargs):
 
         dbt_docs_generate_task = DbtDocsGenerateOperator(
-            task_id= f'dbt_generate_docs',
-            dir    = self.dbt_repo_path,
-            target = self.dbt_target_name,
-            dbt_bin= self.dbt_bin_path,
+            task_id=f"dbt_generate_docs",
+            project_dir=self.dbt_repo_path,
+            target=self.dbt_target_name,
+            dbt_bin=self.dbt_bin_path,
             on_success_callback=on_success_callback,
-            dag=self.dag
+            dag=self.dag,
         )
-        
+
         docs_files = ["target/index.html", "target/catalog.json", "target/manifest.json"]
         # if a custom html file exists, replace the file path with configured path. do the same for css if exists
         if self.dbt_docs_custom_html:
-          docs_files.remove("target/index.html")
-          docs_files.append(self.dbt_docs_custom_html)
+            docs_files.remove("target/index.html")
+            docs_files.append(self.dbt_docs_custom_html)
         if self.dbt_docs_custom_css:
-          docs_files.append(self.dbt_docs_custom_css)
+            docs_files.append(self.dbt_docs_custom_css)
         if self.dbt_docs_images:
             for img in self.dbt_docs_images:
                 docs_files.append(img)
-            
+
         upload_tasks = []
         for docs_file in docs_files:
             # e.g. docs_file = 'target/index.html" -> s3_key = "index.html" -> task_id = "index"

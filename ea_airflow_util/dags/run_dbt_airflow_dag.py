@@ -11,7 +11,11 @@ from airflow.providers.standard.operators.python import PythonOperator
 from airflow.providers.standard.operators.trigger_dagrun import TriggerDagRunOperator
 from airflow.sdk import TaskGroup
 
-from airflow_dbt.operators.dbt_operator import DbtRunOperator, DbtSeedOperator, DbtTestOperator
+from airflow_dbt_python.operators.dbt import (
+    DbtRunOperator,
+    DbtSeedOperator,
+    DbtTestOperator,
+)
 
 from ea_airflow_util.dags.ea_custom_dag import EACustomDAG
 from ea_airflow_util.callables.variable import check_variable, update_variable
@@ -66,13 +70,13 @@ class RunDbtDag:
         **kwargs
     ):
         self.environment = environment
-        
+
         # dbt paths
         self.dbt_repo_path = dbt_repo_path
         self.dbt_target_name = dbt_target_name
         self.dbt_bin_path = dbt_bin_path
 
-        # full refreshes schedules 
+        # full refreshes schedules
         self.full_refresh = full_refresh
         self.full_refresh_schedule = full_refresh_schedule
 
@@ -143,7 +147,6 @@ class RunDbtDag:
         else:
             self.external_dags = None
 
-    
     # build function for tasks
     def build_dbt_run(self, on_success_callback=None, **kwargs):
         """
@@ -155,11 +158,11 @@ class RunDbtDag:
         dbt swap: bluegreen step, not required
 
         """
-        # set a logic to force a full refresh 
+        # set a logic to force a full refresh
         day = datetime.today().weekday()
         dag_conf_full_refresh = kwargs.get('dag_run', {}).get('conf', {}).get('full_refresh') or False
         if self.full_refresh_schedule == day or dag_conf_full_refresh:
-           self.full_refresh = True
+            self.full_refresh = True
 
         with TaskGroup(
             group_id="Run DBT",
@@ -169,87 +172,85 @@ class RunDbtDag:
         ) as dbt_task_group:
 
             dbt_seed = DbtSeedOperator(
-                task_id= f'dbt_seed_{self.environment}',
-                dir    = self.dbt_repo_path,
-                target = self.dbt_target_name,
-                dbt_bin= self.dbt_bin_path,
-                trigger_rule='all_success',
+                task_id=f"dbt_seed_{self.environment}",
+                project_dir=self.dbt_repo_path,
+                target=self.dbt_target_name,
+                dbt_bin=self.dbt_bin_path,
+                trigger_rule="all_success",
                 full_refresh=True,
                 vars=self.seed_vars,
-                dag=self.dag
+                dag=self.dag,
             )
 
             dbt_run = DbtRunOperator(
-                task_id= f'dbt_run_{self.environment}',
-                dir    = self.dbt_repo_path,
-                target = self.dbt_target_name,
-                dbt_bin= self.dbt_bin_path,
+                task_id=f"dbt_run_{self.environment}",
+                project_dir=self.dbt_repo_path,
+                target=self.dbt_target_name,
+                dbt_bin=self.dbt_bin_path,
                 full_refresh=self.full_refresh,
                 vars=self.run_vars,
-                dag=self.dag
+                dag=self.dag,
             )
 
             dbt_test = DbtTestOperator(
-                task_id= f'dbt_test_{self.environment}',
-                dir    = self.dbt_repo_path,
-                target = self.dbt_target_name,
-                dbt_bin= self.dbt_bin_path,
+                task_id=f"dbt_test_{self.environment}",
+                project_dir=self.dbt_repo_path,
+                target=self.dbt_target_name,
+                dbt_bin=self.dbt_bin_path,
                 vars=self.test_vars,
-                dag=self.dag
+                dag=self.dag,
             )
 
             dbt_seed >> dbt_run >> dbt_test
 
-
             # bluegreen operator
             if self.opt_swap:
                 dbt_swap = DbtRunOperationOperator(
-                    task_id= f'dbt_swap_{self.environment}',
-                    dir    = self.dbt_repo_path,
-                    target = self.dbt_target_name,
-                    dbt_bin= self.dbt_bin_path,
-                    op_name= 'swap_schemas',
+                    task_id=f"dbt_swap_{self.environment}",
+                    project_dir=self.dbt_repo_path,
+                    target=self.dbt_target_name,
+                    dbt_bin=self.dbt_bin_path,
+                    op_name="swap_schemas",
                     arguments={
                         "dest_schema": self.opt_dest_schema,
                     },
                     on_success_callback=on_success_callback,
-                    dag=self.dag
+                    dag=self.dag,
                 )
 
                 # Schema swaps only apply to tables, not views.
                 dbt_rerun_views_swap = DbtRunOperator(
-                    task_id=f'dbt_rerun_views_{self.opt_swap_target}',
-                    dir=self.dbt_repo_path,
+                    task_id=f"dbt_rerun_views_{self.opt_swap_target}",
+                    project_dir=self.dbt_repo_path,
                     target=self.opt_swap_target,
                     dbt_bin=self.dbt_bin_path,
                     models="config.materialized:view",
                     full_refresh=self.full_refresh,
-                    dag=self.dag
+                    dag=self.dag,
                 )
 
                 # Rerun the original target also to allow comparison after swap.
                 dbt_rerun_views = DbtRunOperator(
-                    task_id=f'dbt_rerun_views_{self.environment}',
-                    dir=self.dbt_repo_path,
+                    task_id=f"dbt_rerun_views_{self.environment}",
+                    project_dir=self.dbt_repo_path,
                     target=self.dbt_target_name,
                     dbt_bin=self.dbt_bin_path,
                     models="config.materialized:view",
                     full_refresh=self.full_refresh,
-                    dag=self.dag
+                    dag=self.dag,
                 )
 
                 dbt_test >> dbt_swap >> [dbt_rerun_views_swap, dbt_rerun_views]
 
-
             # Upload run artifacts to Snowflake
             if self.upload_artifacts:
                 dbt_build_artifact_tables = DbtRunOperator(
-                    task_id=f'dbt_build_artifact_tables_{self.environment}',
-                    dir=self.dbt_repo_path,
+                    task_id=f"dbt_build_artifact_tables_{self.environment}",
+                    project_dir=self.dbt_repo_path,
                     target=self.dbt_target_name,
                     dbt_bin=self.dbt_bin_path,
                     select="package:dbt_artifacts",
-                    dag=self.dag
+                    dag=self.dag,
                 )
 
                 dbt_build_artifact_tables >> dbt_seed

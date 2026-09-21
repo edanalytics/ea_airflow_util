@@ -1,6 +1,6 @@
 from typing import Optional
 
-from airflow_dbt.operators.dbt_operator import DbtSnapshotOperator
+from airflow_dbt_python.operators.dbt import DbtSnapshotOperator
 
 from ea_airflow_util.dags.ea_custom_dag import EACustomDAG
 
@@ -25,12 +25,11 @@ class DbtSnapshotDag:
         self.dbt_bin_path = dbt_bin_path
         self.dag = EACustomDAG(**kwargs)
 
-    
     def dbt_snapshot_run(self, on_success_callback=None, **kwargs):
         dbt_snapshot_task = DbtSnapshotOperator(
-            task_id= f'dbt_snapshot',
-            dir    = self.dbt_repo_path,
-            target = self.dbt_target_name,
-            dbt_bin= self.dbt_bin_path,
-            dag=self.dag
+            task_id=f"dbt_snapshot",
+            project_dir=self.dbt_repo_path,
+            target=self.dbt_target_name,
+            dbt_bin=self.dbt_bin_path,
+            dag=self.dag,
         )
