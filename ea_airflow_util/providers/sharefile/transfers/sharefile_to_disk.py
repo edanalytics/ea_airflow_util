@@ -1,8 +1,8 @@
 import os
 
 from airflow.sdk import BaseOperator
-from airflow.exceptions import AirflowSkipException
-from airflow.exceptions import AirflowException
+from airflow.sdk.exceptions import AirflowSkipException
+from airflow.sdk.exceptions import AirflowException
 
 from ea_airflow_util.callables import slack
 from ea_airflow_util.providers.sharefile.hooks.sharefile import SharefileHook

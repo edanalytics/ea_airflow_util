@@ -4,7 +4,7 @@ import re
 from collections.abc import Generator
 from typing import Any
 
-from airflow.exceptions import AirflowFailException
+from airflow.sdk.exceptions import AirflowFailException
 from airflow.sdk import Connection, Param, task
 from airflow_client.client.exceptions import ApiException
 

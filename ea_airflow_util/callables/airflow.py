@@ -3,7 +3,7 @@ import logging
 from typing import Union
 
 from airflow.sdk import BaseOperator
-from airflow.exceptions import AirflowSkipException
+from airflow.sdk.exceptions import AirflowSkipException
 
 
 def xcom_pull_template(

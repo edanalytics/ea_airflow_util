@@ -2,7 +2,7 @@ import logging
 
 from typing import Callable, Union
 
-from airflow.exceptions import AirflowSkipException
+from airflow.sdk.exceptions import AirflowSkipException
 from airflow.sdk import Variable
 
 
