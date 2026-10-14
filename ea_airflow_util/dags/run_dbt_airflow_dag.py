@@ -27,7 +27,6 @@ class RunDbtDag:
     :param environment:
     :param dbt_repo_path:
     :param dbt_target_name:
-    :param dbt_bin_path:
     :param full_refresh: -- default to False
     :param full_refresh_schedule: -- default to None
     :param opt_swap: -- default to False
@@ -49,7 +48,6 @@ class RunDbtDag:
         # required dbt paths and target
         dbt_repo_path  : str,
         dbt_target_name: str,
-        dbt_bin_path   : str,
 
         # default to optional
         full_refresh: bool = False,
@@ -74,7 +72,6 @@ class RunDbtDag:
         # dbt paths
         self.dbt_repo_path = dbt_repo_path
         self.dbt_target_name = dbt_target_name
-        self.dbt_bin_path = dbt_bin_path
 
         # full refreshes schedules
         self.full_refresh = full_refresh
@@ -175,7 +172,6 @@ class RunDbtDag:
                 task_id=f"dbt_seed_{self.environment}",
                 project_dir=self.dbt_repo_path,
                 target=self.dbt_target_name,
-                dbt_bin=self.dbt_bin_path,
                 trigger_rule="all_success",
                 full_refresh=True,
                 vars=self.seed_vars,
@@ -186,7 +182,6 @@ class RunDbtDag:
                 task_id=f"dbt_run_{self.environment}",
                 project_dir=self.dbt_repo_path,
                 target=self.dbt_target_name,
-                dbt_bin=self.dbt_bin_path,
                 full_refresh=self.full_refresh,
                 vars=self.run_vars,
                 dag=self.dag,
@@ -196,7 +191,6 @@ class RunDbtDag:
                 task_id=f"dbt_test_{self.environment}",
                 project_dir=self.dbt_repo_path,
                 target=self.dbt_target_name,
-                dbt_bin=self.dbt_bin_path,
                 vars=self.test_vars,
                 dag=self.dag,
             )
@@ -209,7 +203,6 @@ class RunDbtDag:
                     task_id=f"dbt_swap_{self.environment}",
                     project_dir=self.dbt_repo_path,
                     target=self.dbt_target_name,
-                    dbt_bin=self.dbt_bin_path,
                     op_name="swap_schemas",
                     arguments={
                         "dest_schema": self.opt_dest_schema,
@@ -223,7 +216,6 @@ class RunDbtDag:
                     task_id=f"dbt_rerun_views_{self.opt_swap_target}",
                     project_dir=self.dbt_repo_path,
                     target=self.opt_swap_target,
-                    dbt_bin=self.dbt_bin_path,
                     models="config.materialized:view",
                     full_refresh=self.full_refresh,
                     dag=self.dag,
@@ -234,7 +226,6 @@ class RunDbtDag:
                     task_id=f"dbt_rerun_views_{self.environment}",
                     project_dir=self.dbt_repo_path,
                     target=self.dbt_target_name,
-                    dbt_bin=self.dbt_bin_path,
                     models="config.materialized:view",
                     full_refresh=self.full_refresh,
                     dag=self.dag,
@@ -248,7 +239,6 @@ class RunDbtDag:
                     task_id=f"dbt_build_artifact_tables_{self.environment}",
                     project_dir=self.dbt_repo_path,
                     target=self.dbt_target_name,
-                    dbt_bin=self.dbt_bin_path,
                     select="package:dbt_artifacts",
                     dag=self.dag,
                 )
