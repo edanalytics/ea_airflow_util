@@ -4,7 +4,7 @@ import os
 from typing import Optional, Tuple, Union
 
 from ea_airflow_util.callables import slack
-from ea_airflow_util.providers.sftp.hooks.sftp import SFTPHook
+from airflow.providers.sftp.hooks.sftp import SFTPHook
 
 
 def download_all(

@@ -2,8 +2,8 @@ import logging
 
 from typing import Callable, Union
 
-from airflow.exceptions import AirflowSkipException
-from airflow.models import Variable
+from airflow.sdk.exceptions import AirflowSkipException
+from airflow.sdk import Variable
 
 
 def update_variable(var: str, value: Union[Callable, int, str], **context):

@@ -5,7 +5,7 @@ import os
 
 from typing import Iterator, Optional
 
-from airflow.exceptions import AirflowException, AirflowSkipException
+from airflow.sdk.exceptions import AirflowException, AirflowSkipException
 
 from ea_airflow_util.callables import casing
 

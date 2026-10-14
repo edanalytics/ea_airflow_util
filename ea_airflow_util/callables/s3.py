@@ -6,7 +6,7 @@ import os
 
 from typing import List, Optional
 
-from airflow.exceptions import AirflowException, AirflowSkipException
+from airflow.sdk.exceptions import AirflowException, AirflowSkipException
 from airflow.providers.amazon.aws.hooks.s3 import S3Hook
 
 from ea_airflow_util.callables import slack

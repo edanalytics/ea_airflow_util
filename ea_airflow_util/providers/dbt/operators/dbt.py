@@ -7,7 +7,7 @@ import json
 
 from typing import Optional
 
-from airflow_dbt.operators.dbt_operator import DbtBaseOperator
+from airflow_dbt_python.operators.dbt import DbtBaseOperator
 
 
 class DbtRunOperationOperator(DbtBaseOperator):
