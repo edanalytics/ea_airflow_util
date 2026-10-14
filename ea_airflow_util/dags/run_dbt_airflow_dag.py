@@ -165,7 +165,7 @@ class RunDbtDag:
             self.full_refresh = True
 
         with TaskGroup(
-            group_id="Run DBT",
+            group_id="RunDBT",
             prefix_group_id=False,
             parent_group=None,
             dag=self.dag
