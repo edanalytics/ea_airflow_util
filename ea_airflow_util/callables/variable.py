@@ -16,11 +16,11 @@ def update_variable(var: str, value: Union[Callable, int, str], **context):
     if callable(value):
         current_val = Variable.get(var)
         return_val = value(current_val)
-        Variable.set(var, return_val)
+        Variable.set(var, return_val, serialize_json=True)
 
     # Otherwise, set the static value.
     else:
-        Variable.set(var, value)
+        Variable.set(var, value, serialize_json=True)
 
 
 def check_variable(var: str, condition: Callable, force: bool = False, **context):
