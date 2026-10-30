@@ -16,11 +16,11 @@ def update_variable(var: str, value: Union[Callable, int, str], **context):
     if callable(value):
         current_val = Variable.get(var)
         return_val = value(current_val)
-        Variable.update(var, return_val)
+        Variable.set(var, return_val)
 
     # Otherwise, set the static value.
     else:
-        Variable.update(var, value)
+        Variable.set(var, value)
 
 
 def check_variable(var: str, condition: Callable, force: bool = False, **context):
