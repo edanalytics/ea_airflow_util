@@ -256,7 +256,7 @@ class RunDbtDag:
                     project_dir=self.dbt_repo_path,
                     profiles_dir="/home/airflow/.dbt",
                     target=self.dbt_target_name,
-                    select="package:dbt_artifacts",
+                    select=["package:dbt_artifacts"],
                     dag=self.dag,
                 )
 
