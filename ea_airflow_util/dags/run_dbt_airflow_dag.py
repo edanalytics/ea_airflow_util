@@ -181,6 +181,7 @@ class RunDbtDag:
             dbt_seed = DbtSeedOperator(
                 task_id=f"dbt_seed_{self.environment}",
                 project_dir=self.dbt_repo_path,
+                profiles_dir="/home/airflow/.dbt",
                 target=self.dbt_target_name,
                 trigger_rule="all_success",
                 full_refresh=True,
@@ -191,6 +192,7 @@ class RunDbtDag:
             dbt_run = DbtRunOperator(
                 task_id=f"dbt_run_{self.environment}",
                 project_dir=self.dbt_repo_path,
+                profiles_dir="/home/airflow/.dbt",
                 target=self.dbt_target_name,
                 full_refresh=self.full_refresh,
                 vars=self.run_vars,
@@ -200,6 +202,7 @@ class RunDbtDag:
             dbt_test = DbtTestOperator(
                 task_id=f"dbt_test_{self.environment}",
                 project_dir=self.dbt_repo_path,
+                profiles_dir="/home/airflow/.dbt",
                 target=self.dbt_target_name,
                 vars=self.test_vars,
                 dag=self.dag,
@@ -212,6 +215,7 @@ class RunDbtDag:
                 dbt_swap = DbtRunOperationOperator(
                     task_id=f"dbt_swap_{self.environment}",
                     project_dir=self.dbt_repo_path,
+                    profiles_dir="/home/airflow/.dbt",
                     target=self.dbt_target_name,
                     op_name="swap_schemas",
                     arguments={
@@ -225,6 +229,7 @@ class RunDbtDag:
                 dbt_rerun_views_swap = DbtRunOperator(
                     task_id=f"dbt_rerun_views_{self.opt_swap_target}",
                     project_dir=self.dbt_repo_path,
+                    profiles_dir="/home/airflow/.dbt",
                     target=self.opt_swap_target,
                     models="config.materialized:view",
                     full_refresh=self.full_refresh,
@@ -235,6 +240,7 @@ class RunDbtDag:
                 dbt_rerun_views = DbtRunOperator(
                     task_id=f"dbt_rerun_views_{self.environment}",
                     project_dir=self.dbt_repo_path,
+                    profiles_dir="/home/airflow/.dbt",
                     target=self.dbt_target_name,
                     models="config.materialized:view",
                     full_refresh=self.full_refresh,
@@ -248,6 +254,7 @@ class RunDbtDag:
                 dbt_build_artifact_tables = DbtRunOperator(
                     task_id=f"dbt_build_artifact_tables_{self.environment}",
                     project_dir=self.dbt_repo_path,
+                    profiles_dir="/home/airflow/.dbt",
                     target=self.dbt_target_name,
                     select="package:dbt_artifacts",
                     dag=self.dag,
