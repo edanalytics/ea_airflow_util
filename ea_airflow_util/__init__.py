@@ -63,7 +63,7 @@ rename_mapping = {
         }
     },
     "ea_airflow_util.dags.operators": {
-        "name": "ea_airflow_util.providers.dbt.operators.dbt",
+        "name": "ea_airflow_util.providers.ea_dbt.operators.ea_dbt",
         "child_mapping": {
             "dbt_operators": "dbt.operators.dbt",
             "loop_s3_file_transform_operator": "aws.operators.s3"
