@@ -171,7 +171,7 @@ class RunDbtDag:
             dbt_debug = DbtDebugOperator(
                 task_id=f"dbt_debug_{self.environment}",
                 project_dir=self.dbt_repo_path,
-                profiles_dir="~/.dbt/",
+                profiles_dir="/home/airflow/.dbt",
                 target=self.dbt_target_name,
                 trigger_rule="all_success",
                 vars=self.seed_vars,
