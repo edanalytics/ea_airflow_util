@@ -173,7 +173,6 @@ class RunDbtDag:
                 project_dir=self.dbt_repo_path,
                 target=self.dbt_target_name,
                 trigger_rule="all_success",
-                full_refresh=True,
                 vars=self.seed_vars,
                 dag=self.dag,
             )
