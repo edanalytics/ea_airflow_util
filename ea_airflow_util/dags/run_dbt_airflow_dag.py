@@ -12,7 +12,6 @@ from airflow.providers.standard.operators.trigger_dagrun import TriggerDagRunOpe
 from airflow.sdk import TaskGroup
 
 from airflow_dbt_python.operators.dbt import (
-    DbtCompileOperator,
     DbtDebugOperator,
     DbtRunOperator,
     DbtSeedOperator,
@@ -176,15 +175,6 @@ class RunDbtDag:
                 target=self.dbt_target_name,
                 trigger_rule="all_success",
                 vars=self.seed_vars,
-                dag=self.dag,
-            )
-
-            dbt_compile = DbtCompileOperator(
-                task_id=f"dbt_compile_{self.environment}",
-                project_dir=self.dbt_repo_path,
-                profiles_dir="/home/airflow/.dbt",
-                target=self.dbt_target_name,
-                trigger_rule="all_success",
                 dag=self.dag,
             )
 
