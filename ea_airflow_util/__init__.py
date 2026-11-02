@@ -17,7 +17,6 @@ from ea_airflow_util.callables.variable import check_variable, update_variable
 from ea_airflow_util.callables import airflow_connection
 
 from ea_airflow_util.providers.aws.operators.s3 import LoopS3FileTransformOperator
-from ea_airflow_util.providers.ea_dbt.operators.ea_dbt import DbtRunOperationOperator
 from ea_airflow_util.providers.sharefile.hooks.sharefile import SharefileHook
 from ea_airflow_util.providers.sharefile.transfers.sharefile_to_disk import SharefileToDiskOperator
 
@@ -60,13 +59,6 @@ rename_mapping = {
         "name": "ea_airflow_util.callables",
         "child_mapping": {
             "variable": "variable"
-        }
-    },
-    "ea_airflow_util.dags.operators": {
-        "name": "ea_airflow_util.providers.ea_dbt.operators.ea_dbt",
-        "child_mapping": {
-            "dbt_operators": "ea_dbt.operators.ea_dbt",
-            "loop_s3_file_transform_operator": "aws.operators.s3"
         }
     },
 }

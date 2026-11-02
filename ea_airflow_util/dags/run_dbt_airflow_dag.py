@@ -16,11 +16,11 @@ from airflow_dbt_python.operators.dbt import (
     DbtRunOperator,
     DbtSeedOperator,
     DbtTestOperator,
+    DbtRunOperationOperator
 )
 
 from ea_airflow_util.dags.ea_custom_dag import EACustomDAG
 from ea_airflow_util.callables.variable import check_variable, update_variable
-from ea_airflow_util.providers.ea_dbt.operators.ea_dbt import DbtRunOperationOperator
 
 class RunDbtDag:
     """
@@ -218,7 +218,7 @@ class RunDbtDag:
                     profiles_dir="/home/airflow/.dbt",
                     target=self.dbt_target_name,
                     op_name="swap_schemas",
-                    arguments={
+                    args={
                         "dest_schema": self.opt_dest_schema,
                     },
                     on_success_callback=on_success_callback,
