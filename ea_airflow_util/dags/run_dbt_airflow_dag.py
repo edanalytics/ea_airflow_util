@@ -12,11 +12,12 @@ from airflow.providers.standard.operators.trigger_dagrun import TriggerDagRunOpe
 from airflow.sdk import TaskGroup
 
 from airflow_dbt_python.operators.dbt import (
+    DbtCompileOperator,
     DbtDebugOperator,
     DbtRunOperator,
     DbtSeedOperator,
     DbtTestOperator,
-    DbtRunOperationOperator
+    DbtRunOperationOperator,
 )
 
 from ea_airflow_util.dags.ea_custom_dag import EACustomDAG
@@ -178,6 +179,15 @@ class RunDbtDag:
                 dag=self.dag,
             )
 
+            dbt_compile = DbtCompileOperator(
+                task_id=f"dbt_compile_{self.environment}",
+                project_dir=self.dbt_repo_path,
+                profiles_dir="/home/airflow/.dbt",
+                target=self.dbt_target_name,
+                trigger_rule="all_success",
+                dag=self.dag,
+            )
+
             dbt_seed = DbtSeedOperator(
                 task_id=f"dbt_seed_{self.environment}",
                 project_dir=self.dbt_repo_path,
@@ -208,7 +218,7 @@ class RunDbtDag:
                 dag=self.dag,
             )
 
-            dbt_debug >> dbt_seed >> dbt_run >> dbt_test
+            dbt_debug >> dbt_compile >> dbt_seed >> dbt_run >> dbt_test
 
             # bluegreen operator
             if self.opt_swap:
