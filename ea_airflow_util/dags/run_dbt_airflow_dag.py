@@ -208,7 +208,7 @@ class RunDbtDag:
                 dag=self.dag,
             )
 
-            dbt_debug >> dbt_compile >> dbt_seed >> dbt_run >> dbt_test
+            dbt_debug >> dbt_seed >> dbt_run >> dbt_test
 
             # bluegreen operator
             if self.opt_swap:
