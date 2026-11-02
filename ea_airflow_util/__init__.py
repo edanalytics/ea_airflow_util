@@ -17,7 +17,7 @@ from ea_airflow_util.callables.variable import check_variable, update_variable
 from ea_airflow_util.callables import airflow_connection
 
 from ea_airflow_util.providers.aws.operators.s3 import LoopS3FileTransformOperator
-from ea_airflow_util.providers.dbt.operators.dbt import DbtRunOperationOperator
+from ea_airflow_util.providers.ea_dbt.operators.ea_dbt import DbtRunOperationOperator
 from ea_airflow_util.providers.sharefile.hooks.sharefile import SharefileHook
 from ea_airflow_util.providers.sharefile.transfers.sharefile_to_disk import SharefileToDiskOperator
 
