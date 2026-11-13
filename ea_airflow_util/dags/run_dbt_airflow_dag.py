@@ -1,21 +1,8 @@
-# AirflowDBT uses Airflow 1.x syntax when defining Hooks and Operators.
-# These warnings clog up the scheduler and should be hidden until the package is updated.
-import warnings
-warnings.filterwarnings("ignore", module="airflow_dbt", category=DeprecationWarning)
-
-from datetime import datetime
-from typing import Optional
-
-from airflow.models.param import Param
-from airflow.operators.python import PythonOperator
-from airflow.operators.trigger_dagrun import TriggerDagRunOperator
-from airflow.utils.task_group import TaskGroup
-
-from airflow_dbt.operators.dbt_operator import DbtRunOperator, DbtSeedOperator, DbtTestOperator
+from airflow.providers.standard.operators.trigger_dagrun import TriggerDagRunOperator
+from airflow.sdk import TaskGroup
 
 from ea_airflow_util.dags.ea_custom_dag import EACustomDAG
-from ea_airflow_util.callables.variable import check_variable, update_variable
-from ea_airflow_util.providers.dbt.operators.dbt import DbtRunOperationOperator
+from ea_airflow_util.providers.ea_dbt.operators.ea_dbt import dbt_task
 
 
 class RunDbtDag:
@@ -23,110 +10,46 @@ class RunDbtDag:
     :param environment:
     :param dbt_repo_path:
     :param dbt_target_name:
-    :param dbt_bin_path:
     :param full_refresh: -- default to False
-    :param full_refresh_schedule: -- default to None
-    :param opt_swap: -- default to False
-    :param opt_dest_schema: -- default to None
-    :param opt_swap_target: -- default to opt_dest_schema
 
     """
-    params_dict = {
-        "force": Param(
-            default=False,
-            type="boolean",
-            description="If true, run DBT regardless of the state of the DBT incrementer variable"
-        ),
-    }
 
-    def __init__(self,
+    def __init__(
+        self,
         environment: str,
-    
-        # required dbt paths and target
-        dbt_repo_path  : str,
+        dbt_repo_path: str,
         dbt_target_name: str,
-        dbt_bin_path   : str,
-
-        # default to optional
         full_refresh: bool = False,
-        full_refresh_schedule: Optional[str] = None,
-
-        seed_vars: Optional[dict] = None,
-        run_vars: Optional[dict] = None,
-        test_vars: Optional[dict] = None,
-
-        opt_swap: bool = False,
-        opt_dest_schema: Optional[str] = None,
-        opt_swap_target: Optional[str] = None,
-
+        seed_vars: dict | None = None,
+        run_vars: dict | None = None,
+        test_vars: dict | None = None,
         upload_artifacts: bool = False,
-        dbt_incrementer_var: str = None,
-        trigger_dags_on_run_success: Optional[list] = None,
-
-        **kwargs
+        trigger_dags_on_run_success: list | None = None,
+        **kwargs,
     ):
+
         self.environment = environment
-        
+
         # dbt paths
         self.dbt_repo_path = dbt_repo_path
         self.dbt_target_name = dbt_target_name
-        self.dbt_bin_path = dbt_bin_path
 
-        # full refreshes schedules 
         self.full_refresh = full_refresh
-        self.full_refresh_schedule = full_refresh_schedule
 
         # run-time vars
         self.seed_vars = seed_vars
         self.run_vars = run_vars
-        self.test_vars = run_vars
-
-        # bluegreen
-        self.opt_swap        = opt_swap
-        self.opt_dest_schema = opt_dest_schema
-        self.opt_swap_target = opt_swap_target or self.opt_dest_schema
+        self.test_vars = test_vars
 
         # DBT Artifacts
         self.upload_artifacts = upload_artifacts
 
-        # Dynamic runs via variables
-        self.dbt_incrementer_var = dbt_incrementer_var
-
         self.dag = EACustomDAG(
-            params=self.params_dict,
-            user_defined_macros= {
-                'environment': self.environment,
+            user_defined_macros={
+                "environment": self.environment,
             },
-            **kwargs
+            **kwargs,
         )
-
-        # Build operators to check the value of the DBT var at the start and reset it at the end.
-        if self.dbt_incrementer_var:
-            self.dbt_var_check_operator = PythonOperator(
-                task_id='check_dbt_variable',
-                python_callable=check_variable,
-                op_kwargs={
-                    'var': self.dbt_incrementer_var,
-                    'condition': lambda x: int(x) > 0,
-                    'force': "{{ params.force }}"
-                },
-                dag=self.dag
-            )
-
-            self.dbt_var_reset_operator = PythonOperator(
-                task_id='reset_dbt_variable',
-                python_callable=update_variable,
-                op_kwargs={
-                    'var': self.dbt_incrementer_var,
-                    'value': 0,
-                },
-                trigger_rule='none_skipped',
-                dag=self.dag
-            )
-
-        else:
-            self.dbt_var_check_operator = None
-            self.dbt_var_reset_operator = None
 
         # Build optional operator to trigger downstream DAG when `dbt run` succeeds.
         if trigger_dags_on_run_success:
@@ -138,126 +61,61 @@ class RunDbtDag:
                         task_id=f"trigger_{external_dag_id}",
                         trigger_dag_id=external_dag_id,
                         wait_for_completion=False,  # Keep running DBT DAG while downstream DAG runs.
-                        trigger_rule='all_success',
-                    ))
+                        trigger_rule="all_success",
+                    )
+                )
         else:
             self.external_dags = None
 
-    
-    # build function for tasks
-    def build_dbt_run(self, on_success_callback=None, **kwargs):
-        """
-        four tasks defined here: 
-
-        dbt seed: 
-        dbt run:
-        dbt test:
-        dbt swap: bluegreen step, not required
-
-        """
-        # set a logic to force a full refresh 
-        day = datetime.today().weekday()
-        dag_conf_full_refresh = kwargs.get('dag_run', {}).get('conf', {}).get('full_refresh') or False
-        if self.full_refresh_schedule == day or dag_conf_full_refresh:
-           self.full_refresh = True
+    def build_dbt_run(self, **kwargs):
+        self.full_refresh = self.full_refresh or kwargs.get("dag_run", {}).get(
+            "conf", {}
+        ).get("full_refresh", False)
 
         with TaskGroup(
-            group_id="Run DBT",
-            prefix_group_id=False,
-            parent_group=None,
-            dag=self.dag
-        ) as dbt_task_group:
+            group_id="RunDBT", prefix_group_id=False, parent_group=None, dag=self.dag
+        ):
+            # dbt = dbt_task.partial(
+            #     dbt_kwargs={
+            #         "project_dir": self.dbt_repo_path,
+            #         "profiles_dir": "/home/airflow/.dbt",
+            #         "target": self.dbt_target_name,
+            #     }
+            # )
 
-            dbt_seed = DbtSeedOperator(
-                task_id= f'dbt_seed_{self.environment}',
-                dir    = self.dbt_repo_path,
-                target = self.dbt_target_name,
-                dbt_bin= self.dbt_bin_path,
-                trigger_rule='all_success',
-                full_refresh=True,
-                vars=self.seed_vars,
-                dag=self.dag
+            dbt_kwargs = {
+                "project_dir": self.dbt_repo_path,
+                "profiles_dir": "/home/airflow/.dbt",
+                "target": self.dbt_target_name,
+            }
+
+            def tid(cmd):
+                return f"dbt_{cmd}_{self.environment}"
+
+            dbt_debug = dbt_task.override(task_id=tid("debug"), dag_id=self.dag.dag_id)(
+                "debug", **dbt_kwargs
             )
 
-            dbt_run = DbtRunOperator(
-                task_id= f'dbt_run_{self.environment}',
-                dir    = self.dbt_repo_path,
-                target = self.dbt_target_name,
-                dbt_bin= self.dbt_bin_path,
-                full_refresh=self.full_refresh,
-                vars=self.run_vars,
-                dag=self.dag
+            dbt_seed = dbt_task.override(task_id=tid("seed"), dag_id=self.dag.dag_id)(
+                "seed", vars=self.seed_vars, **dbt_kwargs
             )
+            dbt_debug >> dbt_seed
 
-            dbt_test = DbtTestOperator(
-                task_id= f'dbt_test_{self.environment}',
-                dir    = self.dbt_repo_path,
-                target = self.dbt_target_name,
-                dbt_bin= self.dbt_bin_path,
-                vars=self.test_vars,
-                dag=self.dag
-            )
+            # dbt_run = dbt.override(task_id=tid("run"))("run", {"vars": self.run_vars})
+            # dbt_test = dbt.override(task_id=tid("test"))(
+            #     "test", {"vars": self.test_vars}
+            # )
 
-            dbt_seed >> dbt_run >> dbt_test
+            # if self.upload_artifacts:
+            #     dbt_artifacts = dbt.override(task_id=tid("build_artifact_tables"))(
+            #         "run", select="package:dbt_artifacts"
+            #     )
+            #     pre_run = dbt_debug >> dbt_artifacts >> dbt_seed
+            # else:
+            #     pre_run = dbt_debug >> dbt_seed
 
+            # pre_run >> dbt_run >> dbt_test
 
-            # bluegreen operator
-            if self.opt_swap:
-                dbt_swap = DbtRunOperationOperator(
-                    task_id= f'dbt_swap_{self.environment}',
-                    dir    = self.dbt_repo_path,
-                    target = self.dbt_target_name,
-                    dbt_bin= self.dbt_bin_path,
-                    op_name= 'swap_schemas',
-                    arguments={
-                        "dest_schema": self.opt_dest_schema,
-                    },
-                    on_success_callback=on_success_callback,
-                    dag=self.dag
-                )
-
-                # Schema swaps only apply to tables, not views.
-                dbt_rerun_views_swap = DbtRunOperator(
-                    task_id=f'dbt_rerun_views_{self.opt_swap_target}',
-                    dir=self.dbt_repo_path,
-                    target=self.opt_swap_target,
-                    dbt_bin=self.dbt_bin_path,
-                    models="config.materialized:view",
-                    full_refresh=self.full_refresh,
-                    dag=self.dag
-                )
-
-                # Rerun the original target also to allow comparison after swap.
-                dbt_rerun_views = DbtRunOperator(
-                    task_id=f'dbt_rerun_views_{self.environment}',
-                    dir=self.dbt_repo_path,
-                    target=self.dbt_target_name,
-                    dbt_bin=self.dbt_bin_path,
-                    models="config.materialized:view",
-                    full_refresh=self.full_refresh,
-                    dag=self.dag
-                )
-
-                dbt_test >> dbt_swap >> [dbt_rerun_views_swap, dbt_rerun_views]
-
-
-            # Upload run artifacts to Snowflake
-            if self.upload_artifacts:
-                dbt_build_artifact_tables = DbtRunOperator(
-                    task_id=f'dbt_build_artifact_tables_{self.environment}',
-                    dir=self.dbt_repo_path,
-                    target=self.dbt_target_name,
-                    dbt_bin=self.dbt_bin_path,
-                    select="package:dbt_artifacts",
-                    dag=self.dag
-                )
-
-                dbt_build_artifact_tables >> dbt_seed
-
-            # Trigger downstream DAG when `dbt run` succeeds
-            if self.external_dags:
-                dbt_run >> self.external_dags
-
-        # Apply the DBT variable operators if defined.
-        if self.dbt_incrementer_var:
-            self.dbt_var_check_operator >> dbt_task_group >> self.dbt_var_reset_operator
+            # # Trigger downstream DAG when `dbt run` succeeds
+            # if self.external_dags:
+            #     dbt_run >> self.external_dags

@@ -9,7 +9,7 @@ import uuid
 from datetime import datetime
 from typing import List, Optional
 
-from airflow.exceptions import AirflowException, AirflowSkipException, AirflowFailException
+from airflow.sdk.exceptions import AirflowException, AirflowSkipException, AirflowFailException
 
 from ea_airflow_util.providers.sharefile.hooks.sharefile import SharefileHook
 from airflow.providers.amazon.aws.hooks.s3 import S3Hook
