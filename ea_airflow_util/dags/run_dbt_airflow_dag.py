@@ -122,4 +122,4 @@ class RunDbtDag:
             if self.external_dags:
                 dbt_run >> self.external_dags
 
-        dbt_task_group.dag = self.dag
+        dbt_task_group
