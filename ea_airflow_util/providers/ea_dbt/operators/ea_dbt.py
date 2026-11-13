@@ -5,7 +5,7 @@ from airflow.sdk.exceptions import AirflowFailException
 @task
 def dbt_task(
     cmd: str | list[str],
-    **kwargs,
+    **dbt_kwargs,
 ) -> None:
     from dbt.cli.main import dbtRunner, dbtRunnerResult
 
@@ -13,7 +13,7 @@ def dbt_task(
         cmd = [cmd]
 
     runner = dbtRunner()
-    result: dbtRunnerResult = runner.invoke(cmd, **kwargs)
+    result: dbtRunnerResult = runner.invoke(cmd, **dbt_kwargs)
 
     if not result.success:
         # dbtRunnerResult.exception is populated only for unhandled exceptions,
