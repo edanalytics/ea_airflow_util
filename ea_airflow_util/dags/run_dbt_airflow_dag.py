@@ -11,10 +11,6 @@ class RunDbtDag:
     :param dbt_repo_path:
     :param dbt_target_name:
     :param full_refresh: -- default to False
-    :param full_refresh_schedule: -- default to None
-    :param opt_swap: -- default to False
-    :param opt_dest_schema: -- default to None
-    :param opt_swap_target: -- default to opt_dest_schema
 
     """
 
@@ -88,7 +84,7 @@ class RunDbtDag:
             def tid(cmd):
                 return f"dbt_{cmd}_{self.environment}"
 
-            dbt_debug = dbt_base_task.override(task_id=tid("debug"))("debug")
+            dbt_debug = dbt_base_task.override(task_id=tid("debug"))(cmd="debug")
             dbt_seed = dbt_base_task.override(task_id=tid("seed"))(
                 "seed", vars=self.seed_vars
             )
