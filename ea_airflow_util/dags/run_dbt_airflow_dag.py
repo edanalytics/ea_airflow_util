@@ -76,9 +76,11 @@ class RunDbtDag:
             group_id="RunDBT", prefix_group_id=False, parent_group=None, dag=self.dag
         ):
             dbt = dbt_task.partial(
-                project_dir=self.dbt_repo_path,
-                profiles_dir="/home/airflow/.dbt",
-                target=self.dbt_target_name,
+                dbt_kwargs={
+                    "project_dir": self.dbt_repo_path,
+                    "profiles_dir": "/home/airflow/.dbt",
+                    "target": self.dbt_target_name,
+                }
             )
 
             def tid(cmd):
