@@ -25,7 +25,7 @@ def dbt_task(
         profiles_dir=profiles_dir,
         target=target,
         select=select,
-        vars=vars,
+        vars=vars or {},
     )
 
     if not result.success:
