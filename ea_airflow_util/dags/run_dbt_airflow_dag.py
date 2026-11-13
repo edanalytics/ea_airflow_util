@@ -74,7 +74,7 @@ class RunDbtDag:
 
         with TaskGroup(
             group_id="RunDBT", prefix_group_id=False, parent_group=None, dag=self.dag
-        ):
+        ) as dbt_task_group:
             dbt_kwargs = {
                 "project_dir": self.dbt_repo_path,
                 "profiles_dir": "/home/airflow/.dbt",
@@ -121,3 +121,5 @@ class RunDbtDag:
             # Trigger downstream DAG when `dbt run` succeeds
             if self.external_dags:
                 dbt_run >> self.external_dags
+
+        dbt_task_group.dag = self.dag
