@@ -11,13 +11,13 @@ from airflow.providers.standard.operators.python import PythonOperator
 from airflow.providers.standard.operators.trigger_dagrun import TriggerDagRunOperator
 from airflow.sdk import TaskGroup
 
-from airflow_dbt_python.operators.dbt import (
-    DbtDebugOperator,
-    DbtRunOperator,
-    DbtSeedOperator,
-    DbtTestOperator,
-    DbtRunOperationOperator,
-)
+# from airflow_dbt_python.operators.dbt import (
+#     DbtDebugOperator,
+#     DbtRunOperator,
+#     DbtSeedOperator,
+#     DbtTestOperator,
+#     DbtRunOperationOperator,
+# )
 
 from ea_airflow_util.dags.ea_custom_dag import EACustomDAG
 from ea_airflow_util.callables.variable import check_variable, update_variable

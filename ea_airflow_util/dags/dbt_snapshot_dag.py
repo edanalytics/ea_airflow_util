@@ -1,6 +1,6 @@
 from typing import Optional
 
-from airflow_dbt_python.operators.dbt import DbtSnapshotOperator
+# from airflow_dbt_python.operators.dbt import DbtSnapshotOperator
 
 from ea_airflow_util.dags.ea_custom_dag import EACustomDAG
 
