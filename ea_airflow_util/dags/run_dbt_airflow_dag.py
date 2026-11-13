@@ -75,7 +75,7 @@ class RunDbtDag:
         with TaskGroup(
             group_id="RunDBT", prefix_group_id=False, parent_group=None, dag=self.dag
         ):
-            dbt_base_task = dbt_task.partial(
+            dbt = dbt_task.partial(
                 project_dir=self.dbt_repo_path,
                 profiles_dir="/home/airflow/.dbt",
                 target=self.dbt_target_name,
@@ -84,21 +84,19 @@ class RunDbtDag:
             def tid(cmd):
                 return f"dbt_{cmd}_{self.environment}"
 
-            dbt_debug = dbt_base_task.override(task_id=tid("debug"))(cmd="debug")
-            dbt_seed = dbt_base_task.override(task_id=tid("seed"))(
-                "seed", vars=self.seed_vars
+            dbt_debug = dbt.override(task_id=tid("debug"))("debug")
+            dbt_seed = dbt.override(task_id=tid("seed"))(
+                "seed", {"vars": self.seed_vars}
             )
-            dbt_run = dbt_base_task.override(task_id=tid("run"))(
-                "run", vars=self.run_vars
-            )
-            dbt_test = dbt_base_task.override(task_id=tid("test"))(
-                "test", vars=self.test_vars
+            dbt_run = dbt.override(task_id=tid("run"))("run", {"vars": self.run_vars})
+            dbt_test = dbt.override(task_id=tid("test"))(
+                "test", {"vars": self.test_vars}
             )
 
             if self.upload_artifacts:
-                dbt_artifacts = dbt_base_task.override(
-                    task_id=tid("build_artifact_tables")
-                )("run", select="package:dbt_artifacts")
+                dbt_artifacts = dbt.override(task_id=tid("build_artifact_tables"))(
+                    "run", select="package:dbt_artifacts"
+                )
                 pre_run = dbt_debug >> dbt_artifacts >> dbt_seed
             else:
                 pre_run = dbt_debug >> dbt_seed
