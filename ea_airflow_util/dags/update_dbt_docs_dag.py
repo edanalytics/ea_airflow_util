@@ -2,9 +2,9 @@ import os
 
 from airflow.providers.amazon.aws.hooks.s3 import S3Hook
 from airflow.providers.standard.operators.python import PythonOperator
-from providers.ea_dbt.operators.ea_dbt import dbt_task
 
 from ea_airflow_util.dags.ea_custom_dag import EACustomDAG
+from ea_airflow_util.providers.ea_dbt.operators.ea_dbt import dbt_task
 
 
 # You can pass the S3 `bucket` to this function, but if not, it will use the bucket defined in the Schema from

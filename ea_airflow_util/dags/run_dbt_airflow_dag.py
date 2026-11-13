@@ -1,8 +1,8 @@
 from airflow.providers.standard.operators.trigger_dagrun import TriggerDagRunOperator
 from airflow.sdk import TaskGroup
-from providers.ea_dbt.operators.ea_dbt import dbt_task
 
 from ea_airflow_util.dags.ea_custom_dag import EACustomDAG
+from ea_airflow_util.providers.ea_dbt.operators.ea_dbt import dbt_task
 
 
 class RunDbtDag:
