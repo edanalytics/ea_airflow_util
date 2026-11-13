@@ -49,7 +49,6 @@ class RunDbtDag:
         self.upload_artifacts = upload_artifacts
 
         self.dag = EACustomDAG(
-            params=self.params_dict,
             user_defined_macros={
                 "environment": self.environment,
             },
