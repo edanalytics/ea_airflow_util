@@ -84,21 +84,25 @@ class RunDbtDag:
             def tid(cmd):
                 return f"dbt_{cmd}_{self.environment}"
 
-            dbt_debug = dbt_task.override(task_id=tid("debug"), dag=self.dag)("debug")
+            dbt_debug = dbt_task.override(task_id=tid("debug"), dag=self.dag)(
+                "debug", **dbt_kwargs
+            )
 
             dbt_seed = dbt_task.override(task_id=tid("seed"))(
                 "seed", vars=self.seed_vars, **dbt_kwargs
             )
 
-            dbt_run = dbt_task.override(task_id=tid("run"))("run", vars=self.run_vars)
+            dbt_run = dbt_task.override(task_id=tid("run"))(
+                "run", vars=self.run_vars, **dbt_kwargs
+            )
 
             dbt_test = dbt_task.override(task_id=tid("test"))(
-                "test", vars=self.test_vars
+                "test", vars=self.test_vars, **dbt_kwargs
             )
 
             if self.upload_artifacts:
                 dbt_artifacts = dbt_task.override(task_id=tid("build_artifact_tables"))(
-                    "run", select="package:dbt_artifacts"
+                    "run", select="package:dbt_artifacts", **dbt_kwargs
                 )
                 pre_run = dbt_debug >> dbt_artifacts >> dbt_seed
             else:
