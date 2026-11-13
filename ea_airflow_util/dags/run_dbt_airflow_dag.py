@@ -84,9 +84,13 @@ class RunDbtDag:
             def tid(cmd):
                 return f"dbt_{cmd}_{self.environment}"
 
+            # By setting the DAG in this most upstream task, Airflow will assign
+            # the same DAG in downstream tasks.
             dbt_debug = dbt_task.override(task_id=tid("debug"), dag=self.dag)(
                 "debug", **dbt_kwargs
             )
+
+            dbt_deps = dbt_task.override(task_id=tid("deps"))("deps", **dbt_kwargs)
 
             dbt_seed = dbt_task.override(task_id=tid("seed"))(
                 "seed", vars=self.seed_vars, **dbt_kwargs
@@ -100,13 +104,15 @@ class RunDbtDag:
                 "test", vars=self.test_vars, **dbt_kwargs
             )
 
+            pre_run = dbt_deps >> dbt_debug
+
             if self.upload_artifacts:
                 dbt_artifacts = dbt_task.override(task_id=tid("build_artifact_tables"))(
                     "run", select="package:dbt_artifacts", **dbt_kwargs
                 )
-                pre_run = dbt_debug >> dbt_artifacts >> dbt_seed
+                pre_run = pre_run >> dbt_artifacts >> dbt_seed
             else:
-                pre_run = dbt_debug >> dbt_seed
+                pre_run = pre_run >> dbt_seed
 
             pre_run >> dbt_run >> dbt_test
 
