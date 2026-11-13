@@ -92,9 +92,11 @@ class RunDbtDag:
             def tid(cmd):
                 return f"dbt_{cmd}_{self.environment}"
 
-            dbt_debug = dbt_task.override(task_id=tid("debug"))("debug", **dbt_kwargs)
+            dbt_debug = dbt_task.override(task_id=tid("debug"), dag_id=self.dag.dag_id)(
+                "debug", **dbt_kwargs
+            )
 
-            dbt_seed = dbt_task.override(task_id=tid("seed"))(
+            dbt_seed = dbt_task.override(task_id=tid("seed"), dag_id=self.dag.dag_id)(
                 "seed", vars=self.seed_vars, **dbt_kwargs
             )
             dbt_debug >> dbt_seed
