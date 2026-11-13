@@ -97,6 +97,7 @@ class RunDbtDag:
             dbt_seed = dbt_task.override(task_id=tid("seed"))(
                 "seed", vars=self.seed_vars, **dbt_kwargs
             )
+            dbt_debug >> dbt_seed
 
             # dbt_run = dbt.override(task_id=tid("run"))("run", {"vars": self.run_vars})
             # dbt_test = dbt.override(task_id=tid("test"))(
