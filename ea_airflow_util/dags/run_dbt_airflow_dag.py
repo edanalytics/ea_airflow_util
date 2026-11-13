@@ -90,26 +90,28 @@ class RunDbtDag:
                 "deps", **dbt_kwargs
             )
 
-            dbt_debug = dbt_task.override(task_id=tid("debug"))("debug", **dbt_kwargs)
+            dbt_debug = dbt_task.override(task_id=tid("debug"), dag=self.dag)(
+                "debug", **dbt_kwargs
+            )
 
-            dbt_seed = dbt_task.override(task_id=tid("seed"))(
+            dbt_seed = dbt_task.override(task_id=tid("seed"), dag=self.dag)(
                 "seed", vars=self.seed_vars, **dbt_kwargs
             )
 
-            dbt_run = dbt_task.override(task_id=tid("run"))(
+            dbt_run = dbt_task.override(task_id=tid("run"), dag=self.dag)(
                 "run", vars=self.run_vars, **dbt_kwargs
             )
 
-            dbt_test = dbt_task.override(task_id=tid("test"))(
+            dbt_test = dbt_task.override(task_id=tid("test"), dag=self.dag)(
                 "test", vars=self.test_vars, **dbt_kwargs
             )
 
             pre_run = dbt_deps >> dbt_debug
 
             if self.upload_artifacts:
-                dbt_artifacts = dbt_task.override(task_id=tid("build_artifact_tables"))(
-                    "run", select="package:dbt_artifacts", **dbt_kwargs
-                )
+                dbt_artifacts = dbt_task.override(
+                    task_id=tid("build_artifact_tables"), dag=self.dag
+                )("run", select="package:dbt_artifacts", **dbt_kwargs)
                 pre_run = pre_run >> dbt_artifacts >> dbt_seed
             else:
                 pre_run = pre_run >> dbt_seed
