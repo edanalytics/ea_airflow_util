@@ -86,11 +86,11 @@ class RunDbtDag:
 
             # By setting the DAG in this most upstream task, Airflow will assign
             # the same DAG in downstream tasks.
-            dbt_debug = dbt_task.override(task_id=tid("debug"), dag=self.dag)(
-                "debug", **dbt_kwargs
+            dbt_deps = dbt_task.override(task_id=tid("deps"), dag=self.dag)(
+                "deps", **dbt_kwargs
             )
 
-            dbt_deps = dbt_task.override(task_id=tid("deps"))("deps", **dbt_kwargs)
+            dbt_debug = dbt_task.override(task_id=tid("debug"))("debug", **dbt_kwargs)
 
             dbt_seed = dbt_task.override(task_id=tid("seed"))(
                 "seed", vars=self.seed_vars, **dbt_kwargs
