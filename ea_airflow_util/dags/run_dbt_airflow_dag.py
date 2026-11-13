@@ -90,9 +90,9 @@ class RunDbtDag:
                 "deps", **dbt_kwargs
             )
 
-            dbt_debug = dbt_task.override(task_id=tid("debug"), dag=self.dag)(
-                "debug", **dbt_kwargs
-            )
+            # dbt_debug = dbt_task.override(task_id=tid("debug"), dag=self.dag)(
+            #     "debug", **dbt_kwargs
+            # )
 
             dbt_seed = dbt_task.override(task_id=tid("seed"), dag=self.dag)(
                 "seed", vars=self.seed_vars, **dbt_kwargs
@@ -106,7 +106,7 @@ class RunDbtDag:
                 "test", vars=self.test_vars, **dbt_kwargs
             )
 
-            pre_run = dbt_deps >> dbt_debug
+            pre_run = dbt_deps #>> dbt_debug
 
             if self.upload_artifacts:
                 dbt_artifacts = dbt_task.override(
