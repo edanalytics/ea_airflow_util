@@ -4,8 +4,8 @@ import sys
 
 from typing import Any, List, Optional, Sequence, Union
 
-from airflow.exceptions import AirflowSkipException
-from airflow.models import BaseOperator
+from airflow.sdk.exceptions import AirflowSkipException
+from airflow.sdk import BaseOperator
 from airflow.providers.amazon.aws.operators.s3 import S3FileTransformOperator
 from airflow.providers.snowflake.hooks.snowflake import SnowflakeHook
 

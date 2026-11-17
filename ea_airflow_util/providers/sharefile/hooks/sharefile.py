@@ -3,7 +3,7 @@ from pathlib import Path
 
 import requests
 
-from airflow.hooks.base import BaseHook
+from airflow.sdk import BaseHook
 
 
 # Note: consider making each file use its own session with context handler

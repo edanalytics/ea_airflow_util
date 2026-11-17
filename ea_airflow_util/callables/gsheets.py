@@ -8,7 +8,7 @@ import time
 from typing import Optional
 
 from airflow.providers.google.common.hooks.base_google import GoogleBaseHook
-from airflow.exceptions import AirflowException
+from airflow.sdk.exceptions import AirflowException
 from gspread.exceptions import APIError, WorksheetNotFound
 from google.oauth2.credentials import Credentials
 
