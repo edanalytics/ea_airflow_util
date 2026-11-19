@@ -1,19 +1,10 @@
 from airflow.providers.standard.operators.trigger_dagrun import TriggerDagRunOperator
-from airflow.sdk import TaskGroup
 
 from ea_airflow_util.dags.ea_custom_dag import EACustomDAG
 from ea_airflow_util.providers.ea_dbt.operators.ea_dbt import dbt_task
 
 
 class RunDbtDag:
-    """
-    :param environment:
-    :param dbt_repo_path:
-    :param dbt_target_name:
-    :param full_refresh: -- default to False
-
-    """
-
     def __init__(
         self,
         environment: str,
@@ -72,54 +63,47 @@ class RunDbtDag:
             "conf", {}
         ).get("full_refresh", False)
 
-        with TaskGroup(
-            group_id="RunDBT", prefix_group_id=False, parent_group=None, dag=self.dag
-        ) as dbt_task_group:
-            dbt_kwargs = {
-                "project_dir": self.dbt_repo_path,
-                "profiles_dir": "/home/airflow/.dbt",
-                "target": self.dbt_target_name,
-            }
+        dbt_kwargs = {
+            "project_dir": self.dbt_repo_path,
+            "profiles_dir": "/home/airflow/.dbt",
+            "target": self.dbt_target_name,
+        }
 
-            def tid(cmd):
-                return f"dbt_{cmd}_{self.environment}"
+        # Quickie to make task id's
+        def tid(cmd):
+            return f"dbt_{cmd}_{self.environment}"
 
-            # By setting the DAG in this most upstream task, Airflow will assign
-            # the same DAG in downstream tasks.
-            dbt_deps = dbt_task.override(task_id=tid("deps"), dag=self.dag)(
-                "deps", **dbt_kwargs
-            )
+        # TODO: Test this assumption.
+        # By setting the DAG in this most upstream task, Airflow will assign
+        # the same DAG in downstream tasks.
+        dbt_deps = dbt_task.override(task_id=tid("deps"), dag=self.dag)(
+            "deps", **dbt_kwargs
+        )
 
-            # dbt_debug = dbt_task.override(task_id=tid("debug"), dag=self.dag)(
-            #     "debug", **dbt_kwargs
-            # )
+        dbt_seed = dbt_task.override(task_id=tid("seed"), dag=self.dag)(
+            "seed", vars=self.seed_vars, **dbt_kwargs
+        )
 
-            dbt_seed = dbt_task.override(task_id=tid("seed"), dag=self.dag)(
-                "seed", vars=self.seed_vars, **dbt_kwargs
-            )
+        dbt_run = dbt_task.override(task_id=tid("run"), dag=self.dag)(
+            "run", vars=self.run_vars, **dbt_kwargs
+        )
 
-            dbt_run = dbt_task.override(task_id=tid("run"), dag=self.dag)(
-                "run", vars=self.run_vars, **dbt_kwargs
-            )
+        dbt_test = dbt_task.override(task_id=tid("test"), dag=self.dag)(
+            "test", vars=self.test_vars, **dbt_kwargs
+        )
 
-            dbt_test = dbt_task.override(task_id=tid("test"), dag=self.dag)(
-                "test", vars=self.test_vars, **dbt_kwargs
-            )
+        pre_run = dbt_deps  # >> dbt_debug
 
-            pre_run = dbt_deps #>> dbt_debug
+        if self.upload_artifacts:
+            dbt_artifacts = dbt_task.override(
+                task_id=tid("build_artifact_tables"), dag=self.dag
+            )("run", select="package:dbt_artifacts", **dbt_kwargs)
+            pre_run = pre_run >> dbt_artifacts >> dbt_seed
+        else:
+            pre_run = pre_run >> dbt_seed
 
-            if self.upload_artifacts:
-                dbt_artifacts = dbt_task.override(
-                    task_id=tid("build_artifact_tables"), dag=self.dag
-                )("run", select="package:dbt_artifacts", **dbt_kwargs)
-                pre_run = pre_run >> dbt_artifacts >> dbt_seed
-            else:
-                pre_run = pre_run >> dbt_seed
+        pre_run >> dbt_run >> dbt_test
 
-            pre_run >> dbt_run >> dbt_test
-
-            # Trigger downstream DAG when `dbt run` succeeds
-            if self.external_dags:
-                dbt_run >> self.external_dags
-
-        dbt_task_group
+        # Trigger downstream DAG when `dbt run` succeeds
+        if self.external_dags:
+            dbt_run >> self.external_dags
