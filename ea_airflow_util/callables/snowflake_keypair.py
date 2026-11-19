@@ -2,23 +2,19 @@ import logging
 import os
 import subprocess
 
-from typing import Optional, Tuple, Dict
-
 from airflow.providers.snowflake.hooks.snowflake import SnowflakeHook
 
 
 def generate_keypair_with_openssl(
-    output_dir: str,
-    snowflake_user: str,
-    **kwargs
-) -> Tuple[str, str, str]:
+    output_dir: str, snowflake_user: str, **kwargs
+) -> tuple[str, str, str]:
     """
     Generate a Snowflake RSA keypair using openssl.
     """
     os.makedirs(output_dir, exist_ok=True)
 
     private_path = os.path.join(output_dir, f"{snowflake_user}.p8")
-    public_path  = os.path.join(output_dir, f"{snowflake_user}.pub")
+    public_path = os.path.join(output_dir, f"{snowflake_user}.pub")
 
     # https://docs.snowflake.com/en/user-guide/key-pair-auth
     subprocess.run(
@@ -54,17 +50,20 @@ def generate_keypair_with_openssl(
     return private_pem, public_pem, public_body
 
 
-def pick_rotation_slots(desc_user_rows: list[tuple]) -> Tuple[str, Optional[str]]:
+def pick_rotation_slots(desc_user_rows: list[tuple]) -> tuple[str, str | None]:
     """
     Determine which Snowflake public key slot to use for rotation.
     """
-    user_att  = {row[0]: row[1] for row in desc_user_rows}
+    user_att = {row[0]: row[1] for row in desc_user_rows}
     key_1 = user_att.get("RSA_PUBLIC_KEY")
     key_2 = user_att.get("RSA_PUBLIC_KEY_2")
 
     # If both key slots are set, rotation is not allowed
-    if key_1 not in (None, "", "null") and key_2 not in (None, "", "null"): #TODO: is there a better way to do this?
-        raise RuntimeError("Both RSA_PUBLIC_KEY and RSA_PUBLIC_KEY_2 are set; refusing rotation.")
+    # TODO: is there a better way to do this?
+    if key_1 not in (None, "", "null") and key_2 not in (None, "", "null"):
+        raise RuntimeError(
+            "Both RSA_PUBLIC_KEY and RSA_PUBLIC_KEY_2 are set; refusing rotation."
+        )
 
     # If neither key slot is set, use RSA_PUBLIC_KEY for initial set
     if key_1 in (None, "", "null") and key_2 in (None, "", "null"):
@@ -83,7 +82,7 @@ def set_user_public_key(
     snowflake_user: str,
     new_slot: str,
     public_key_body: str,
-    **kwargs
+    **kwargs,
 ) -> None:
     """
     Set the new public key in the selected slot.
@@ -96,10 +95,7 @@ def set_user_public_key(
 
 
 def unset_public_key_slot(
-    hook: SnowflakeHook,
-    snowflake_user: str,
-    slot: Optional[str],
-    **kwargs
+    hook: SnowflakeHook, snowflake_user: str, slot: str | None, **kwargs
 ) -> None:
     """
     Unset a specific public key slot on a Snowflake user.
@@ -114,11 +110,8 @@ def unset_public_key_slot(
 
 
 def rotate_keypair(
-    key_rotator_conn_id: str,
-    snowflake_user: str,
-    output_dir: str,
-    **kwargs
-) -> Dict[str, str]:
+    key_rotator_conn_id: str, snowflake_user: str, output_dir: str, **kwargs
+) -> dict[str, str]:
     """
     Rotate a Snowflake user's keypair.
 
@@ -130,7 +123,9 @@ def rotate_keypair(
     - if something fails after setting the new slot but before unsetting the old one,
     attempt to unset the old slot so Snowflake still matches the new key written in /efs
     """
-    hook = SnowflakeHook(snowflake_conn_id=key_rotator_conn_id, log_sql=False) #turn off sql log
+    hook = SnowflakeHook(
+        snowflake_conn_id=key_rotator_conn_id, log_sql=False
+    )  # turn off sql log
 
     private_key_path = os.path.join(output_dir, f"{snowflake_user}.p8")
     public_key_path = os.path.join(output_dir, f"{snowflake_user}.pub")
@@ -149,7 +144,9 @@ def rotate_keypair(
         desc = hook.get_records(f"DESC USER {snowflake_user}")
         new_slot, old_slot = pick_rotation_slots(desc)
 
-        logging.info(f"Rotation for `{snowflake_user}`: new_slot=`{new_slot}`, old_slot=`{old_slot or 'none'}`.")
+        logging.info(
+            f"Rotation for `{snowflake_user}`: new_slot=`{new_slot}`, old_slot=`{old_slot or 'none'}`."
+        )
 
         set_user_public_key(
             hook=hook,
@@ -157,7 +154,7 @@ def rotate_keypair(
             new_slot=new_slot,
             public_key_body=public_body,
         )
-        new_key_set = True # new key was set
+        new_key_set = True  # new key was set
 
         # unset the old slot
         unset_public_key_slot(
@@ -189,25 +186,28 @@ def rotate_keypair(
     # using the newly set key and free up a slot.
     except Exception:
         if new_key_set and old_slot:
-            logging.exception(f"Rotation failed after setting new slot `{new_slot}` for `{snowflake_user}`. Attempting cleanup.")
+            logging.exception(
+                f"Rotation failed after setting new slot `{new_slot}` for `{snowflake_user}`. Attempting cleanup."
+            )
             try:
                 unset_public_key_slot(
                     hook=hook,
                     snowflake_user=snowflake_user,
                     slot=old_slot,
                 )
-                logging.info(f"Cleanup succeeded for `{snowflake_user}`: unset old slot `{old_slot}`.")
+                logging.info(
+                    f"Cleanup succeeded for `{snowflake_user}`: unset old slot `{old_slot}`."
+                )
             except Exception:
-                logging.exception(f"Cleanup  failed for `{snowflake_user}`: unable to unset old slot `{old_slot}`.")
+                logging.exception(
+                    f"Cleanup  failed for `{snowflake_user}`: unable to unset old slot `{old_slot}`."
+                )
 
         raise
 
+
 # function to use on initial keypair generation when no keys exist yet (e.g. to make key for key rotator)
-def initial_keypair(
-    snowflake_user: str,
-    output_dir: str,
-    **kwargs
-) -> Dict[str, str]:
+def initial_keypair(snowflake_user: str, output_dir: str, **kwargs) -> dict[str, str]:
     """
     Generate the initial keypair for a Snowflake user.
     """

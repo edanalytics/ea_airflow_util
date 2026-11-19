@@ -139,7 +139,9 @@ def list_conn(pattern="%"):
 
     with _connection_api() as api:
         while True:
-            response = api.get_connections(limit=_PAGE_SIZE, offset=offset, **list_kwargs)
+            response = api.get_connections(
+                limit=_PAGE_SIZE, offset=offset, **list_kwargs
+            )
             conn_ids.extend(conn.connection_id for conn in response.connections)
             offset += _PAGE_SIZE
             if offset >= response.total_entries:

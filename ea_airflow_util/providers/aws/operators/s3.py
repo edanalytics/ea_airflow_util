@@ -1,13 +1,13 @@
 import os
 import pathlib
 import sys
+from collections.abc import Sequence
+from typing import Any
 
-from typing import Any, List, Optional, Sequence, Union
-
-from airflow.sdk.exceptions import AirflowSkipException
-from airflow.sdk import BaseOperator
 from airflow.providers.amazon.aws.operators.s3 import S3FileTransformOperator
 from airflow.providers.snowflake.hooks.snowflake import SnowflakeHook
+from airflow.sdk import BaseOperator
+from airflow.sdk.exceptions import AirflowSkipException
 
 
 class LoopS3FileTransformOperator(S3FileTransformOperator):
@@ -16,27 +16,23 @@ class LoopS3FileTransformOperator(S3FileTransformOperator):
     In addition, the new `dest_s3_file_extension` argument provides greater transparency in output type.
     """
 
-    template_fields = ('source_s3_keys', 'dest_s3_prefix', 'transform_script')
+    template_fields = ("source_s3_keys", "dest_s3_prefix", "transform_script")
 
-    def __init__(self,
-        source_s3_keys: Optional[List[str]] = None,
-        dest_s3_prefix: Optional[str] = None,
-        dest_s3_file_extension: Optional[str] = None,
-
+    def __init__(
+        self,
+        source_s3_keys: list[str] | None = None,
+        dest_s3_prefix: str | None = None,
+        dest_s3_file_extension: str | None = None,
         *,
-        select_expression: Optional[str] = None,
-        transform_script: Optional[str] = None,
-        script_args: Optional[Sequence[str]] = None,
-
-        source_aws_conn_id: str = 'aws_default',
-        source_verify: Optional[Union[bool, str]] = None,
-
-        dest_aws_conn_id: str = 'aws_default',
-        dest_verify: Optional[Union[bool, str]] = None,
-
+        select_expression: str | None = None,
+        transform_script: str | None = None,
+        script_args: Sequence[str] | None = None,
+        source_aws_conn_id: str = "aws_default",
+        source_verify: bool | str | None = None,
+        dest_aws_conn_id: str = "aws_default",
+        dest_verify: bool | str | None = None,
         replace: bool = False,
-
-        **kwargs
+        **kwargs,
     ):
         # We need S3FileTransformOperator's execute, but cannot use its init due to differing datatypes.
         BaseOperator.__init__(self, **kwargs)
@@ -46,7 +42,7 @@ class LoopS3FileTransformOperator(S3FileTransformOperator):
         self.source_verify = source_verify
 
         self.dest_aws_conn_id = dest_aws_conn_id
-        self.dest_s3_prefix = dest_s3_prefix or ''
+        self.dest_s3_prefix = dest_s3_prefix or ""
         self.dest_s3_file_extension = dest_s3_file_extension
         self.dest_verify = dest_verify
 
@@ -57,7 +53,6 @@ class LoopS3FileTransformOperator(S3FileTransformOperator):
         self.replace = replace
         self.output_encoding = sys.getdefaultencoding()
 
-
     def execute(self, context):
         """
         Loop over source and destination keys, using the S3FileTransformOperator's execute for each.
@@ -66,18 +61,17 @@ class LoopS3FileTransformOperator(S3FileTransformOperator):
         S3FileTransformOperator's execute as is without rebuilding it here from scratch.
         """
         # Remove directories from the listing (must be done here to give XComs time to parse.
-        self.source_s3_keys = list(filter(lambda key: not key.endswith('/'), self.source_s3_keys))  # Remove directories
+        self.source_s3_keys = list(
+            filter(lambda key: not key.endswith("/"), self.source_s3_keys)
+        )
 
         # Skip prematurely if no work to be done.
         if not self.source_s3_keys:
-            raise AirflowSkipException(
-                "No files found in source S3 bucket to transfer"
-            )
+            raise AirflowSkipException("No files found in source S3 bucket to transfer")
 
         transferred_keys = []
 
         for source_s3_key in self.source_s3_keys:
-
             # Monkey-patch the missing `source_s3_key` and `dest_s3_key` arguments used in super's execute.
             self.source_s3_key = source_s3_key
 
@@ -87,14 +81,16 @@ class LoopS3FileTransformOperator(S3FileTransformOperator):
 
             self.dest_s3_key = os.path.join(
                 self.dest_s3_prefix,
-                source_s3_key.replace(source_file_extension, self.dest_s3_file_extension).split('/')[-1]
+                source_s3_key.replace(
+                    source_file_extension, self.dest_s3_file_extension
+                ).split("/")[-1],
             )
 
             super().execute(context)
             transferred_keys.append(self.dest_s3_key)
 
         return transferred_keys
-    
+
 
 class S3ToSnowflakeOperator(BaseOperator):
     """
@@ -102,26 +98,30 @@ class S3ToSnowflakeOperator(BaseOperator):
 
     The optional custom_metadata_columns param takes a dictionary in the format {alias: value}
     """
-    template_fields = ('s3_destination_key', 's3_destination_dir', 's3_destination_filename',)
 
-    def __init__(self,
+    template_fields = (
+        "s3_destination_key",
+        "s3_destination_dir",
+        "s3_destination_filename",
+    )
+
+    def __init__(
+        self,
         *,
         snowflake_conn_id: str,
         database: str,
         schema: str,
         table_name: str,
-        custom_metadata_columns: Optional[dict] = None,
-
-        s3_destination_key: Optional[str] = None,
-        s3_destination_dir: Optional[str] = None,
-        s3_destination_filename: Optional[str] = None,
-
+        custom_metadata_columns: dict | None = None,
+        s3_destination_key: str | None = None,
+        s3_destination_dir: str | None = None,
+        s3_destination_filename: str | None = None,
         full_refresh: bool = False,
-        delete_where: Optional[str] = None,
-        xcom_return: Optional[Any] = None,
-        **kwargs
+        delete_where: str | None = None,
+        xcom_return: Any | None = None,
+        **kwargs,
     ) -> None:
-        super(S3ToSnowflakeOperator, self).__init__(**kwargs)
+        super().__init__(**kwargs)
 
         self.snowflake_conn_id = snowflake_conn_id
         self.database = database
@@ -137,7 +137,6 @@ class S3ToSnowflakeOperator(BaseOperator):
         self.delete_where = delete_where
         self.xcom_return = xcom_return
 
-
     def execute(self, context):
         """
 
@@ -150,17 +149,22 @@ class S3ToSnowflakeOperator(BaseOperator):
         if not self.s3_destination_key:
             if not (self.s3_destination_dir and self.s3_destination_filename):
                 raise ValueError(
-                    f"Argument `s3_destination_key` has not been specified, and `s3_destination_dir` or `s3_destination_filename` is missing."
+                    "Argument `s3_destination_key` has not been specified, and `s3_destination_dir` or `s3_destination_filename` is missing."
                 )
-            self.s3_destination_key = os.path.join(self.s3_destination_dir, self.s3_destination_filename)
+            self.s3_destination_key = os.path.join(
+                self.s3_destination_dir, self.s3_destination_filename
+            )
 
         ### Extract column name and select statement string from custom metadata dictionary
         if self.custom_metadata_columns:
             column_names_str = ", ".join(self.custom_metadata_columns.keys()) + ","
-            metadata_columns = ", ".join(
-                f"{value} as {alias}"
-                for alias, value in self.custom_metadata_columns.items()
-            ) + ","
+            metadata_columns = (
+                ", ".join(
+                    f"{value} as {alias}"
+                    for alias, value in self.custom_metadata_columns.items()
+                )
+                + ","
+            )
         else:
             column_names_str = ""
             metadata_columns = ""
@@ -173,7 +177,7 @@ class S3ToSnowflakeOperator(BaseOperator):
 
         # Brackets in regex conflict with string formatting.
         date_regex = "\\\\d{8}"
-        ts_regex   = "\\\\d{8}T\\\\d{6}"
+        ts_regex = "\\\\d{8}T\\\\d{6}"
 
         qry_copy_into = f"""
             COPY INTO {self.database}.{self.schema}.{self.table_name}
@@ -194,13 +198,8 @@ class S3ToSnowflakeOperator(BaseOperator):
 
         ### Commit the update queries to Snowflake.
         if self.full_refresh:
-            snowflake_hook.run(
-                sql=[qry_delete, qry_copy_into],
-                autocommit=False
-            )
+            snowflake_hook.run(sql=[qry_delete, qry_copy_into], autocommit=False)
         else:
-            snowflake_hook.run(
-                sql=qry_copy_into
-            )
+            snowflake_hook.run(sql=qry_copy_into)
 
         return self.xcom_return

@@ -1,20 +1,21 @@
 import logging
 import os
 import pathlib
-import pytz
 import re
-import requests
-import uuid
-
 from datetime import datetime
-from typing import List, Optional
 
-from airflow.sdk.exceptions import AirflowException, AirflowSkipException, AirflowFailException
+import pytz
+import requests
+from airflow.providers.amazon.aws.hooks.s3 import S3Hook
+from airflow.sdk.exceptions import (
+    AirflowException,
+    AirflowFailException,
+    AirflowSkipException,
+)
 
 from ea_airflow_util.providers.sharefile.hooks.sharefile import SharefileHook
-from airflow.providers.amazon.aws.hooks.s3 import S3Hook
 
-def list_sharefile_objects(sharefile_conn_id: str, remote_dir: str) -> List[str]:
+def list_sharefile_objects(sharefile_conn_id: str, remote_dir: str) -> list[str]:
     sharefile_hook = SharefileHook(sharefile_conn_id)
     sharefile_dir_id = sharefile_hook.get_path_id(remote_dir)
 
@@ -23,19 +24,19 @@ def list_sharefile_objects(sharefile_conn_id: str, remote_dir: str) -> List[str]
         logging.info(f"No files found in remote directory: `{remote_dir}`")
         raise AirflowSkipException
 
-    return [object['ParentName'] for object in sharefile_objects]
+    return [object["ParentName"] for object in sharefile_objects]
 
 
 def sharefile_to_disk(
     sharefile_conn_id: str,
     sharefile_path: str,
     local_path: str,
-    ds_nodash: Optional[str] = None,  # Deprecated
-    ts_nodash: Optional[str] = None,  # Deprecated
+    ds_nodash: str | None = None,  # Deprecated
+    ts_nodash: str | None = None,  # Deprecated
     delete_remote: bool = False,
     recursive: bool = True,
-    file_pattern: Optional[str] = None,
-    **kwargs
+    file_pattern: str | None = None,
+    **kwargs,
 ):
     """
     Transfers all files from a ShareFile folder to a local date-stamped directory,
@@ -63,21 +64,20 @@ def sharefile_to_disk(
         # The default approach finds files in all subdirectories recursively.
         if recursive:
             remote_files = sf_hook.find_files(base_path_id)
-        
+
         # `get_children` returns only top-level items, but with a different payload schema.
         else:
             remote_children = sf_hook.get_children(base_path_id)
             remote_files = []
 
             for res in remote_children:
-
                 # Folders are returned alongside items and must be filtered.
-                if res['odata.type'].endswith('Folder'):
+                if res["odata.type"].endswith("Folder"):
                     continue
 
-                res['ParentID'] = base_path_id
-                res['ParentSemanticPath'] = sharefile_path
-                res['ItemID'] = res['Id']
+                res["ParentID"] = base_path_id
+                res["ParentSemanticPath"] = sharefile_path
+                res["ItemID"] = res["Id"]
                 remote_files.append(res)
 
     except requests.exceptions.HTTPError as err:
@@ -95,12 +95,11 @@ def sharefile_to_disk(
     num_successes = 0
 
     for res in remote_files:
-
-        file_name = res['FileName']
-        parent_id = res['ParentID']
-        file_path = res['ParentSemanticPath']
-        file_path_no_base = res['ParentSemanticPath'].replace(sharefile_path, '')
-        item_id = res['ItemID']
+        file_name = res["FileName"]
+        parent_id = res["ParentID"]
+        file_path = res["ParentSemanticPath"]
+        file_path_no_base = res["ParentSemanticPath"].replace(sharefile_path, "")
+        item_id = res["ItemID"]
         # size = res['Size']  # Not used for anything downstream
         # hash = res['MD5']
 
@@ -113,7 +112,9 @@ def sharefile_to_disk(
         logging.info("Attempting to get file: " + remote_file)
 
         # check to see if there is other metadata needed in local path and if not, add filename to local path
-        file_name = file_name.lower().replace(' ', '_')  # lower filename and replace spaces with underscores
+        file_name = file_name.lower().replace(
+            " ", "_"
+        )  # lower filename and replace spaces with underscores
 
         if parent_id == base_path_id:
             full_local_path = os.path.join(local_path, file_name)
@@ -128,25 +129,28 @@ def sharefile_to_disk(
             sf_hook.download_to_disk(item_id=item_id, local_path=full_local_path)
 
             if delete_remote:
-                logging.info(f'delete_remote set to True; removing {remote_file} from ShareFile...')
+                logging.info(
+                    f"delete_remote set to True; removing {remote_file} from ShareFile..."
+                )
                 sf_hook.delete(item_id)
 
             num_successes += 1
 
         except Exception as err:
-            logging.error(f'Failed to get file with message: {err}')
+            logging.error(f"Failed to get file with message: {err}")
             continue
 
     if num_successes == 0:
-        raise AirflowException(f"Failed transfer from ShareFile to local: no files transferred successfully!")
+        raise AirflowException(
+            "Failed transfer from ShareFile to local: no files transferred successfully!"
+        )
 
     return local_path
 
 
-
 def disk_to_sharefile(sf_conn_id: str, sf_folder_path: str, local_path: str):
     """Post a file or the contents of a directory to the specified Sharefile folder"""
-    sf_hook = SharefileHook(sf_conn_id )
+    sf_hook = SharefileHook(sf_conn_id)
 
     sf_folder_id = sf_hook.get_path_id(sf_folder_path)
     if sf_folder_id is None:
@@ -161,7 +165,13 @@ def disk_to_sharefile(sf_conn_id: str, sf_folder_path: str, local_path: str):
         sf_hook.upload_file(sf_folder_id, local_path)
 
 
-def s3_to_sharefile(s3_conn_id: str, s3_key: str, sf_conn_id: str, sf_folder_path: str, dest_filename: str = None):
+def s3_to_sharefile(
+    s3_conn_id: str,
+    s3_key: str,
+    sf_conn_id: str,
+    sf_folder_path: str,
+    dest_filename: str = None,
+):
     """Copy a single file from S3 to Sharefile"""
 
     s3_hook = S3Hook(s3_conn_id)
@@ -186,7 +196,13 @@ def s3_to_sharefile(s3_conn_id: str, s3_key: str, sf_conn_id: str, sf_folder_pat
     # claen up the disk
     os.remove(downloaded_file)
 
-def check_for_new_files(sharefile_conn_id: str, sharefile_path: str, num_expected_files: Optional[int] = None, updated_after: Optional[datetime] = None):
+
+def check_for_new_files(
+    sharefile_conn_id: str,
+    sharefile_path: str,
+    num_expected_files: int | None = None,
+    updated_after: datetime | None = None,
+):
     """
     Checks a ShareFile folder for files
 
@@ -205,10 +221,10 @@ def check_for_new_files(sharefile_conn_id: str, sharefile_path: str, num_expecte
     sf_hook.get_conn()
 
     # get the item id of the remote path, find all files within that path (up to 1000)
-    try: 
+    try:
         path_id = sf_hook.get_path_id(sharefile_path)
         sf_all_files = sf_hook.find_files(path_id)
-    except: 
+    except:
         logging.info(f"Folder not found: {sharefile_path}")
         raise AirflowSkipException
 
@@ -219,16 +235,24 @@ def check_for_new_files(sharefile_conn_id: str, sharefile_path: str, num_expecte
 
     # fail if other than expected number of files is found
     if num_expected_files is not None and len(sf_all_files) != num_expected_files:
-        logging.info(f"{len(sf_all_files)} files found in the Sharefile folder '{sharefile_path}'. Expected {num_expected_files}.")
+        logging.info(
+            f"{len(sf_all_files)} files found in the Sharefile folder '{sharefile_path}'. Expected {num_expected_files}."
+        )
         raise AirflowFailException
 
-    # check how many files have been added since the last successful run 
+    # check how many files have been added since the last successful run
     new_file_count = 0
 
     for file in sf_all_files:
-        file_updated_time = datetime.strptime(file['CreationDate'], '%Y-%m-%dT%H:%M:%S.%fZ').replace(tzinfo=pytz.UTC)
+        file_updated_time = datetime.strptime(
+            file["CreationDate"], "%Y-%m-%dT%H:%M:%S.%fZ"
+        ).replace(tzinfo=pytz.UTC)
         # updated_after will be a None string if airflow cannot find a previous successful dag run
-        if updated_after is None or updated_after == 'None' or file_updated_time >= updated_after:
+        if (
+            updated_after is None
+            or updated_after == "None"
+            or file_updated_time >= updated_after
+        ):
             new_file_count += 1
 
     if new_file_count == 0:
@@ -249,25 +273,34 @@ def sharefile_copy_file(
 
     # Find internal IDs for source and destination paths.
     if not (sharefile_source_id := sf_hook.get_path_id(sharefile_path)):
-        raise AirflowException(f"Failed to find Sharefile source path `{sharefile_path}`!")
-    
+        raise AirflowException(
+            f"Failed to find Sharefile source path `{sharefile_path}`!"
+        )
+
     if not (sharefile_dest_id := sf_hook.get_path_id(sharefile_dest_dir)):
-        raise AirflowException(f"Failed to find Sharefile destination directory `{sharefile_dest_dir}`!")
-    
+        raise AirflowException(
+            f"Failed to find Sharefile destination directory `{sharefile_dest_dir}`!"
+        )
+
     # If a directory is passed, iterate all top-level files in the path.
-    if sf_hook.item_info(sharefile_source_id)['odata.type'].endswith('Folder'):
+    if sf_hook.item_info(sharefile_source_id)["odata.type"].endswith("Folder"):
         filepath_ids = [
-            res['Id']
+            res["Id"]
             for res in sf_hook.get_children(sharefile_source_id)
-            if not res['odata.type'].endswith('Folder')  # Remove folders from the listing.
+            # Remove folders from the listing.
+            if not res["odata.type"].endswith("Folder")
         ]
     else:
         filepath_ids = [sharefile_source_id]
 
     # Complete the copy for all files.
-    logging.info(f"Copying {len(filepath_ids)} file(s) from `{sharefile_path}` to directory `{sharefile_dest_dir}`...")
+    logging.info(
+        f"Copying {len(filepath_ids)} file(s) from `{sharefile_path}` to directory `{sharefile_dest_dir}`..."
+    )
     if delete_source:
-        logging.info(f"Note: each file will be deleted from `{sharefile_path}` after successful copy.")
+        logging.info(
+            f"Note: each file will be deleted from `{sharefile_path}` after successful copy."
+        )
 
     for filepath_id in filepath_ids:
         sf_hook.copy_file(filepath_id, sharefile_dest_id)
@@ -275,4 +308,3 @@ def sharefile_copy_file(
         # Optionally delete the file in its original locations (i.e., a MOVE instead of a COPY).
         if delete_source:
             sf_hook.delete_file(filepath_id)
-    

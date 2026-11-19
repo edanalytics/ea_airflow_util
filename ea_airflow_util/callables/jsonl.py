@@ -2,8 +2,7 @@ import csv
 import json
 import logging
 import os
-
-from typing import Iterator, Optional
+from collections.abc import Iterator
 
 from airflow.sdk.exceptions import AirflowException, AirflowSkipException
 
@@ -11,12 +10,12 @@ from ea_airflow_util.callables import casing
 
 
 def serialize_json_records_to_disk(
-    json_records : Iterator[dict],
-    output_path  : str,
-    mode         : str = "w",
-    metadata_dict: Optional[dict] = None,
+    json_records: Iterator[dict],
+    output_path: str,
+    mode: str = "w",
+    metadata_dict: dict | None = None,
     to_snake_case: bool = False,
-    **kwargs
+    **kwargs,
 ):
     """
     Write an iterator of dictionaries to an output path as JSON lines.
@@ -31,9 +30,7 @@ def serialize_json_records_to_disk(
     total_records = 0
 
     with open(output_path, mode) as writer:
-
         for json_record in json_records:
-
             # Augment the data with external metadata if specified.
             if metadata_dict is not None:
                 json_record.update(metadata_dict)
@@ -42,25 +39,24 @@ def serialize_json_records_to_disk(
             if to_snake_case:
                 json_record = casing.record_to_snake_case(json_record)
 
-            writer.write( json.dumps(json_record) + '\n' )
+            writer.write(json.dumps(json_record) + "\n")
             total_records += 1
 
     if total_records == 0:
-        raise AirflowSkipException(
-            f"No data found to write to `{output_path}`!"
-        )
+        raise AirflowSkipException(f"No data found to write to `{output_path}`!")
     else:
         logging.info(
             f"{total_records} JSON lines written to local path `{output_path}`."
         )
 
+
 def translate_csv_file_to_jsonl(
     local_path: str,
     output_path: str = None,
-    delete_csv : bool = False,
-    metadata_dict: Optional[dict] = None,
+    delete_csv: bool = False,
+    metadata_dict: dict | None = None,
     to_snake_case: bool = False,
-    **kwargs
+    **kwargs,
 ):
     """
     Main for transforming CSV data to JSON lines (for consistency downstream).
@@ -77,41 +73,56 @@ def translate_csv_file_to_jsonl(
     # error if csv path is a directory but output path is not null (the loop will overwrite)
     if os.path.isdir(local_path) and output_path is not None:
         raise AirflowException(
-            f"Trying to write multiple files to one output file. You will overwrite your output"
+            "Trying to write multiple files to one output file. You will overwrite your output"
         )
 
     # loop and find all the files
     for root, _, files in os.walk(local_path):
         # loop over the files in this directory (since there could potentially be multiple)
         for file in files:
-
             # create full local name
             full_local_path = os.path.join(root, file)
 
             # create output path
             if output_path is None:
-                output_path_new = full_local_path.replace('.csv', '.jsonl')
+                output_path_new = full_local_path.replace(".csv", ".jsonl")
             else:
                 output_path_new = output_path
 
             try:
-                with open(full_local_path, 'r') as reader:
+                with open(full_local_path, "r") as reader:
                     json_records = csv.DictReader(reader)
-                    serialize_json_records_to_disk(json_records, output_path_new, "w", metadata_dict, to_snake_case, **kwargs)
+                    serialize_json_records_to_disk(
+                        json_records,
+                        output_path_new,
+                        "w",
+                        metadata_dict,
+                        to_snake_case,
+                        **kwargs,
+                    )
             except UnicodeDecodeError:
-                with open(full_local_path, 'r', encoding='latin1', errors='backslashreplace') as reader:
+                with open(
+                    full_local_path, "r", encoding="latin1", errors="backslashreplace"
+                ) as reader:
                     json_records = csv.DictReader(reader)
-                    serialize_json_records_to_disk(json_records, output_path_new, "w", metadata_dict, to_snake_case, **kwargs)
+                    serialize_json_records_to_disk(
+                        json_records,
+                        output_path_new,
+                        "w",
+                        metadata_dict,
+                        to_snake_case,
+                        **kwargs,
+                    )
 
             if delete_csv:
-                os.remove(full_local_path)  # TODO: Cannot delete directories (use shutil)
-                logging.info(
-                    f"Local path `{full_local_path}` deleted."
-                )
+                os.remove(
+                    full_local_path
+                )  # TODO: Cannot delete directories (use shutil)
+                logging.info(f"Local path `{full_local_path}` deleted.")
 
     # this is slightly awkward bc the output path is being created within the above loop
     # but technically if the csv path ends with a file and is not a directory, there will only be one output path anyway
-    if local_path.endswith('.csv'):
+    if local_path.endswith(".csv"):
         return output_path
     else:
         return local_path

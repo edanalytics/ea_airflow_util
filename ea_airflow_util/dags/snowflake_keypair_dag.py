@@ -1,9 +1,7 @@
-from typing import List, Optional
-
 from airflow.providers.standard.operators.python import PythonOperator
 
-from ea_airflow_util.dags.ea_custom_dag import EACustomDAG
 from ea_airflow_util.callables import snowflake_keypair
+from ea_airflow_util.dags.ea_custom_dag import EACustomDAG
 
 
 class SnowflakeKeypairRotationDag:
@@ -11,9 +9,9 @@ class SnowflakeKeypairRotationDag:
         self,
         *,
         key_rotator_conn_id: str,
-        snowflake_users: List[str],
+        snowflake_users: list[str],
         key_dir: str = "/efs/snowflake_keys",
-        **kwargs
+        **kwargs,
     ) -> None:
         self.key_rotator_conn_id = key_rotator_conn_id
         self.snowflake_users = snowflake_users
@@ -30,9 +28,7 @@ class SnowflakeKeypairRotationDag:
                 op_kwargs={
                     "key_rotator_conn_id": self.key_rotator_conn_id,
                     "snowflake_user": snowflake_user,
-                    "output_dir": self.key_dir
+                    "output_dir": self.key_dir,
                 },
                 dag=self.dag,
             )
-
-        return
