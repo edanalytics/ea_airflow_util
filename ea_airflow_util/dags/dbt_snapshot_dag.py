@@ -20,6 +20,6 @@ class DbtSnapshotDag:
         self.dag = EACustomDAG(**kwargs)
 
     def dbt_snapshot_run(self):
-        dbt_task.override(task_id="dbt_snapshot")(
+        dbt_task.override(task_id="dbt_snapshot", dag=self.dag)(
             "snapshot", project_dir=self.dbt_repo_path, target=self.dbt_target_name
         )
